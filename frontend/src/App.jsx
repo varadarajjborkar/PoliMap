@@ -4,11 +4,11 @@ import { ActivityLog } from './components/ActivityLog'
 import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
 import { Results, SearchPanel } from './components/Results'
-import { Button, ErrorNote, Spinner } from './components/Primitives'
+import { Button, ErrorNote } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
 import { STEPS, stepIndex, useRoute } from './hooks/useRoute'
-import { rememberSession, rememberedSession, useSettings } from './hooks/useSettings'
+import { useSettings } from './hooks/useSettings'
 
 const DEFAULT_SEARCH = {
   procedure_code: '',
@@ -31,7 +31,6 @@ export default function App() {
 
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
-  const [restoring, setRestoring] = useState(Boolean(rememberedSession()))
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [events, setEvents] = useState([])
@@ -58,53 +57,6 @@ export default function App() {
     api.reference().then(setReference).catch((e) => setError(e.message))
   }, [])
 
-  // Put the interface back the way it was left. The browser only ever holds a
-  // session id; everything else is re-read from the server, so a stale tab
-  // cannot show figures that no longer exist behind it.
-  useEffect(() => {
-    const stored = rememberedSession()
-    if (!stored) return
-    if (!settings.rememberSession) {
-      rememberSession(null)
-      setRestoring(false)
-      return
-    }
-
-    let cancelled = false
-    api
-      .restore(stored)
-      .then((state) => {
-        if (cancelled) return
-        setSession(stored)
-        if (state.policy) setPolicy(state.policy)
-        if (state.search) setResults(state.search)
-        if (state.journey) setJourney(state.journey)
-        if (state.search_context) {
-          setSearch((current) => ({
-            ...current,
-            procedure_code: state.search_context.procedure_code ?? current.procedure_code,
-            city: state.search_context.city || current.city,
-            max_distance_km: state.search_context.max_distance_km ?? current.max_distance_km,
-            preference: state.search_context.preference ?? current.preference,
-            urgency: state.search_context.urgency ?? current.urgency,
-          }))
-        }
-        connect(stored)
-      })
-      .catch(() => {
-        // The session expired or the server was rebuilt. Nothing to recover,
-        // and saying so would only alarm someone who just opened the page.
-        if (!cancelled) rememberSession(null)
-      })
-      .finally(() => !cancelled && setRestoring(false))
-
-    return () => {
-      cancelled = true
-    }
-    // Runs once: this is a restore, not a subscription to settings changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const reachable = {
     upload: true,
     policy: Boolean(policy),
@@ -112,12 +64,11 @@ export default function App() {
     journey: Boolean(journey),
   }
 
-  // Keep the URL honest. Someone can type or bookmark any step, and landing on
-  // one that has nothing behind it should send them where the work starts.
+  // Keep the URL honest. A reload holds nothing, so any step deeper than the
+  // upload screen has nothing behind it and sends the user back to the start.
   useEffect(() => {
-    if (restoring) return
     if (!reachable[route]) replace(policy ? 'policy' : 'upload')
-  }, [route, restoring, policy, journey, replace]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [route, policy, journey, replace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function run(name, work) {
     setBusy(name)
@@ -134,7 +85,6 @@ export default function App() {
 
   function adopt(result) {
     setSession(result.session_id)
-    if (settings.rememberSession) rememberSession(result.session_id)
     connect(result.session_id)
     setPolicy(result)
     setResults(null)
@@ -200,7 +150,6 @@ export default function App() {
     }
     unsubscribe.current?.()
     unsubscribe.current = null
-    rememberSession(null)
     setSession(null)
     setPolicy(null)
     setResults(null)
@@ -225,15 +174,6 @@ export default function App() {
     hasSession: Boolean(session),
   }
 
-  if (restoring) {
-    return (
-      <Shell {...shell}>
-        <div className="flex justify-center py-24">
-          <Spinner label="Picking up where you left off" />
-        </div>
-      </Shell>
-    )
-  }
 
   return (
     <>
@@ -289,8 +229,19 @@ export default function App() {
                 <Journey
                   journey={journey}
                   busy={busy === 'journey'}
-                  onAdvance={journeyAction((stage) => api.advance(session, stage))}
-                  onRecordCost={journeyAction((payload) => api.recordCost(session, payload))}
+                  sessionId={session}
+                  onAdvance={journeyAction((stage, opts) =>
+                    api.advance(session, stage, opts)
+                  )}
+                  onRecordCost={journeyAction((payload) =>
+                    api.recordCost(session, payload)
+                  )}
+                  onUpdateCost={journeyAction((entryId, patch) =>
+                    api.updateCost(session, entryId, patch)
+                  )}
+                  onDeleteCost={journeyAction((entryId) =>
+                    api.deleteCost(session, entryId)
+                  )}
                   onFilePreauth={journeyAction(() => api.filePreauth(session))}
                 />
               </>
@@ -316,7 +267,7 @@ function BackLink({ onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-[13px] text-muted transition hover:text-brand"
+      className="inline-flex items-center gap-1.5 text-[0.8125rem] text-muted transition hover:text-brand"
     >
       <span aria-hidden="true">&larr;</span>
       {children}
@@ -336,18 +287,27 @@ function Shell({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <button
             onClick={onStartOver}
-            className="flex items-baseline gap-2.5 text-left"
+            className="flex items-center gap-2.5 text-left"
             title="Start again"
           >
-            <span className="text-[15px] font-semibold tracking-tight">CoverPath</span>
-            <span className="hidden text-[12px] text-muted lg:inline">
+            {/* The mark has no background of its own, so it sits on the header
+                in either theme without a pale tile around it. */}
+            <img
+              src="/logo-192.png"
+              alt=""
+              width="28"
+              height="28"
+              className="h-7 w-7 shrink-0"
+            />
+            <span className="text-[0.9375rem] font-semibold tracking-tight">CoverPath</span>
+            <span className="hidden text-[0.75rem] text-muted lg:inline">
               Know what your hospital stay will cost
             </span>
           </button>
 
           <div className="flex items-center gap-2">
             {showActivity && events.length > 0 && (
-              <span className="hidden text-[11px] text-muted sm:inline">
+              <span className="hidden text-[0.6875rem] text-muted sm:inline">
                 {events.length} steps
               </span>
             )}
@@ -360,7 +320,7 @@ function Shell({
               onClick={onOpenSettings}
               aria-label="Settings"
               title="Settings"
-              className="rounded-lg border border-line px-3 py-2 text-[13px] text-muted transition hover:bg-canvas hover:text-ink"
+              className="rounded-lg border border-line px-3 py-2 text-[0.8125rem] text-muted transition hover:bg-canvas hover:text-ink"
             >
               <GearIcon />
             </button>
@@ -374,7 +334,7 @@ function Shell({
         <main className="min-w-0 flex-1">{children}</main>
 
         {showActivity && (
-          <aside className="sticky top-[104px] hidden h-[calc(100vh-104px)] w-80 shrink-0 border-l border-line bg-surface lg:block">
+          <aside className="sticky top-[var(--header-h)] hidden h-[calc(100vh-var(--header-h))] w-80 shrink-0 border-l border-line bg-surface lg:block">
             <ActivityLog events={events} connected={connected} />
           </aside>
         )}
@@ -411,7 +371,7 @@ function StepNav({ route, go, reachable }) {
                 disabled={!enabled}
                 aria-current={isCurrent ? 'step' : undefined}
                 onClick={() => go(step.id)}
-                className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-[12px] font-medium transition ${
+                className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-[0.75rem] font-medium transition ${
                   isCurrent
                     ? 'border-brand text-brand'
                     : enabled
@@ -420,9 +380,9 @@ function StepNav({ route, go, reachable }) {
                 }`}
               >
                 <span
-                  className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                  className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[0.625rem] ${
                     isCurrent
-                      ? 'bg-brand text-white'
+                      ? 'bg-brand text-on-brand'
                       : isDone
                         ? 'bg-brand-soft text-brand'
                         : 'bg-canvas text-muted'

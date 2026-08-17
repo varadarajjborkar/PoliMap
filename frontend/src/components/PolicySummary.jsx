@@ -24,10 +24,10 @@ export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
       {policy.warnings?.length > 0 && (
         <Card className="border-warn/30 bg-warn-soft">
           <div className="px-5 py-4">
-            <h3 className="text-[13px] font-semibold text-warn">
+            <h3 className="text-[0.8125rem] font-semibold text-warn">
               About the document you uploaded
             </h3>
-            <ul className="mt-2 space-y-1 text-[13px] leading-relaxed text-warn">
+            <ul className="mt-2 space-y-1 text-[0.8125rem] leading-relaxed text-warn">
               {policy.warnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
@@ -86,10 +86,10 @@ export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
 
         {policy.sublimits?.length > 0 && (
           <div className="border-t border-line px-5 py-4">
-            <h3 className="text-[12px] font-medium text-muted">Separate limits</h3>
+            <h3 className="text-[0.75rem] font-medium text-muted">Separate limits</h3>
             <ul className="mt-2 space-y-1.5">
               {policy.sublimits.map((limit) => (
-                <li key={limit.label} className="flex justify-between text-[13px]">
+                <li key={limit.label} className="flex justify-between text-[0.8125rem]">
                   <span>{limit.label}</span>
                   <span className="tabular-nums font-medium">{limit.amount_display}</span>
                 </li>
@@ -100,10 +100,10 @@ export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
 
         {policy.waiting_periods?.length > 0 && (
           <div className="border-t border-line px-5 py-4">
-            <h3 className="text-[12px] font-medium text-muted">Waiting periods</h3>
+            <h3 className="text-[0.75rem] font-medium text-muted">Waiting periods</h3>
             <ul className="mt-2 space-y-1.5">
               {policy.waiting_periods.map((wait, index) => (
-                <li key={index} className="flex justify-between gap-4 text-[13px]">
+                <li key={index} className="flex justify-between gap-4 text-[0.8125rem]">
                   <span className="text-muted">{wait.applies_to}</span>
                   <span className="shrink-0 font-medium">
                     {wait.months === 1 ? '30 days' : `${wait.months} months`}
@@ -139,11 +139,11 @@ function ConfidenceBadge({ policy }) {
 function Fact({ label, value, note, emphasis }) {
   return (
     <div className="bg-surface px-5 py-4">
-      <div className="text-[12px] text-muted">{label}</div>
-      <div className={`mt-1 font-semibold ${emphasis ? 'text-[22px]' : 'text-[15px]'}`}>
+      <div className="text-[0.75rem] text-muted">{label}</div>
+      <div className={`mt-1 font-semibold ${emphasis ? 'text-[1.375rem]' : 'text-[0.9375rem]'}`}>
         {value}
       </div>
-      {note && <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-muted">{note}</p>}
     </div>
   )
 }
@@ -157,18 +157,18 @@ function ClarificationCard({ question, remaining, onAnswer, busy }) {
     <Card className="border-brand/30 ring-1 ring-brand/10">
       <div className="px-5 py-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-[13px] font-semibold text-brand">We need one thing from you</h3>
+          <h3 className="text-[0.8125rem] font-semibold text-brand">We need one thing from you</h3>
           {remaining > 0 && (
-            <span className="text-[11px] text-muted">{remaining} more after this</span>
+            <span className="text-[0.6875rem] text-muted">{remaining} more after this</span>
           )}
         </div>
 
-        <p className="mt-2.5 text-[15px] font-medium">{question.question}</p>
+        <p className="mt-2.5 text-[0.9375rem] font-medium">{question.question}</p>
         {question.help && (
-          <p className="mt-1.5 text-[12px] leading-relaxed text-muted">{question.help}</p>
+          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">{question.help}</p>
         )}
         {question.page && (
-          <p className="mt-1 text-[11px] text-muted">
+          <p className="mt-1 text-[0.6875rem] text-muted">
             We were looking at page {question.page} of your document.
           </p>
         )}
@@ -182,9 +182,9 @@ function ClarificationCard({ question, remaining, onAnswer, busy }) {
                 onClick={() => onAnswer(question.id, option.value)}
                 className="flex w-full items-center justify-between rounded-lg border border-line px-4 py-3 text-left transition hover:border-brand hover:bg-brand-soft disabled:opacity-50"
               >
-                <span className="text-[14px] font-medium">{option.label}</span>
+                <span className="text-[0.875rem] font-medium">{option.label}</span>
                 {option.source && (
-                  <span className="text-[11px] text-muted">
+                  <span className="text-[0.6875rem] text-muted">
                     from the {option.source}
                     {option.page ? `, page ${option.page}` : ''}
                   </span>
@@ -226,14 +226,14 @@ function EvidenceTable({ clauses }) {
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <div>
-          <h2 className="text-[15px] font-semibold tracking-tight">
+          <h2 className="text-[0.9375rem] font-semibold tracking-tight">
             Where these figures came from
           </h2>
-          <p className="mt-0.5 text-[13px] text-muted">
+          <p className="mt-0.5 text-[0.8125rem] text-muted">
             {shown.length} passages read from your document
           </p>
         </div>
-        <span className="text-[12px] text-brand">{open ? 'Hide' : 'Show'}</span>
+        <span className="text-[0.75rem] text-brand">{open ? 'Hide' : 'Show'}</span>
       </button>
 
       {open && (
@@ -242,19 +242,19 @@ function EvidenceTable({ clauses }) {
             {shown.map((clause, index) => (
               <li key={index} className="px-5 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[12px] font-medium">
+                  <span className="text-[0.75rem] font-medium">
                     {clause.kind.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-[11px] text-muted">
+                  <span className="text-[0.6875rem] text-muted">
                     page {clause.page} · {clause.section}
                   </span>
                   {clause.confidence < 0.55 && <Badge tone="warn">uncertain</Badge>}
                 </div>
-                <blockquote className="mt-1.5 border-l-2 border-line pl-3 text-[12px] leading-relaxed text-muted">
+                <blockquote className="mt-1.5 border-l-2 border-line pl-3 text-[0.75rem] leading-relaxed text-muted">
                   {clause.quote}
                 </blockquote>
                 {clause.notes?.map((note) => (
-                  <p key={note} className="mt-1 text-[11px] text-warn">{note}</p>
+                  <p key={note} className="mt-1 text-[0.6875rem] text-warn">{note}</p>
                 ))}
               </li>
             ))}

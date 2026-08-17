@@ -27,7 +27,6 @@ from app.core.events import bus
 from app.core.logging import get_logger
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.journey import (
-    STAGE_TRANSITIONS,
     Alert,
     AlertKind,
     AlertSeverity,
@@ -36,6 +35,7 @@ from app.schemas.journey import (
     JourneyEvent,
     JourneyStage,
     JourneyState,
+    TransitionKind,
 )
 from app.schemas.money import ZERO, format_inr, round_inr
 from app.schemas.policy import ExpenseHead, NormalizedPolicy, RoomCategory
@@ -91,19 +91,69 @@ def start_journey(
     return state
 
 
+def skipped_between(current: JourneyStage, target: JourneyStage) -> list[JourneyStage]:
+    """Stages a forward move would pass over without visiting."""
+    if target.order <= current.order:
+        return []
+    return [
+        s for s in JourneyStage
+        if current.order < s.order < target.order
+    ]
+
+
+def classify(current: JourneyStage, target: JourneyStage) -> TransitionKind:
+    """What kind of move this is, before deciding whether to allow it.
+
+    Decided purely by what the move passes over. An earlier version consulted
+    a table of ordinary transitions, but several of those still jump stages:
+    investigation straight to planning discharge is a normal thing to do and
+    still skips pre-authorisation, treatment and recovery. Asking the table
+    would have stayed silent on exactly the jumps worth mentioning.
+    """
+    if target.order < current.order:
+        return TransitionKind.BACK
+    if target.order == current.order + 1:
+        return TransitionKind.ADVANCE
+    return TransitionKind.SKIP
+
+
 def advance(
     state: JourneyState,
     target: JourneyStage,
     policy: NormalizedPolicy,
     *,
     note: str = "",
+    reason: str = "",
+    force: bool = False,
 ) -> JourneyState:
-    """Move to a new stage and recompute the guidance that applies there."""
-    if not state.can_move_to(target):
-        allowed = ", ".join(sorted(s.value for s in STAGE_TRANSITIONS[state.stage]))
+    """Move to a new stage and recompute the guidance that applies there.
+
+    A real admission does not follow the diagram. People are discharged without
+    a procedure, go back to investigation after a complication, and update the
+    app hours after the fact. So the model allows three kinds of move:
+
+    * the natural next step, always allowed;
+    * a step backwards, always allowed, because correcting a mistake should
+      never be harder than making one;
+    * a jump forward past stages, allowed only with `force`, which the
+      interface sets after telling the user what is being skipped.
+
+    Only moving to the stage you are already on is refused, since that is never
+    what anyone meant.
+    """
+    if target is state.stage:
         raise TransitionError(
-            f"Cannot move from {state.stage.value} to {target.value}. "
-            f"Allowed: {allowed or 'none; this journey is complete'}"
+            f"You are already at {target.label.lower()}."
+        )
+
+    kind = classify(state.stage, target)
+    skipped = skipped_between(state.stage, target)
+
+    if kind is TransitionKind.SKIP and not force:
+        names = ", ".join(s.label.lower() for s in skipped)
+        raise TransitionError(
+            f"Moving to {target.label.lower()} skips {names}. "
+            f"Confirm to continue."
         )
 
     previous = state.stage
@@ -117,9 +167,12 @@ def advance(
 
     state.timeline.append(JourneyEvent(
         stage=target,
-        title=target.label,
+        title=_transition_title(kind, target),
         description=note or _stage_description(target, state, policy),
         alerts=alerts,
+        kind=kind,
+        skipped=skipped if kind is TransitionKind.SKIP else [],
+        reason=reason.strip(),
     ))
 
     bus.publish(
@@ -128,16 +181,27 @@ def advance(
             a.severity is AlertSeverity.URGENT for a in alerts
         ) else EventStatus.OK,
         summary=f"{previous.label} to {target.label}"
+                + (f", skipping {len(skipped)}" if skipped else "")
                 + (f", {len(alerts)} thing{'s' if len(alerts) != 1 else ''} to know"
                    if alerts else ""),
         # Not `stage=`: the bus already takes that as its first positional
         # argument, and passing it again raises before the event is ever built.
         from_stage=previous.value,
         to_stage=target.value,
+        kind=kind.value,
+        skipped=[s.value for s in skipped],
         alerts=len(alerts),
         accrued=float(state.accrued_total),
     )
     return state
+
+
+def _transition_title(kind: TransitionKind, target: JourneyStage) -> str:
+    if kind is TransitionKind.BACK:
+        return f"Back to {target.label.lower()}"
+    if kind is TransitionKind.SKIP:
+        return f"{target.label} (skipped ahead)"
+    return target.label
 
 
 def record_cost(
@@ -147,11 +211,14 @@ def record_cost(
     policy: NormalizedPolicy,
     *,
     description: str = "",
-) -> JourneyState:
+    receipt_name: str = "",
+) -> CostEntry:
     """Add an actual charge and re-evaluate the position."""
-    state.costs.append(CostEntry(
-        head=head, amount=amount, description=description, stage=state.stage
-    ))
+    entry = CostEntry(
+        head=head, amount=amount, description=description, stage=state.stage,
+        receipt_name=receipt_name,
+    )
+    state.costs.append(entry)
     state.active_alerts = evaluate(state, policy)
 
     bus.publish(
@@ -159,7 +226,77 @@ def record_cost(
         summary=f"{head.label} {format_inr(amount)}, "
                 f"{format_inr(state.accrued_total)} so far",
         head=head.value, amount=float(amount),
+        receipt=bool(receipt_name),
         accrued=float(state.accrued_total),
+    )
+    return entry
+
+
+class CostNotFound(LookupError):
+    """The charge being edited or removed is not on this journey."""
+
+
+def _find_cost(state: JourneyState, entry_id: str) -> CostEntry:
+    for entry in state.costs:
+        if entry.entry_id == entry_id:
+            return entry
+    raise CostNotFound(entry_id)
+
+
+def update_cost(
+    state: JourneyState,
+    entry_id: str,
+    policy: NormalizedPolicy,
+    *,
+    head: ExpenseHead | None = None,
+    amount: Decimal | None = None,
+    recorded_at: datetime | None = None,
+    description: str | None = None,
+) -> JourneyState:
+    """Correct a charge already recorded.
+
+    People mistype amounts and pick the wrong head, usually while standing at a
+    billing counter. Every field passed is applied; the rest are left alone.
+    The accrued total is a computed property over the list, so it follows on
+    its own and cannot drift from the entries it is meant to summarise.
+    """
+    entry = _find_cost(state, entry_id)
+    before = entry.amount
+
+    if head is not None:
+        entry.head = head
+    if amount is not None:
+        entry.amount = amount
+    if recorded_at is not None:
+        entry.recorded_at = recorded_at
+    if description is not None:
+        entry.description = description
+
+    state.active_alerts = evaluate(state, policy)
+
+    bus.publish(
+        STAGE, "update_cost", session_id=state.session_id or None,
+        summary=f"Charge corrected: {format_inr(before)} to "
+                f"{format_inr(entry.amount)}, {format_inr(state.accrued_total)} so far",
+        entry=entry_id, head=entry.head.value, amount=float(entry.amount),
+        accrued=float(state.accrued_total),
+    )
+    return state
+
+
+def remove_cost(
+    state: JourneyState, entry_id: str, policy: NormalizedPolicy
+) -> JourneyState:
+    """Delete a charge that should not have been recorded."""
+    entry = _find_cost(state, entry_id)
+    state.costs = [c for c in state.costs if c.entry_id != entry_id]
+    state.active_alerts = evaluate(state, policy)
+
+    bus.publish(
+        STAGE, "remove_cost", session_id=state.session_id or None,
+        summary=f"Charge removed: {entry.head.label} {format_inr(entry.amount)}, "
+                f"{format_inr(state.accrued_total)} so far",
+        entry=entry_id, accrued=float(state.accrued_total),
     )
     return state
 
@@ -410,4 +547,14 @@ def _stage_description(
         return f"Total billed {format_inr(state.accrued_total)}."
     if stage is JourneyStage.PRE_AUTH:
         return "Waiting for your insurer to approve cashless treatment."
-    return stage.label
+    if stage is JourneyStage.INVESTIGATION:
+        return "Tests and scans under way."
+    if stage is JourneyStage.PROCEDURE:
+        return "Treatment under way."
+    if stage is JourneyStage.RECOVERY:
+        return "Recovering after treatment."
+    if stage is JourneyStage.DISCHARGE_PLANNING:
+        return "Getting the paperwork ready for discharge."
+    # Nothing useful to add beyond the title the entry already carries, and
+    # repeating it under itself only reads as a rendering mistake.
+    return ""

@@ -16,7 +16,11 @@ import pytest
 
 from app.core.events import bus
 from app.journey import tracker
-from app.schemas.journey import STAGE_TRANSITIONS, AlertSeverity, JourneyStage
+from app.schemas.journey import (
+    AlertSeverity,
+    JourneyStage,
+    TransitionKind,
+)
 from app.schemas.policy import (
     ExpenseHead,
     NormalizedPolicy,
@@ -95,16 +99,11 @@ def test_a_whole_journey_can_be_walked_to_settlement():
     state = start(policy)
     seen = [state.stage]
 
-    # Forward only. The graph legitimately allows going back, so always taking
-    # the lowest-order option would oscillate between investigation and
-    # pre-authorisation rather than reaching settlement.
-    while STAGE_TRANSITIONS[state.stage]:
-        ahead = [
-            s for s in STAGE_TRANSITIONS[state.stage] if s.order > state.stage.order
-        ]
-        if not ahead:
-            break
-        tracker.advance(state, min(ahead, key=lambda s: s.order), policy)
+    # One stage at a time, so nothing is skipped and no confirmation is needed.
+    while (nxt := next(
+        (s for s in JourneyStage if s.order == state.stage.order + 1), None
+    )):
+        tracker.advance(state, nxt, policy)
         seen.append(state.stage)
 
     assert seen[0] is JourneyStage.PRE_ADMISSION
@@ -113,17 +112,124 @@ def test_a_whole_journey_can_be_walked_to_settlement():
     assert [e.stage for e in state.timeline] == seen
 
 
-def test_an_illegal_transition_is_refused():
+def test_a_forward_skip_is_refused_until_confirmed():
+    """The user is told what they are passing over before it happens."""
     state = start()
     with pytest.raises(tracker.TransitionError):
         tracker.advance(state, JourneyStage.SETTLED, make_policy())
     assert state.stage is JourneyStage.PRE_ADMISSION
 
 
-def test_the_refusal_names_what_is_allowed():
+def test_the_refusal_names_the_stages_being_skipped():
     state = start()
     with pytest.raises(tracker.TransitionError, match="admitted"):
         tracker.advance(state, JourneyStage.SETTLED, make_policy())
+
+
+def test_a_confirmed_skip_goes_through():
+    """Real admissions do not follow the diagram, so this must be possible."""
+    state = start()
+    tracker.advance(state, JourneyStage.RECOVERY, make_policy(), force=True)
+    assert state.stage is JourneyStage.RECOVERY
+
+
+def test_a_skip_records_what_was_passed_over():
+    state = start()
+    tracker.advance(state, JourneyStage.RECOVERY, make_policy(), force=True)
+
+    event = state.timeline[-1]
+    assert event.kind is TransitionKind.SKIP
+    assert JourneyStage.ADMITTED in event.skipped
+    assert JourneyStage.PROCEDURE in event.skipped
+    assert JourneyStage.RECOVERY not in event.skipped
+
+
+def test_a_skip_reason_is_kept_when_given():
+    state = start()
+    tracker.advance(
+        state, JourneyStage.PROCEDURE, make_policy(),
+        force=True, reason="Admitted through emergency, no time for pre-auth.",
+    )
+    assert "emergency" in state.timeline[-1].reason
+
+
+def test_a_skip_reason_is_never_required():
+    state = start()
+    tracker.advance(state, JourneyStage.PROCEDURE, make_policy(), force=True)
+    assert state.timeline[-1].reason == ""
+
+
+def test_going_back_is_always_allowed():
+    """Correcting a mistake must not be harder than making one."""
+    policy = make_policy()
+    state = start(policy)
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+    tracker.advance(state, JourneyStage.PROCEDURE, policy, force=True)
+
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+
+    assert state.stage is JourneyStage.ADMITTED
+    assert state.timeline[-1].kind is TransitionKind.BACK
+
+
+def test_going_back_needs_no_confirmation():
+    policy = make_policy()
+    state = start(policy)
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+    tracker.advance(state, JourneyStage.PRE_ADMISSION, policy)
+    assert state.stage is JourneyStage.PRE_ADMISSION
+
+
+def test_moving_to_the_stage_you_are_on_is_refused():
+    """The reported defect: the interface offered pre_auth while on pre_auth."""
+    policy = make_policy()
+    state = start(policy)
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+
+    with pytest.raises(tracker.TransitionError, match="already"):
+        tracker.advance(state, JourneyStage.ADMITTED, policy)
+
+
+def test_the_next_stage_in_sequence_is_the_one_after_it():
+    """What the interface preselects. Alphabetical order caused the defect."""
+    from app.api.routes import _natural_next
+
+    assert _natural_next(JourneyStage.PRE_ADMISSION) == "admitted"
+    assert _natural_next(JourneyStage.ADMITTED) == "investigation"
+    assert _natural_next(JourneyStage.INVESTIGATION) == "pre_auth"
+    assert _natural_next(JourneyStage.PRE_AUTH) == "procedure"
+    assert _natural_next(JourneyStage.SETTLED) is None
+
+
+def test_skipped_between_is_exclusive_at_both_ends():
+    got = tracker.skipped_between(JourneyStage.ADMITTED, JourneyStage.PROCEDURE)
+    assert got == [JourneyStage.INVESTIGATION, JourneyStage.PRE_AUTH]
+
+
+def test_a_natural_step_is_not_classed_as_a_skip():
+    assert tracker.classify(
+        JourneyStage.PRE_ADMISSION, JourneyStage.ADMITTED
+    ) is TransitionKind.ADVANCE
+
+
+def test_an_ordinary_looking_jump_is_still_a_skip():
+    """Investigation to planning discharge is a perfectly normal thing to do,
+    and it still passes over pre-authorisation, treatment and recovery. What
+    matters for the warning is what was passed over, not whether the jump is
+    unusual."""
+    assert tracker.classify(
+        JourneyStage.INVESTIGATION, JourneyStage.DISCHARGE_PLANNING
+    ) is TransitionKind.SKIP
+
+
+def test_that_jump_needs_confirming_too():
+    policy = make_policy()
+    state = start(policy)
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+    tracker.advance(state, JourneyStage.INVESTIGATION, policy)
+
+    with pytest.raises(tracker.TransitionError, match="pre-auth|insurance approval"):
+        tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, policy)
 
 
 def test_admission_is_timestamped():
@@ -178,6 +284,121 @@ def test_money_stays_decimal():
     state = start(policy)
     tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("18000.50"), policy)
     assert isinstance(state.accrued_total, Decimal)
+
+
+# --- correcting a charge ----------------------------------------------------
+
+
+def test_a_charge_can_be_corrected():
+    """People mistype amounts at a billing counter. That must be fixable."""
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("1800"), policy)
+
+    tracker.update_cost(state, entry.entry_id, policy, amount=D("18000"))
+
+    assert state.costs[0].amount == D("18000")
+    assert state.accrued_total == D("18000")
+
+
+def test_correcting_the_head_moves_the_charge():
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("2500"), policy)
+
+    tracker.update_cost(state, entry.entry_id, policy, head=ExpenseHead.PHARMACY)
+
+    assert state.costs[0].head is ExpenseHead.PHARMACY
+    assert state.accrued_by_head()[ExpenseHead.PHARMACY] == D("2500")
+
+
+def test_correcting_the_date_is_allowed():
+    from datetime import UTC, datetime
+
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("2500"), policy)
+    when = datetime(2026, 3, 4, 9, 30, tzinfo=UTC)
+
+    tracker.update_cost(state, entry.entry_id, policy, recorded_at=when)
+
+    assert state.costs[0].recorded_at == when
+
+
+def test_fields_not_sent_are_left_alone():
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(
+        state, ExpenseHead.ROOM_RENT, D("2500"), policy, description="day one"
+    )
+
+    tracker.update_cost(state, entry.entry_id, policy, amount=D("3000"))
+
+    assert state.costs[0].description == "day one"
+    assert state.costs[0].head is ExpenseHead.ROOM_RENT
+
+
+def test_a_charge_can_be_removed():
+    policy = make_policy()
+    state = start(policy)
+    a = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("18000"), policy)
+    tracker.record_cost(state, ExpenseHead.PHARMACY, D("2000"), policy)
+
+    tracker.remove_cost(state, a.entry_id, policy)
+
+    assert len(state.costs) == 1
+    assert state.accrued_total == D("2000")
+
+
+def test_removing_the_last_charge_returns_the_total_to_zero():
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("18000"), policy)
+    tracker.remove_cost(state, entry.entry_id, policy)
+    assert state.accrued_total == D(0)
+
+
+def test_editing_an_unknown_charge_is_reported_not_crashed():
+    policy = make_policy()
+    state = start(policy)
+    with pytest.raises(tracker.CostNotFound):
+        tracker.update_cost(state, "nosuchentry", policy, amount=D("1"))
+
+
+def test_removing_an_unknown_charge_is_reported_not_crashed():
+    policy = make_policy()
+    state = start(policy)
+    with pytest.raises(tracker.CostNotFound):
+        tracker.remove_cost(state, "nosuchentry", policy)
+
+
+def test_alerts_are_recomputed_after_a_correction():
+    """A correction that clears an over-spend must clear its alert too."""
+    policy = make_policy(sum_insured="100000")
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("99000"), policy)
+    assert any(a.severity is AlertSeverity.URGENT for a in state.active_alerts)
+
+    tracker.update_cost(state, entry.entry_id, policy, amount=D("1000"))
+
+    assert not any(a.severity is AlertSeverity.URGENT for a in state.active_alerts)
+
+
+def test_a_receipt_name_is_kept_with_the_charge():
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(
+        state, ExpenseHead.ROOM_RENT, D("18000"), policy,
+        receipt_name="bill-day-one.pdf",
+    )
+    assert entry.receipt_name == "bill-day-one.pdf"
+
+
+def test_a_charge_without_a_receipt_says_so_plainly():
+    policy = make_policy()
+    state = start(policy)
+    entry = tracker.record_cost(state, ExpenseHead.ROOM_RENT, D("18000"), policy)
+    assert entry.receipt_name == ""
 
 
 # --- burn down --------------------------------------------------------------

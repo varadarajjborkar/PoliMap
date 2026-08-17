@@ -29,6 +29,11 @@ from app.core.logging import get_logger
 log = get_logger(__name__)
 
 
+# Everything written for a session lives under one of these, each holding one
+# directory per session, so cleanup is the same operation for both.
+KINDS = ("pages", "receipts")
+
+
 def page_dir(session_id: str | None) -> Path:
     """Directory holding the rasterised pages for one session."""
     base = settings.uploads_dir / "pages" / (session_id or "adhoc")
@@ -36,50 +41,59 @@ def page_dir(session_id: str | None) -> Path:
     return base
 
 
+def receipt_dir(session_id: str) -> Path:
+    """Directory holding bill photographs attached to a session's charges."""
+    base = settings.uploads_dir / "receipts" / session_id
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
 def purge(session_id: str) -> None:
-    """Delete one session's page images. Safe to call when there are none."""
-    target = settings.uploads_dir / "pages" / session_id
-    if not target.exists():
-        return
-    shutil.rmtree(target, ignore_errors=True)
-    log.debug("purged page images", session_id=session_id)
+    """Delete everything held for one session. Safe when there is nothing."""
+    for kind in KINDS:
+        target = settings.uploads_dir / kind / session_id
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+    log.debug("purged session artifacts", session_id=session_id)
 
 
 def sweep(max_age_minutes: int | None = None) -> int:
-    """Delete page directories older than the session lifetime.
+    """Delete session directories older than the session lifetime.
 
     Returns how many were removed. Age is taken from the directory's own
-    modification time, which advances as pages are written into it, so a
-    session being actively read is never swept out from under itself.
+    modification time, which advances as files are written into it, so a
+    session being actively worked on is never swept out from under itself.
     """
-    root = settings.uploads_dir / "pages"
-    if not root.exists():
-        return 0
-
     ttl = (max_age_minutes or settings.session_ttl_minutes) * 60
     cutoff = time.time() - ttl
     removed = 0
 
-    for child in root.iterdir():
-        if not child.is_dir():
+    for kind in KINDS:
+        root = settings.uploads_dir / kind
+        if not root.exists():
             continue
-        try:
-            if child.stat().st_mtime >= cutoff:
+        for child in root.iterdir():
+            if not child.is_dir():
                 continue
-            shutil.rmtree(child, ignore_errors=True)
-            removed += 1
-        except OSError:
-            # A directory vanishing under us is the outcome we wanted anyway.
-            continue
+            try:
+                if child.stat().st_mtime >= cutoff:
+                    continue
+                shutil.rmtree(child, ignore_errors=True)
+                removed += 1
+            except OSError:
+                # A directory vanishing under us is the outcome we wanted.
+                continue
 
     if removed:
-        log.info("swept stale page images", directories=removed)
+        log.info("swept stale session artifacts", directories=removed)
     return removed
 
 
 def disk_usage_bytes() -> int:
-    """Total size of retained page images. Reported by the health endpoint."""
-    root = settings.uploads_dir / "pages"
-    if not root.exists():
-        return 0
-    return sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+    """Total size of retained uploads. Reported by the health endpoint."""
+    total = 0
+    for kind in KINDS:
+        root = settings.uploads_dir / kind
+        if root.exists():
+            total += sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+    return total

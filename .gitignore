@@ -30,10 +30,13 @@ yarn-error.log*
 # Rebuilt with `python -m datagen.build_all`, or `--core` for just the data the
 # running app reads. 80 MB of rendered policy documents does not belong in git.
 data/generated/
-data/uploads/
 
 # --- runtime state ---
-# Session rows and anything else written while the app runs.
+# Everything the running app writes: the session database, the page images read
+# from uploaded documents, and the bill photographs attached to charges. All of
+# it is somebody's insurance paperwork, so none of it belongs in a repository.
+data/uploads/
+data/*.db*
 *.db
 *.db-wal
 *.db-shm

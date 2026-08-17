@@ -68,36 +68,6 @@ _STAGE_ORDER: dict[JourneyStage, int] = {
     )
 }
 
-# Stages a journey may move to from each stage. Forward moves may skip ahead
-# (not every admission involves a procedure), and a step back is allowed because
-# real admissions revisit investigation after a complication.
-STAGE_TRANSITIONS: dict[JourneyStage, set[JourneyStage]] = {
-    JourneyStage.PRE_ADMISSION: {JourneyStage.ADMITTED},
-    JourneyStage.ADMITTED: {
-        JourneyStage.INVESTIGATION,
-        JourneyStage.PRE_AUTH,
-        JourneyStage.PROCEDURE,
-        JourneyStage.DISCHARGE_PLANNING,
-    },
-    JourneyStage.INVESTIGATION: {
-        JourneyStage.PRE_AUTH,
-        JourneyStage.PROCEDURE,
-        JourneyStage.RECOVERY,
-        JourneyStage.DISCHARGE_PLANNING,
-    },
-    JourneyStage.PRE_AUTH: {
-        JourneyStage.PROCEDURE,
-        JourneyStage.INVESTIGATION,
-        JourneyStage.DISCHARGE_PLANNING,
-    },
-    JourneyStage.PROCEDURE: {JourneyStage.RECOVERY, JourneyStage.INVESTIGATION},
-    JourneyStage.RECOVERY: {
-        JourneyStage.DISCHARGE_PLANNING,
-        JourneyStage.INVESTIGATION,
-    },
-    JourneyStage.DISCHARGE_PLANNING: {JourneyStage.SETTLED},
-    JourneyStage.SETTLED: set(),
-}
 
 
 class AlertSeverity(StrEnum):
@@ -153,6 +123,21 @@ class CostEntry(BaseModel):
     recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     stage: JourneyStage = JourneyStage.ADMITTED
 
+    # A photo of the bill, attached when the charge is entered. Optional, and
+    # the reason it exists is that hunting for paper receipts weeks later, at
+    # claim time, is the part people actually dread.
+    receipt_name: str = ""
+    """Original filename, shown to the user. Empty when nothing was attached."""
+
+
+class TransitionKind(StrEnum):
+    """How a stage came to change, which decides how it reads back."""
+
+    START = "start"
+    ADVANCE = "advance"
+    SKIP = "skip"
+    BACK = "back"
+
 
 class JourneyEvent(BaseModel):
     """A recorded transition or note on the timeline."""
@@ -163,6 +148,12 @@ class JourneyEvent(BaseModel):
     title: str
     description: str = ""
     alerts: list[Alert] = Field(default_factory=list)
+
+    kind: TransitionKind = TransitionKind.ADVANCE
+    skipped: list[JourneyStage] = Field(default_factory=list)
+    """Stages passed over. Recorded so the history stays honest about it."""
+    reason: str = ""
+    """Why, in the user's own words. Never required."""
 
 
 class JourneyState(BaseModel):
@@ -199,9 +190,6 @@ class JourneyState(BaseModel):
         for entry in self.costs:
             totals[entry.head] = totals.get(entry.head, Decimal(0)) + entry.amount
         return totals
-
-    def can_move_to(self, target: JourneyStage) -> bool:
-        return target in STAGE_TRANSITIONS[self.stage]
 
     @property
     def is_active(self) -> bool:

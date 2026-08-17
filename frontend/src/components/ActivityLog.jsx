@@ -48,10 +48,10 @@ export function ActivityLog({ events, connected }) {
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
-          <h2 className="text-[13px] font-semibold">Activity</h2>
-          <p className="text-[11px] text-muted">Every step the system takes</p>
+          <h2 className="text-[0.8125rem] font-semibold">Activity</h2>
+          <p className="text-[0.6875rem] text-muted">Every step the system takes</p>
         </div>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted">
+        <span className="flex items-center gap-1.5 text-[0.6875rem] text-muted">
           <span
             className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-brand' : 'bg-line'}`}
           />
@@ -65,7 +65,7 @@ export function ActivityLog({ events, connected }) {
         className="flex-1 overflow-y-auto px-2 py-2"
       >
         {events.length === 0 && (
-          <p className="px-2 py-6 text-center text-[12px] text-muted">
+          <p className="px-2 py-6 text-center text-[0.75rem] text-muted">
             Steps will appear here as your policy is read.
           </p>
         )}
@@ -82,7 +82,7 @@ export function ActivityLog({ events, connected }) {
                 >
                   <div className="flex items-baseline gap-2">
                     <span
-                      className={`w-3 shrink-0 text-center text-[11px] ${
+                      className={`w-3 shrink-0 text-center text-[0.6875rem] ${
                         event.status === 'failed'
                           ? 'text-danger'
                           : event.status === 'warn'
@@ -95,10 +95,10 @@ export function ActivityLog({ events, connected }) {
                       {STATUS_MARK[event.status] ?? '·'}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12px] leading-snug">
+                      <span className="block truncate text-[0.75rem] leading-snug">
                         {event.summary || event.step.replace(/_/g, ' ')}
                       </span>
-                      <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-muted">
+                      <span className="mt-0.5 block text-[0.625rem] uppercase tracking-wide text-muted">
                         {event.stage_label}
                         {event.duration_ms != null &&
                           ` · ${event.duration_ms < 1000
@@ -110,7 +110,7 @@ export function ActivityLog({ events, connected }) {
                 </button>
 
                 {isOpen && details.length > 0 && (
-                  <dl className="mb-1 ml-7 rounded-md bg-canvas px-2.5 py-2 text-[11px] text-muted">
+                  <dl className="mb-1 ml-7 rounded-md bg-canvas px-2.5 py-2 text-[0.6875rem] text-muted">
                     {details.map((line) => (
                       <div key={line} className="truncate">{line}</div>
                     ))}
@@ -123,7 +123,7 @@ export function ActivityLog({ events, connected }) {
       </div>
 
       {events.length > 0 && (
-        <footer className="border-t border-line px-4 py-2 text-[11px] text-muted">
+        <footer className="border-t border-line px-4 py-2 text-[0.6875rem] text-muted">
           {events.length} step{events.length === 1 ? '' : 's'}
           {events.some((e) => e.status === 'warn') && (
             <Badge tone="warn">

@@ -21,7 +21,6 @@ from app.schemas.hospital import (
     RoomTariff,
 )
 from app.schemas.journey import (
-    STAGE_TRANSITIONS,
     Alert,
     AlertKind,
     BurnDown,
@@ -601,27 +600,13 @@ def test_stage_ordering_is_monotonic():
     assert [s.order for s in stages] == sorted(s.order for s in stages)
 
 
-def test_every_stage_declares_transitions():
-    for stage in JourneyStage:
-        assert stage in STAGE_TRANSITIONS
+def test_settled_is_the_last_stage():
+    assert max(JourneyStage, key=lambda s: s.order) is JourneyStage.SETTLED
 
 
-def test_settled_is_terminal():
-    assert STAGE_TRANSITIONS[JourneyStage.SETTLED] == set()
-
-
-def test_journey_transition_rules():
-    state = JourneyState(stage=JourneyStage.ADMITTED)
-    assert state.can_move_to(JourneyStage.INVESTIGATION)
-    # No jumping straight from admission to a settled claim.
-    assert not state.can_move_to(JourneyStage.SETTLED)
-
-
-def test_recovery_can_return_to_investigation():
-    # Real admissions revisit tests after a complication.
-    assert JourneyState(stage=JourneyStage.RECOVERY).can_move_to(
-        JourneyStage.INVESTIGATION
-    )
+def test_every_stage_has_a_distinct_position():
+    orders = [s.order for s in JourneyStage]
+    assert len(set(orders)) == len(orders)
 
 
 def test_accrued_costs_total_and_group():

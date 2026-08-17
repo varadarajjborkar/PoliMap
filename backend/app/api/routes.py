@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
@@ -466,6 +468,18 @@ class StartJourney(BaseModel):
     room_category: RoomCategory
 
 
+def _natural_next(stage: JourneyStage) -> str | None:
+    """The stage that follows in sequence, which is what to preselect.
+
+    Taking the first of an unordered set of legal moves is what produced the
+    original defect: the set is alphabetical, so "discharge_planning" came out
+    ahead of "investigation" and the interface proposed skipping most of the
+    stay by default.
+    """
+    ahead = [s for s in JourneyStage if s.order > stage.order]
+    return min(ahead, key=lambda s: s.order).value if ahead else None
+
+
 def _journey_payload(session: Session) -> dict[str, Any]:
     state = session.journey
     policy = session.policy
@@ -483,11 +497,26 @@ def _journey_payload(session: Session) -> dict[str, Any]:
         "pre_auth_filed": state.pre_auth_filed,
         "accrued": float(state.accrued_total),
         "accrued_display": format_inr(state.accrued_total),
-        "next_stages": sorted(
-            s.value for s in __import__(
-                "app.schemas.journey", fromlist=["STAGE_TRANSITIONS"]
-            ).STAGE_TRANSITIONS[state.stage]
-        ),
+        # Every stage, in order, each labelled with what moving there would
+        # mean. The interface needs that to warn before a skip and to let
+        # someone step back without hunting for a separate control.
+        "stages": [
+            {
+                "value": s.value,
+                "label": s.label,
+                "order": s.order,
+                "kind": (
+                    "current" if s is state.stage
+                    else tracker.classify(state.stage, s).value
+                ),
+                "skips": [
+                    skipped.label
+                    for skipped in tracker.skipped_between(state.stage, s)
+                ],
+            }
+            for s in sorted(JourneyStage, key=lambda s: s.order)
+        ],
+        "next_stage": _natural_next(state.stage),
         "burn_down": {
             "sum_insured": float(burn.sum_insured),
             "consumed": float(burn.consumed),
@@ -511,20 +540,28 @@ def _journey_payload(session: Session) -> dict[str, Any]:
         ],
         "timeline": [
             {
+                "id": e.event_id,
                 "at": e.at.isoformat(),
                 "stage": e.stage.value,
                 "title": e.title,
                 "description": e.description,
                 "alert_count": len(e.alerts),
+                "kind": e.kind.value,
+                "skipped": [s.label for s in e.skipped],
+                "reason": e.reason,
             }
             for e in state.timeline
         ],
         "costs": [
             {
+                "id": c.entry_id,
                 "head": c.head.label,
+                "head_value": c.head.value,
                 "amount": float(c.amount),
                 "amount_display": format_inr(c.amount),
                 "description": c.description,
+                "at": c.recorded_at.isoformat(),
+                "receipt_name": c.receipt_name,
             }
             for c in state.costs
         ],
@@ -560,6 +597,10 @@ def start_journey(session_id: str, payload: StartJourney) -> dict[str, Any]:
 class Advance(BaseModel):
     stage: JourneyStage
     note: str = ""
+    confirm_skip: bool = False
+    """Set once the user has been told which stages are being passed over."""
+    reason: str = Field(default="", max_length=600)
+    """Why they skipped, in their own words. Never required."""
 
 
 @router.post("/journey/{session_id}/advance")
@@ -569,34 +610,141 @@ def advance_journey(session_id: str, payload: Advance) -> dict[str, Any]:
         raise HTTPException(400, "No journey started yet.")
 
     try:
-        tracker.advance(session.journey, payload.stage, session.policy, note=payload.note)
+        tracker.advance(
+            session.journey, payload.stage, session.policy,
+            note=payload.note, reason=payload.reason, force=payload.confirm_skip,
+        )
     except tracker.TransitionError as exc:
         raise HTTPException(400, str(exc)) from exc
     sessions.save(session)
     return _journey_payload(session)
 
 
-class RecordCost(BaseModel):
-    head: ExpenseHead
-    amount: float = Field(gt=0)
-    description: str = ""
-    advance_day: bool = False
+# --- charges ---------------------------------------------------------------
+
+MAX_RECEIPT_BYTES = 10 * 1024 * 1024
+RECEIPT_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
+
+
+def _store_receipt(session_id: str, entry_id: str, upload: UploadFile) -> str:
+    """Save a bill photograph next to the charge it belongs to.
+
+    The stored name is the entry id, so nothing a user typed reaches the
+    filesystem. The original name is kept in the entry itself, for display.
+    """
+    original = Path(upload.filename or "receipt")
+    suffix = original.suffix.lower()
+    if suffix not in RECEIPT_SUFFIXES:
+        raise HTTPException(
+            400,
+            "Attach a PDF or a photo of the bill "
+            "(PDF, JPG, PNG, WEBP, HEIC or TIFF).",
+        )
+
+    data = upload.file.read()
+    if len(data) > MAX_RECEIPT_BYTES:
+        raise HTTPException(413, "That file is too large. The limit is 10 MB.")
+    if not data:
+        raise HTTPException(400, "That file was empty.")
+
+    target = artifacts.receipt_dir(session_id) / f"{entry_id}{suffix}"
+    target.write_bytes(data)
+    return original.name
 
 
 @router.post("/journey/{session_id}/cost")
-def record_cost(session_id: str, payload: RecordCost) -> dict[str, Any]:
+async def record_cost(
+    session_id: str,
+    head: ExpenseHead = Form(...),
+    amount: float = Form(...),
+    description: str = Form(""),
+    advance_day: bool = Form(False),
+    receipt: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    """Record a charge, optionally with a photograph of the bill.
+
+    Multipart rather than JSON because of that attachment. Chasing paper
+    receipts weeks later at claim time is the part people dread, so the moment
+    to capture one is while they are holding it.
+    """
+    session = _session(session_id)
+    if session.journey is None or session.policy is None:
+        raise HTTPException(400, "No journey started yet.")
+    if amount <= 0:
+        raise HTTPException(400, "Enter an amount greater than zero.")
+
+    if advance_day:
+        session.journey.days_elapsed += 1
+
+    entry = tracker.record_cost(
+        session.journey, head, Decimal(str(amount)),
+        session.policy, description=description,
+    )
+
+    if receipt is not None and receipt.filename:
+        entry.receipt_name = _store_receipt(session_id, entry.entry_id, receipt)
+
+    sessions.save(session)
+    return _journey_payload(session)
+
+
+class UpdateCost(BaseModel):
+    """Every field optional: only what was sent is changed."""
+
+    head: ExpenseHead | None = None
+    amount: float | None = Field(default=None, gt=0)
+    at: datetime | None = None
+    description: str | None = None
+
+
+@router.patch("/journey/{session_id}/cost/{entry_id}")
+def update_cost(session_id: str, entry_id: str, payload: UpdateCost) -> dict[str, Any]:
     session = _session(session_id)
     if session.journey is None or session.policy is None:
         raise HTTPException(400, "No journey started yet.")
 
-    if payload.advance_day:
-        session.journey.days_elapsed += 1
-    tracker.record_cost(
-        session.journey, payload.head, Decimal(str(payload.amount)),
-        session.policy, description=payload.description,
-    )
+    try:
+        tracker.update_cost(
+            session.journey, entry_id, session.policy,
+            head=payload.head,
+            amount=Decimal(str(payload.amount)) if payload.amount is not None else None,
+            recorded_at=payload.at,
+            description=payload.description,
+        )
+    except tracker.CostNotFound:
+        raise HTTPException(404, "That charge is no longer on this stay.") from None
+
     sessions.save(session)
     return _journey_payload(session)
+
+
+@router.delete("/journey/{session_id}/cost/{entry_id}")
+def delete_cost(session_id: str, entry_id: str) -> dict[str, Any]:
+    session = _session(session_id)
+    if session.journey is None or session.policy is None:
+        raise HTTPException(400, "No journey started yet.")
+
+    try:
+        tracker.remove_cost(session.journey, entry_id, session.policy)
+    except tracker.CostNotFound:
+        raise HTTPException(404, "That charge is no longer on this stay.") from None
+
+    # The bill photograph goes with the charge it documented.
+    for path in artifacts.receipt_dir(session_id).glob(f"{entry_id}.*"):
+        path.unlink(missing_ok=True)
+
+    sessions.save(session)
+    return _journey_payload(session)
+
+
+@router.get("/journey/{session_id}/cost/{entry_id}/receipt")
+def get_receipt(session_id: str, entry_id: str) -> FileResponse:
+    """Serve back the attached bill so the user can check what they filed."""
+    _session(session_id)
+    matches = sorted(artifacts.receipt_dir(session_id).glob(f"{entry_id}.*"))
+    if not matches:
+        raise HTTPException(404, "No receipt was attached to that charge.")
+    return FileResponse(matches[0])
 
 
 @router.post("/journey/{session_id}/preauth")

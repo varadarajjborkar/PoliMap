@@ -1,9 +1,13 @@
+<img src="docs/images/logo.png" alt="CoverPath" width="88" align="left" hspace="16">
+
 # CoverPath
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
 
 Upload your health policy. Find out which hospitals you are covered at, what
 room you are entitled to, and what you would actually pay yourself.
+
+<br clear="left">
 
 Built for *Precision Care Challenge 2026: "Hospitality: Holistic Optimization
 System for Policy-Integrated Admission & Treatment Intelligence."*
@@ -114,6 +118,26 @@ costing against what has actually been billed, and reports the cover remaining.
 
 ![Tracking a stay](docs/images/07-journey.png)
 
+Real admissions do not follow the diagram. People are discharged without a
+procedure, go back to investigation after a complication, and update the app
+hours after the fact. So the model bends where reality does:
+
+* **Going back is always allowed**, with no confirmation. Correcting a mistake
+  should never be harder than making one.
+* **Skipping ahead asks first**, and says what is being passed over. The notice
+  is deliberately quiet: the person reading it may be in a hospital corridor,
+  and nothing about it is an error.
+* **Why they skipped is theirs to give**, behind a checkbox, never required.
+
+![The skip notice](docs/images/09-skip.png)
+
+Charges are entered in a hurry, at a billing counter, which means some of them
+are entered wrong. Every one can be corrected or removed, and a photograph of
+the bill can be attached at the moment it is in your hand rather than hunted
+for weeks later at claim time.
+
+![Correcting a charge](docs/images/10-charges.png)
+
 ---
 
 ## Running it
@@ -154,7 +178,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 379 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 402 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 
@@ -194,6 +218,11 @@ server did. The panel is a developer tool, so it lives in settings and is off by
 default:
 
 ![Settings](docs/images/06-settings.png)
+
+Type is set in rem throughout and the whole app has a dark theme, because it
+gets read on a phone, at night, by someone who is tired.
+
+![Dark theme](docs/images/11-dark.png)
 
 **Intake ladder**, cheapest rung first: native text layer, then Tesseract, then
 a vision model, then ask the user. Preprocessing branches on measured page
@@ -263,15 +292,19 @@ Full walkthrough, including the Vercel steps and what to watch out for:
 
 ### State
 
-Sessions are held in SQLite, so a reload does not discard a document that took a
-minute to read, and a restart does not empty the app. Only a session id is kept
-in the browser; everything else is re-read from the server.
+There are no accounts yet, so the browser is deliberately given nothing to
+remember: **reloading the page starts over.** Session state lives on the server
+in SQLite for as long as the tab is open, which is what lets a document that
+took a minute to read survive a restart of the API and lets more than one
+worker serve the same user. Accounts, and with them sessions that persist on
+purpose, are the next thing this needs.
 
 Nothing is kept longer than it is useful. Sessions expire after
-`SESSION_TTL_MINUTES` (12 hours by default), page images are deleted when a
-session ends and swept at startup once past that lifetime, and "forget this
-session" in settings removes both immediately. These are pictures of someone's
-insurance document, so this is a privacy question as much as a disk one.
+`SESSION_TTL_MINUTES` (12 hours by default). Page images from uploaded
+documents, and any bill photographs attached to charges, are deleted when a
+session ends and swept at startup once past that lifetime. "Clear and start
+over" in settings removes them immediately. These are pictures of someone's
+insurance paperwork, so this is a privacy question as much as a disk one.
 
 ### Continuous integration
 

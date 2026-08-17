@@ -37,9 +37,6 @@ export const api = {
   providers: () => request('/api/health/providers'),
   reference: () => request('/api/reference'),
 
-  // Everything already done on a session, for putting the interface back
-  // together after a reload.
-  restore: (sessionId) => request(`/api/session/${sessionId}`),
   clear: (sessionId) => request(`/api/session/${sessionId}`, { method: 'DELETE' }),
 
   uploadPolicy(file, insurerId) {
@@ -56,10 +53,35 @@ export const api = {
 
   startJourney: (sessionId, payload) =>
     request(`/api/journey/${sessionId}/start`, json(payload)),
-  advance: (sessionId, stage, note = '') =>
-    request(`/api/journey/${sessionId}/advance`, json({ stage, note })),
-  recordCost: (sessionId, payload) =>
-    request(`/api/journey/${sessionId}/cost`, json(payload)),
+
+  // `confirmSkip` is set once the user has been shown which stages are being
+  // passed over. `reason` is theirs to give or leave blank.
+  advance: (sessionId, stage, { note = '', confirmSkip = false, reason = '' } = {}) =>
+    request(
+      `/api/journey/${sessionId}/advance`,
+      json({ stage, note, confirm_skip: confirmSkip, reason })
+    ),
+
+  // Multipart, because a charge can carry a photograph of the bill.
+  recordCost(sessionId, { head, amount, description = '', advanceDay = false, receipt }) {
+    const form = new FormData()
+    form.append('head', head)
+    form.append('amount', String(amount))
+    form.append('description', description)
+    form.append('advance_day', String(advanceDay))
+    if (receipt) form.append('receipt', receipt)
+    return request(`/api/journey/${sessionId}/cost`, { method: 'POST', body: form })
+  },
+  updateCost: (sessionId, entryId, patch) =>
+    request(`/api/journey/${sessionId}/cost/${entryId}`, {
+      ...json(patch),
+      method: 'PATCH',
+    }),
+  deleteCost: (sessionId, entryId) =>
+    request(`/api/journey/${sessionId}/cost/${entryId}`, { method: 'DELETE' }),
+  receiptUrl: (sessionId, entryId) =>
+    apiUrl(`/api/journey/${sessionId}/cost/${entryId}/receipt`),
+
   filePreauth: (sessionId) =>
     request(`/api/journey/${sessionId}/preauth`, { method: 'POST' }),
 }

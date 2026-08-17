@@ -6,17 +6,20 @@ import { useCallback, useEffect, useState } from 'react'
 // with a hospital admission, not someone inspecting a pipeline. So the activity
 // panel starts hidden. It is a developer tool, and a live feed of extraction
 // steps is noise to a user and reassurance only to us.
+//
+// Nothing about a policy is stored here. A reload starts over, which is the
+// honest behaviour while there are no accounts: the alternative is leaving
+// someone's insurance document on a device they may have borrowed.
 
 const KEY = 'coverpath.settings'
 
 export const DEFAULTS = {
+  // "system" follows the operating system and changes with it.
+  theme: 'system',
+  // The comfortable size is the default. "large" goes further.
+  textSize: 'default',
   // Developer
   showActivity: false,
-  // Reading comfort
-  largeText: false,
-  // Privacy. Off means the session id is dropped when the tab closes, so a
-  // shared or borrowed device does not hand the next person a policy.
-  rememberSession: true,
 }
 
 function load() {
@@ -31,6 +34,9 @@ function load() {
   }
 }
 
+const prefersDark = () =>
+  window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+
 export function useSettings() {
   const [settings, setSettings] = useState(load)
 
@@ -43,10 +49,28 @@ export function useSettings() {
     }
   }, [settings])
 
-  // Larger type is applied at the root so every rem-based size follows it.
   useEffect(() => {
-    document.documentElement.style.fontSize = settings.largeText ? '18px' : ''
-  }, [settings.largeText])
+    const root = document.documentElement
+
+    const apply = () => {
+      const dark =
+        settings.theme === 'dark' ||
+        (settings.theme === 'system' && prefersDark())
+      root.classList.toggle('theme-dark', dark)
+    }
+    apply()
+
+    if (settings.theme !== 'system') return
+    // Only while following the system: someone who has chosen a theme should
+    // not have it changed under them at sunset.
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    query.addEventListener('change', apply)
+    return () => query.removeEventListener('change', apply)
+  }, [settings.theme])
+
+  useEffect(() => {
+    document.documentElement.dataset.text = settings.textSize
+  }, [settings.textSize])
 
   const set = useCallback((key, value) => {
     setSettings((current) => ({ ...current, [key]: value }))
@@ -55,25 +79,4 @@ export function useSettings() {
   const reset = useCallback(() => setSettings({ ...DEFAULTS }), [])
 
   return { settings, set, reset }
-}
-
-// The session id lives separately from the settings: it is state, not
-// preference, and it must be clearable on its own.
-const SESSION_KEY = 'coverpath.session'
-
-export const rememberedSession = () => {
-  try {
-    return window.localStorage.getItem(SESSION_KEY)
-  } catch {
-    return null
-  }
-}
-
-export const rememberSession = (id) => {
-  try {
-    if (id) window.localStorage.setItem(SESSION_KEY, id)
-    else window.localStorage.removeItem(SESSION_KEY)
-  } catch {
-    // Nothing to do; the session simply will not survive a reload.
-  }
 }

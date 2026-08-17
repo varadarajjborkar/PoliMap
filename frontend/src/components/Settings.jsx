@@ -58,70 +58,72 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
         className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl"
       >
         <header className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-[15px] font-semibold tracking-tight">Settings</h2>
+          <h2 className="text-[0.9375rem] font-semibold tracking-tight">Settings</h2>
           <button
             onClick={onClose}
             aria-label="Close settings"
-            className="rounded-lg px-2 py-1 text-[13px] text-muted hover:bg-canvas hover:text-ink"
+            className="rounded-lg px-2 py-1 text-[0.8125rem] text-muted hover:bg-canvas hover:text-ink"
           >
             Close
           </button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-2">
-          <Section title="Reading">
-            <Toggle
-              label="Larger text"
-              hint="Increases the type size across the whole app."
-              checked={settings.largeText}
-              onChange={(v) => set('largeText', v)}
+          <Section title="Appearance">
+            <Choice
+              label="Theme"
+              hint="System follows your phone or computer."
+              value={settings.theme}
+              onChange={(v) => set('theme', v)}
+              options={[
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: 'System' },
+              ]}
+            />
+            <Choice
+              label="Text size"
+              hint="Larger type throughout, for reading on a phone in a hurry."
+              value={settings.textSize}
+              onChange={(v) => set('textSize', v)}
+              options={[
+                { value: 'default', label: 'Default' },
+                { value: 'large', label: 'Large' },
+              ]}
             />
           </Section>
 
-          <Section title="Privacy">
-            <Toggle
-              label="Stay signed in to this session"
-              hint="Keeps your policy on this device so a reload does not lose it. Turn off on a shared or borrowed phone."
-              checked={settings.rememberSession}
-              onChange={(v) => set('rememberSession', v)}
-            />
-
-            {sessionId && (
-              <div className="border-t border-line pt-3">
-                <p className="text-[12px] leading-relaxed text-muted">
-                  Your policy, the hospitals found for you and any pages read
-                  from your document are held against this session and removed
-                  when you forget it.
-                </p>
-                <p className="mt-1.5 font-mono text-[11px] text-muted">
-                  {sessionId}
-                </p>
-                {confirmForget ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => {
-                        setConfirmForget(false)
-                        onForget()
-                      }}
-                    >
-                      Yes, forget everything
-                    </Button>
-                    <Button variant="secondary" onClick={() => setConfirmForget(false)}>
-                      Keep it
-                    </Button>
-                  </div>
-                ) : (
+          {sessionId && (
+            <Section title="This session">
+              <p className="pt-1 text-[0.75rem] leading-relaxed text-muted">
+                Your policy and the hospitals found for you are held only while
+                this tab is open. Reloading the page starts over.
+              </p>
+              {confirmForget ? (
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
-                    variant="secondary"
-                    className="mt-3"
-                    onClick={() => setConfirmForget(true)}
+                    onClick={() => {
+                      setConfirmForget(false)
+                      onForget()
+                    }}
                   >
-                    Forget this session and start over
+                    Yes, clear it
                   </Button>
-                )}
-              </div>
-            )}
-          </Section>
+                  <Button variant="secondary" onClick={() => setConfirmForget(false)}>
+                    Keep it
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="secondary"
+                  className="mt-3"
+                  onClick={() => setConfirmForget(true)}
+                >
+                  Clear and start over
+                </Button>
+              )}
+            </Section>
+          )}
 
           <Section
             title="Developer"
@@ -134,7 +136,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
               onChange={(v) => set('showActivity', v)}
             />
 
-            <div className="border-t border-line pt-3 text-[12px]">
+            <div className="border-t border-line pt-3 text-[0.75rem]">
               <Row label="API">
                 {health ? (
                   <Badge tone="good">reachable</Badge>
@@ -172,19 +174,19 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
 
             {providers && (
               <div className="border-t border-line pt-3">
-                <p className="text-[12px] font-medium text-muted">Models in use</p>
+                <p className="text-[0.75rem] font-medium text-muted">Models in use</p>
                 {providers.llm_available ? (
                   <div className="mt-1.5 space-y-1">
                     {Object.entries(providers.roles ?? {}).map(([role, model]) => (
                       <Row key={role} label={ROLE_LABELS[role] ?? role.replace(/_/g, ' ')}>
-                        <span className="font-mono text-[11px] text-muted">
+                        <span className="font-mono text-[0.6875rem] text-muted">
                           {model || 'unavailable'}
                         </span>
                       </Row>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+                  <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
                     No language model is reachable. The app is running on its
                     rule-based extractor alone, which is a supported mode and
                     not an error.
@@ -205,13 +207,49 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
   )
 }
 
+// A segmented control rather than a dropdown: the options are few, and seeing
+// all of them at once beats opening a menu to find out what they are.
+function Choice({ label, hint, value, onChange, options }) {
+  return (
+    <div className="py-3">
+      <span className="block text-[0.8125rem] font-medium">{label}</span>
+      {hint && (
+        <span className="mt-0.5 block text-[0.75rem] leading-relaxed text-muted">
+          {hint}
+        </span>
+      )}
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className="mt-2 flex gap-1 rounded-lg bg-canvas p-1"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            role="radio"
+            aria-checked={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-[0.75rem] font-medium transition ${
+              value === option.value
+                ? 'bg-surface text-ink shadow-sm'
+                : 'text-muted hover:text-ink'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Section({ title, note, children }) {
   return (
     <section className="border-b border-line py-3 last:border-0">
-      <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted">
+      <h3 className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
         {title}
       </h3>
-      {note && <p className="mt-1 text-[12px] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-1 text-[0.75rem] leading-relaxed text-muted">{note}</p>}
       <div className="mt-1">{children}</div>
     </section>
   )
