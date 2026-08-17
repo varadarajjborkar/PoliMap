@@ -13,13 +13,18 @@ deterministic code the grammar rules use. So the model contributes recall and
 localisation; arithmetic and interpretation stay in Python where they can be
 tested.
 
-Extraction runs per page rather than per document. A page-scoped prompt cannot
-attribute a figure from the wording to the schedule, and it keeps each request
-small enough to stay accurate on the free-tier models this runs against.
+Extraction runs per *chunk* rather than per page or per document. A page-scoped
+prompt truncated anything past six thousand characters and asked the model to
+hold a benefit table, an exclusions list and three sub-limits in mind at once,
+which is where recall went. Chunks are cut on the document's own headings (see
+`chunking.py`), so each request covers one subject, carries the heading that
+says whether it is schedule or wording, and stays small enough to be read
+attentively by the free-tier models this runs against.
 """
 
 from __future__ import annotations
 
+import re
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from typing import Any
@@ -34,9 +39,16 @@ from app.core.logging import get_logger
 from app.pipeline.s0_intake.ocr import confidence_of_span
 from app.pipeline.s2_atomize import grounding
 from app.pipeline.s2_atomize import patterns as P
+from app.pipeline.s2_atomize.chunking import Chunk, chunk_page
 from app.schemas.document import Page
 from app.schemas.events import EventStatus, PipelineStage
-from app.schemas.policy import Clause, ClauseKind, Evidence, ExtractorKind
+from app.schemas.policy import (
+    Clause,
+    ClauseKind,
+    DocumentSection,
+    Evidence,
+    ExtractorKind,
+)
 
 log = get_logger(__name__)
 STAGE = PipelineStage.ATOMIZE
@@ -62,6 +74,14 @@ class ModelClause(BaseModel):
     verbatim: str = Field(description="Exact text copied from the document")
     value: str = Field(description="The value, e.g. '500000' or '1' or 'single_private'")
     unit: str = Field(description="One of the allowed units")
+    condition: str = Field(
+        default="",
+        description=(
+            "Any qualifier the document attaches to this term: per day, per eye, "
+            "per policy year, after a waiting period, for insured above a given "
+            "age, on a specific plan. Empty if the term is unconditional."
+        ),
+    )
 
 
 class PageExtraction(BaseModel):
@@ -71,23 +91,28 @@ class PageExtraction(BaseModel):
 SYSTEM = (
     "You read Indian health insurance documents and report the coverage terms "
     "they state. You never infer, estimate, or fill in what a typical policy "
-    "would say. If the page does not state something, you omit it."
+    "would say. If the text does not state something, you omit it. You pay "
+    "particular attention to the words around a number, because a limit and "
+    "the condition attached to it are two different facts and the second is "
+    "the one people miss."
 )
 
-PROMPT_TEMPLATE = """Read this page of an Indian health insurance policy and list every coverage term it states.
+PROMPT_TEMPLATE = """Read this extract from an Indian health insurance policy and list every coverage term it states.
 
 Allowed values for "kind": {kinds}
 Allowed values for "unit": {units}
 
 Rules you must follow:
-- "verbatim" must be copied character-for-character from the page below. Never paraphrase, reword, or reconstruct it. It is checked against the page and discarded if it does not match.
-- Report only what this page actually states. Do not add standard or typical terms.
+- "verbatim" must be copied character-for-character from the extract below. Never paraphrase, reword, or reconstruct it. It is checked against the source and discarded if it does not match.
+- Report only what this extract actually states. Do not add standard or typical terms.
+- "condition" carries the qualifier attached to the figure: per day, per eye, per policy year, subject to a maximum, after a waiting period, for members above a stated age, only on a named plan. A limit reported without its condition is misleading, so look for it deliberately.
+- Where a figure is stated as one thing "subject to a maximum of" another, report both, as separate entries.
 - For a percentage of sum insured, use unit "percent_of_sum_insured" and put just the number in "value" (e.g. "1").
 - For a rupee amount, use unit "rupees" and put digits only in "value" (e.g. "500000").
 - Do not report the premium, GST, or agent code. Those are not coverage terms.
-- If the page states no coverage terms, return an empty list.
+- If the extract states no coverage terms, return an empty list.
 
-PAGE {page_number}:
+{where}
 {page_text}
 """
 
@@ -172,16 +197,61 @@ def _int(raw: str) -> int | None:
 
 
 def extract_page(page: Page, *, session_id: str | None = None) -> list[Clause]:
-    """Ask a model to read one page, then admit only what it can prove."""
+    """Read one page as a single unit. Kept for callers that want no chunking."""
     text = page.text.strip()
     if len(text) < 60:
         return []
+    return _extract_text(
+        text[:MAX_PAGE_CHARS], page,
+        where=f"PAGE {page.page_index + 1}:",
+        label=f"Page {page.page_index + 1}",
+        session_id=session_id,
+    )
 
+
+def extract_chunk(chunk: Chunk, page: Page, *, session_id: str | None = None) -> list[Clause]:
+    """Read one chunk of a page, told where in the document it sits.
+
+    The heading goes into the prompt with the text. Whether a figure came from
+    the schedule or from the wording decides which one wins when they disagree,
+    and on a real document the heading is the only thing that says which.
+    """
+    if chunk.char_count < 60:
+        return []
+
+    where = f"EXTRACT FROM PAGE {chunk.page_index + 1}"
+    if chunk.heading:
+        where += f", UNDER THE HEADING: {chunk.heading}"
+    if chunk.contains_table:
+        where += (
+            "\nThis extract contains a table. A row's meaning depends on its "
+            "column heading, so read the headings before the rows."
+        )
+
+    return _extract_text(
+        chunk.text[:MAX_PAGE_CHARS], page,
+        where=where + ":",
+        label=chunk.describe(),
+        session_id=session_id,
+        section=chunk.section,
+    )
+
+
+def _extract_text(
+    text: str,
+    page: Page,
+    *,
+    where: str,
+    label: str,
+    session_id: str | None,
+    section: DocumentSection | None = None,
+) -> list[Clause]:
+    """Ask a model to read some text, then admit only what it can prove."""
     prompt = PROMPT_TEMPLATE.format(
         kinds=", ".join(EXTRACTABLE_KINDS),
         units=", ".join(UNITS),
-        page_number=page.page_index + 1,
-        page_text=text[:MAX_PAGE_CHARS],
+        where=where,
+        page_text=text,
     )
 
     try:
@@ -207,6 +277,9 @@ def extract_page(page: Page, *, session_id: str | None = None) -> list[Clause]:
             rejected += 1
             continue
 
+        # Grounded against the whole page, not the chunk. A model quoting one
+        # word past a chunk boundary is still quoting the document, and
+        # rejecting that would punish the split rather than the model.
         result = grounding.check(candidate.verbatim, page.text)
         if not result.grounded:
             # The defining guarantee: unprovable text never enters the ledger.
@@ -230,10 +303,14 @@ def extract_page(page: Page, *, session_id: str | None = None) -> list[Clause]:
                 evidence=Evidence(
                     page_index=page.page_index,
                     bbox=page.bbox_for_span(verbatim),
-                    section=page.section,
+                    section=section or page.section,
                     ocr_confidence=confidence_of_span(page.words, verbatim),
                 ),
                 params=params,
+                # The qualifier attached to the figure. A sub-limit reported
+                # without its "per eye" or "per policy year" is a different,
+                # and more generous, term than the one the document states.
+                notes=candidate.condition.strip()[:200],
                 # Capped below the grammar rules' ceiling: a model finding is a
                 # lead to be verified, not a settled fact.
                 confidence=round(0.70 * result.score, 3),
@@ -244,8 +321,8 @@ def extract_page(page: Page, *, session_id: str | None = None) -> list[Clause]:
     bus.publish(
         STAGE, "model_extract", session_id=session_id,
         summary=(
-            f"Page {page.page_index + 1}: model proposed {len(extraction.clauses)}, "
-            f"{len(admitted)} backed by the page, {rejected} discarded"
+            f"{label}: model proposed {len(extraction.clauses)}, "
+            f"{len(admitted)} backed by the document, {rejected} discarded"
         ),
         page=page.page_index,
         proposed=len(extraction.clauses),
@@ -255,17 +332,73 @@ def extract_page(page: Page, *, session_id: str | None = None) -> list[Clause]:
     return admitted
 
 
-def extract_pages(pages: list[Page], *, session_id: str | None = None) -> list[Clause]:
-    """Extract across pages concurrently.
+MAX_CHUNKS = 90
+"""Ceiling on model calls for one document. A hundred-page wording would
+otherwise cost a hundred requests and several minutes, and the terms that
+matter are not evenly spread through it. Beyond this the chunks carrying the
+most figures are read and the rest are left to the grammar rules, which is
+stated in the activity log rather than done quietly."""
 
-    Cloud calls take tens of seconds each on the free tier, so pages are read in
-    parallel; a five-page document would otherwise take minutes.
+
+def _priority(chunk: Chunk) -> tuple[int, int]:
+    """Which chunks to read first when a document is too long to read whole.
+
+    Ordered by what the section is worth, then by how many figures it carries.
+    A schedule holds this policyholder's actual numbers and is worth reading
+    before a definitions page that holds none.
+    """
+    figures = len(re.findall(r"(?:₹|Rs\.?|INR)\s*[\d,]+|\d+(?:\.\d+)?\s*%", chunk.text))
+    return (-chunk.section.precedence, -figures)
+
+
+def extract_pages(pages: list[Page], *, session_id: str | None = None) -> list[Clause]:
+    """Chunk every page, then read each chunk on its own, concurrently.
+
+    Reading a whole page in one request truncated anything past six thousand
+    characters and asked the model to hold a benefit table, an exclusions list
+    and three sub-limits in mind at once. Chunking costs more requests and
+    finds considerably more, which is the right trade for the one step that
+    everything downstream depends on.
+
+    Cloud calls take tens of seconds each on the free tier, so chunks are read
+    in parallel; a forty-page wording would otherwise take an hour.
     """
     if not pages:
         return []
-    if len(pages) == 1:
-        return extract_page(pages[0], session_id=session_id)
 
-    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(pages))) as pool:
-        results = pool.map(lambda p: extract_page(p, session_id=session_id), pages)
-    return [clause for page_clauses in results for clause in page_clauses]
+    by_page = {page.page_index: page for page in pages}
+    chunks = [chunk for page in pages for chunk in chunk_page(page)]
+    if not chunks:
+        return []
+
+    selected = chunks
+    if len(chunks) > MAX_CHUNKS:
+        selected = sorted(chunks, key=_priority)[:MAX_CHUNKS]
+        bus.publish(
+            STAGE, "chunk_document", status=EventStatus.WARN, session_id=session_id,
+            summary=(
+                f"This document splits into {len(chunks)} sections, more than "
+                f"we read in one pass. Reading the {MAX_CHUNKS} most likely to "
+                f"carry your cover terms."
+            ),
+            chunks=len(chunks), read=MAX_CHUNKS,
+        )
+    else:
+        bus.publish(
+            STAGE, "chunk_document", session_id=session_id,
+            summary=(
+                f"Split into {len(chunks)} section"
+                f"{'s' if len(chunks) != 1 else ''} to read one at a time"
+            ),
+            chunks=len(chunks),
+        )
+
+    def read(chunk: Chunk) -> list[Clause]:
+        page = by_page.get(chunk.page_index)
+        if page is None:
+            return []
+        return extract_chunk(chunk, page, session_id=session_id)
+
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(selected))) as pool:
+        results = pool.map(read, selected)
+    return [clause for chunk_clauses in results for clause in chunk_clauses]
