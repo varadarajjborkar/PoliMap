@@ -22,6 +22,7 @@ from app.schemas.hospital import Accreditation, Hospital, HospitalType, Insurer
 from app.schemas.money import format_inr
 from app.schemas.policy import RoomCategory
 from app.schemas.procedure import Procedure
+from datagen.build_policies import build_policy_corpus
 from datagen.geo import CITIES
 from datagen.hospitals import build_hospitals
 from datagen.insurers import build_insurers
@@ -178,6 +179,39 @@ def report(
     return "\n".join(lines)
 
 
+def _policy_report(manifest: dict[str, Any]) -> str:
+    lines: list[str] = []
+    add = lines.append
+    policies = manifest["policies"]
+
+    add("-- policy corpus " + "-" * 50)
+    add(f"  {manifest['policy_count']} policies, "
+        f"{manifest['document_count']} documents")
+
+    by_condition = Counter(
+        d["condition"] for p in policies for d in p["documents"]
+    )
+    add("  document conditions:")
+    for condition, count in by_condition.most_common():
+        add(f"    {condition:<16} {count:>3}")
+
+    scanned = sum(
+        1 for p in policies for d in p["documents"] if not d["has_text_layer"]
+    )
+    add(f"  without a text layer: {scanned} "
+        f"({scanned / manifest['document_count']:.0%}) — OCR required")
+
+    add("  variation exercised:")
+    add(f"    room limit phrasings : {dict(Counter(p['room_basis'] for p in policies))}")
+    add(f"    amount styles        : {dict(Counter(p['amount_style'] for p in policies))}")
+    add(f"    schedule contradicts wording : "
+        f"{sum(1 for p in policies if p['contradicts_wording'])}")
+    add(f"    top-up plans (deductible)    : "
+        f"{sum(1 for p in policies if p['is_top_up'])}")
+    add("")
+    return "\n".join(lines)
+
+
 def main() -> int:
     procedures = build_procedures()
     insurers = build_insurers()
@@ -186,6 +220,11 @@ def main() -> int:
     problems = validate(procedures, hospitals, insurers)
 
     print(report(procedures, hospitals, insurers))
+
+    print("building policy corpus (rendering and degrading documents)...")
+    manifest = build_policy_corpus()
+    print()
+    print(_policy_report(manifest))
 
     if problems:
         print("-- VALIDATION FAILED " + "-" * 46)
