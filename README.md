@@ -1,4 +1,4 @@
-<img src="docs/images/logo.png" alt="CoverPath" width="88" align="left" hspace="16">
+![CoverPath](docs/images/logo.png)
 
 # CoverPath
 
@@ -6,8 +6,6 @@
 
 Upload your health policy. Find out which hospitals you are covered at, what
 room you are entitled to, and what you would actually pay yourself.
-
-<br clear="left">
 
 Built for *Precision Care Challenge 2026: "Hospitality: Holistic Optimization
 System for Policy-Integrated Admission & Treatment Intelligence."*
@@ -355,7 +353,7 @@ or a deprecated model degrades gracefully instead of breaking.
 
 It works on a phone, which is where a hospital corridor tends to put you:
 
-<img src="docs/images/08-mobile.png" alt="On a phone" width="300">
+![On a phone](docs/images/08-mobile.png)
 
 ---
 
