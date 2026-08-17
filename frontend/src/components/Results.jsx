@@ -121,9 +121,16 @@ export function Results({ results, onStartJourney, starting }) {
       <Card>
         <div className="px-5 py-4">
           <p className="text-[0.875rem] font-medium">{results.message}</p>
-          <p className="mt-1 text-[0.75rem] text-muted">
-            We looked at {results.considered.toLocaleString('en-IN')} hospitals.
+          <p className="mt-1 text-[0.8125rem] text-muted">
+            We looked at{' '}
+            {(results.considered_in_city || results.considered).toLocaleString('en-IN')}
+            {' '}hospitals{results.city ? ` in ${results.city}` : ''}.
           </p>
+          {results.one_thing_to_change && (
+            <p className="mt-1 text-[0.8125rem] text-muted">
+              {results.one_thing_to_change}
+            </p>
+          )}
 
           {results.relaxations?.length > 0 && (
             <div className="mt-3 space-y-2 rounded-lg border border-warn/25 bg-warn-soft p-3">
@@ -139,6 +146,9 @@ export function Results({ results, onStartJourney, starting }) {
             </div>
           )}
 
+          {/* Kept, but folded away. The counts are how the system explains
+              itself when challenged, not something to put in front of someone
+              who only wants to know where to go. */}
           {results.exclusions?.length > 0 && (
             <details className="mt-3">
               <summary className="cursor-pointer text-[0.75rem] text-muted">

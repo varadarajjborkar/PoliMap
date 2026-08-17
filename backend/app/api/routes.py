@@ -498,15 +498,63 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
     return _search_payload(result)
 
 
+_MORE_OPTIONS_ADVICE: dict[str, str] = {
+    "too_far": "Widening your search area would bring in the most hospitals.",
+    "procedure_unavailable": (
+        "Most hospitals nearby do not perform this treatment. A wider search "
+        "area is the thing most likely to help."
+    ),
+    "specialty_unavailable": (
+        "This speciality is thinly covered near you. Try a wider search area."
+    ),
+    "not_cashless": (
+        "Most hospitals nearby are outside your cashless network. Including "
+        "them would mean paying upfront and claiming it back."
+    ),
+    "no_bed_available": (
+        "Beds are the constraint right now rather than cover. It is worth "
+        "calling the hospitals below before travelling."
+    ),
+    "no_eligible_room": (
+        "Your room entitlement is ruling out most hospitals nearby. Accepting "
+        "a higher room category would open more up, at a cost."
+    ),
+}
+
+
+def _one_thing_to_change(result) -> str:
+    """The single change that would show the user more options.
+
+    This replaced a breakdown of every exclusion cause with its count. Nobody
+    needs to be told that 341 hospitals were too far away; it is engineering
+    pride rendered as a widget. What a family in a corridor can act on is one
+    sentence naming the constraint that is actually binding.
+    """
+    summary = result.exclusion_summary()
+    if not summary:
+        return ""
+    top = max(summary, key=lambda cause: summary[cause])
+    return _MORE_OPTIONS_ADVICE.get(str(top), "")
+
+
 def _search_payload(result) -> dict[str, Any]:
     code = result.context.procedure_code if result.context else None
     procedure = datasets.procedures.get(code) if code else None
     name = procedure.name if procedure else ""
 
+    city = result.context.city if result.context else ""
+    # Scoped to the city actually searched. The corpus spans four cities, so
+    # reporting its full size beside a city-scoped search read as a claim that
+    # Bengaluru alone holds 580 hospitals.
+    in_city = sum(1 for h in datasets.hospitals if h.city == city) if city else 0
+
     return {
         "message": result.message,
         "fully_satisfied": result.is_fully_satisfied,
         "considered": result.considered_count,
+        "considered_in_city": in_city,
+        "city": city,
+        "one_thing_to_change": _one_thing_to_change(result),
         "options": [_option_payload(o, name) for o in result.options],
         "relaxations": [
             {
