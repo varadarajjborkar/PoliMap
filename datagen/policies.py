@@ -95,6 +95,11 @@ def write_amount(value: int, style: str) -> str:
     if style == "symbol":
         return format_inr(value)
     if style == "lakh_decimal":
+        # Only cover amounts get written in lakhs. No real schedule expresses a
+        # daily room rate as "Rs. 0.08 Lakhs", so smaller figures fall back to
+        # the grouped form the same document would use for them.
+        if value < 100000:
+            return f"Rs. {format_inr(value)[1:]}/-"
         return f"Rs. {value / 100000:.2f} Lakhs"
     if style == "words":
         return f"Rupees {_in_words(value)} Only"
