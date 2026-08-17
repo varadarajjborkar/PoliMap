@@ -55,7 +55,7 @@ export function Journey({
               return (
                 <li key={value} className="flex items-center gap-1">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[0.6875rem] ${
+                    className={`rounded-full px-2.5 py-1 text-[0.75rem] ${
                       current
                         ? 'bg-brand text-on-brand font-medium'
                         : done
@@ -66,7 +66,7 @@ export function Journey({
                     {label}
                   </span>
                   {index < STAGES.length - 1 && (
-                    <span className="text-[0.625rem] text-line">→</span>
+                    <span className="text-[0.6875rem] text-line">→</span>
                   )}
                 </li>
               )
@@ -87,7 +87,7 @@ export function Journey({
               <Card key={index} className={`${style.border} ${style.bg}`}>
                 <div className="px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className={`text-[0.875rem] font-semibold ${style.text}`}>
+                    <h3 className={`text-[0.9375rem] font-semibold ${style.text}`}>
                       {alert.title}
                     </h3>
                     {alert.amount_display && (
@@ -96,9 +96,9 @@ export function Journey({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed">{alert.message}</p>
+                  <p className="mt-1.5 text-[0.875rem] leading-relaxed">{alert.message}</p>
                   {alert.action && (
-                    <p className="mt-2 text-[0.8125rem] font-medium leading-relaxed">
+                    <p className="mt-2 text-[0.875rem] font-medium leading-relaxed">
                       → {alert.action}
                     </p>
                   )}
@@ -138,25 +138,25 @@ export function Journey({
           {[...journey.timeline].reverse().map((event) => (
             <li key={event.id} className="px-5 py-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[0.8125rem] font-medium">{event.title}</span>
-                <span className="shrink-0 text-[0.6875rem] text-muted">
+                <span className="text-[0.875rem] font-medium">{event.title}</span>
+                <span className="shrink-0 text-[0.75rem] text-muted">
                   {new Date(event.at).toLocaleString('en-IN', {
                     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                   })}
                 </span>
               </div>
               {event.description && (
-                <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
+                <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
                   {event.description}
                 </p>
               )}
               {event.skipped?.length > 0 && (
-                <p className="mt-1 text-[0.6875rem] text-muted">
+                <p className="mt-1 text-[0.75rem] text-muted">
                   Skipped {listOf(event.skipped)}.
                 </p>
               )}
               {event.reason && (
-                <p className="mt-1 border-l-2 border-line pl-2 text-[0.6875rem] italic leading-relaxed text-muted">
+                <p className="mt-1 border-l-2 border-line pl-2 text-[0.75rem] italic leading-relaxed text-muted">
                   {event.reason}
                 </p>
               )}
@@ -202,8 +202,8 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[0.8125rem] font-medium">{cost.head}</span>
-                    <span className="text-[0.6875rem] text-muted">
+                    <span className="text-[0.875rem] font-medium">{cost.head}</span>
+                    <span className="text-[0.75rem] text-muted">
                       {new Date(cost.at).toLocaleString('en-IN', {
                         day: 'numeric', month: 'short',
                         hour: '2-digit', minute: '2-digit',
@@ -211,21 +211,21 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                     </span>
                   </div>
                   {cost.description && (
-                    <p className="mt-0.5 text-[0.75rem] text-muted">{cost.description}</p>
+                    <p className="mt-0.5 text-[0.8125rem] text-muted">{cost.description}</p>
                   )}
                   {cost.receipt_name && (
                     <a
                       href={api.receiptUrl(sessionId, cost.id)}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-0.5 inline-block max-w-full truncate text-[0.6875rem] text-brand underline"
+                      className="mt-0.5 inline-block max-w-full truncate text-[0.75rem] text-brand underline"
                     >
                       {cost.receipt_name}
                     </a>
                   )}
                 </div>
 
-                <span className="shrink-0 text-[0.8125rem] font-medium tabular-nums">
+                <span className="shrink-0 text-[0.875rem] font-medium tabular-nums">
                   {cost.amount_display}
                 </span>
 
@@ -257,7 +257,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                             setMenuFor(null)
                             setEditing(cost.id)
                           }}
-                          className="block w-full px-3 py-2 text-left text-[0.75rem] hover:bg-canvas"
+                          className="block w-full px-3 py-2 text-left text-[0.8125rem] hover:bg-canvas"
                         >
                           Edit
                         </button>
@@ -268,7 +268,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                             setMenuFor(null)
                             onDeleteCost(cost.id)
                           }}
-                          className="block w-full px-3 py-2 text-left text-[0.75rem] text-danger hover:bg-danger-soft"
+                          className="block w-full px-3 py-2 text-left text-[0.8125rem] text-danger hover:bg-danger-soft"
                         >
                           Delete
                         </button>
@@ -365,14 +365,14 @@ function Position({ position, accrued }) {
   return (
     <Card className="motion-safe:animate-rise">
       <div className="px-5 py-5">
-        <p className="text-[0.8125rem] text-muted">You will pay, so far</p>
+        <p className="text-[0.875rem] text-muted">You will pay, so far</p>
         <p
           key={position.you_pay}
           className="mt-1 rounded text-[2rem] font-semibold leading-tight tabular-nums motion-safe:animate-settle"
         >
           {position.you_pay_display}
         </p>
-        <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+        <p className="mt-1.5 text-[0.875rem] leading-relaxed text-muted">
           The hospital has billed {accrued}. Your insurer covers{' '}
           {position.insurer_pays_display} of that.
         </p>
@@ -382,7 +382,7 @@ function Position({ position, accrued }) {
             <button
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="mt-3 text-[0.8125rem] font-medium text-brand transition hover:underline"
+              className="mt-3 text-[0.875rem] font-medium text-brand transition hover:underline"
             >
               {open ? 'Hide' : 'Show'} where the difference comes from
             </button>
@@ -392,12 +392,12 @@ function Position({ position, accrued }) {
                 {position.steps.map((step, index) => (
                   <li key={index}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[0.8125rem] font-medium">{step.label}</span>
-                      <span className="shrink-0 text-[0.8125rem] tabular-nums text-danger">
+                      <span className="text-[0.875rem] font-medium">{step.label}</span>
+                      <span className="shrink-0 text-[0.875rem] tabular-nums text-danger">
                         &minus;{step.deducted_display}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
+                    <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
                       {step.explanation}
                     </p>
                   </li>
@@ -421,8 +421,8 @@ function BurnDown({ burn, accrued }) {
   return (
     <div className="border-t border-line px-5 py-4">
       <div className="flex items-baseline justify-between">
-        <span className="text-[0.75rem] text-muted">Cover used so far</span>
-        <span className="text-[0.8125rem] font-medium tabular-nums">
+        <span className="text-[0.8125rem] text-muted">Cover used so far</span>
+        <span className="text-[0.875rem] font-medium tabular-nums">
           {accrued} of ₹{burn.sum_insured.toLocaleString('en-IN')}
         </span>
       </div>
@@ -442,7 +442,7 @@ function BurnDown({ burn, accrued }) {
         />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[0.75rem] text-muted">
+      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[0.8125rem] text-muted">
         <span>{burn.remaining_display} left</span>
         {/* The rate excludes one-off charges. A theatre bill on day one is not
             a daily rate, and a family told their cover ends tomorrow when it
@@ -516,7 +516,7 @@ function AdvanceCard({ journey, onAdvance, busy }) {
         </Field>
 
         {chosen?.kind === 'back' && (
-          <p className="text-[0.75rem] leading-relaxed text-muted">
+          <p className="text-[0.8125rem] leading-relaxed text-muted">
             This moves your stay back to {chosen.label.toLowerCase()}. Nothing
             you have recorded is lost.
           </p>
@@ -572,17 +572,17 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
           <h3 id="skip-title" className="text-[0.9375rem] font-semibold">
             Just so you know
           </h3>
-          <p className="mt-2 text-[0.8125rem] leading-relaxed">
+          <p className="mt-2 text-[0.875rem] leading-relaxed">
             Moving straight to <strong>{target.label.toLowerCase()}</strong> passes
             over {listOf(skipped)}.
           </p>
-          <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
+          <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
             That is often exactly right. Plenty of admissions never involve some
             of these. Your estimate stays accurate either way, and you can come
             back to any stage later.
           </p>
 
-          <label className="mt-4 flex items-start gap-2 text-[0.75rem] text-muted">
+          <label className="mt-4 flex items-start gap-2 text-[0.8125rem] text-muted">
             <input
               type="checkbox"
               checked={explain}
@@ -600,7 +600,7 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
               onChange={(event) => setReason(event.target.value)}
               maxLength={600}
               placeholder="For example: admitted through emergency, so there was no time for pre-approval."
-              className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[0.8125rem] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+              className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[0.875rem] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
             />
           )}
         </div>
@@ -701,7 +701,7 @@ function CostCard({ onRecordCost, busy }) {
           />
           {receipt ? (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-[0.75rem]">
+              <span className="min-w-0 flex-1 truncate text-[0.8125rem]">
                 {receipt.name}
               </span>
               <button
@@ -709,7 +709,7 @@ function CostCard({ onRecordCost, busy }) {
                   setReceipt(null)
                   if (fileRef.current) fileRef.current.value = ''
                 }}
-                className="shrink-0 text-[0.6875rem] text-muted underline"
+                className="shrink-0 text-[0.75rem] text-muted underline"
               >
                 remove
               </button>
@@ -717,19 +717,19 @@ function CostCard({ onRecordCost, busy }) {
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-[0.75rem] text-muted transition hover:border-brand/40 hover:text-ink"
+              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
             >
               Attach the bill or receipt (optional)
             </button>
           )}
           {tooLarge && (
-            <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-warn">
+            <p className="mt-1.5 text-[0.75rem] leading-relaxed text-warn">
               {tooLarge}
             </p>
           )}
         </div>
 
-        <label className="flex items-center gap-2 text-[0.75rem] text-muted">
+        <label className="flex items-center gap-2 text-[0.8125rem] text-muted">
           <input
             type="checkbox"
             checked={advanceDay}

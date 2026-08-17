@@ -68,8 +68,14 @@ body {
 /* Height of the sticky header, used by the activity panel to sit under it.
    A variable because the header is sized in rem and therefore moves with the
    text scale; a hardcoded pixel offset would leave a gap at one size and clip
-   at another. */
-:root { --header-h: 6.6rem; }
+   at another.
+
+   It was 6.6rem, which on a 844px phone is an eighth of the screen given over
+   permanently to a logo and a step bar. On the results screen that is a third
+   of a card gone before the user has scrolled. The bar is tighter now and the
+   two rows collapse into one below the small breakpoint. */
+:root { --header-h: 5.6rem; }
+@media (min-width: 640px) { :root { --header-h: 6rem; } }
 
 /* Let the browser render its own form controls and scrollbars to match. */
 html.theme-dark { color-scheme: dark; }

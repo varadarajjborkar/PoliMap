@@ -108,25 +108,25 @@ export function Results({ results, onStartJourney, starting }) {
     <div className="space-y-4">
       <Card>
         <div className="px-5 py-4">
-          <p className="text-[0.875rem] font-medium">{results.message}</p>
-          <p className="mt-1 text-[0.8125rem] text-muted">
+          <p className="text-[0.9375rem] font-medium">{results.message}</p>
+          <p className="mt-1 text-[0.875rem] text-muted">
             We looked at{' '}
             {(results.considered_in_city || results.considered).toLocaleString('en-IN')}
             {' '}hospitals{results.city ? ` in ${results.city}` : ''}.
           </p>
           {results.one_thing_to_change && (
-            <p className="mt-1 text-[0.8125rem] text-muted">
+            <p className="mt-1 text-[0.875rem] text-muted">
               {results.one_thing_to_change}
             </p>
           )}
 
           {results.relaxations?.length > 0 && (
             <div className="mt-3 space-y-2 rounded-lg border border-warn/25 bg-warn-soft p-3">
-              <p className="text-[0.75rem] font-semibold text-warn">
+              <p className="text-[0.8125rem] font-semibold text-warn">
                 To find these, we had to relax what you asked for
               </p>
               {results.relaxations.map((relaxation) => (
-                <div key={relaxation.kind} className="text-[0.75rem] leading-relaxed text-warn">
+                <div key={relaxation.kind} className="text-[0.8125rem] leading-relaxed text-warn">
                   <span className="font-medium">{relaxation.description}</span>{' '}
                   {relaxation.consequence}
                 </div>
@@ -139,10 +139,10 @@ export function Results({ results, onStartJourney, starting }) {
               who only wants to know where to go. */}
           {results.exclusions?.length > 0 && (
             <details className="mt-3">
-              <summary className="cursor-pointer text-[0.75rem] text-muted">
+              <summary className="cursor-pointer text-[0.8125rem] text-muted">
                 Why other hospitals were left out
               </summary>
-              <ul className="mt-2 space-y-1 text-[0.75rem] text-muted">
+              <ul className="mt-2 space-y-1 text-[0.8125rem] text-muted">
                 {results.exclusions.map((exclusion) => (
                   <li key={exclusion.reason} className="flex justify-between">
                     <span>{exclusion.reason.replace(/_/g, ' ')}</span>
@@ -167,7 +167,7 @@ export function Results({ results, onStartJourney, starting }) {
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[0.8125rem] text-muted"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[0.875rem] text-muted"
           >
             &#9906;
           </span>
@@ -175,7 +175,7 @@ export function Results({ results, onStartJourney, starting }) {
       )}
 
       {query && (
-        <p className="text-[0.75rem] text-muted">
+        <p className="text-[0.8125rem] text-muted">
           {shown.length === 0
             ? `No hospital here matches "${query}".`
             : `${shown.length} of ${results.options.length} match "${query}".`}
@@ -208,7 +208,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[0.6875rem] font-semibold text-muted">#{option.rank}</span>
+            <span className="text-[0.75rem] font-semibold text-muted">#{option.rank}</span>
             <h3 className="text-[1rem] font-semibold tracking-tight">
               {option.hospital.name}
             </h3>
@@ -216,14 +216,14 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
               <Badge tone="good">Strong option</Badge>
             )}
           </div>
-          <p className="mt-1 text-[0.75rem] text-muted">
+          <p className="mt-1 text-[0.8125rem] text-muted">
             {option.hospital.locality} · {option.distance_km} km ·{' '}
             about {option.travel_minutes} min · {option.hospital.accreditation}
           </p>
         </div>
 
         <div className="text-right">
-          <div className="text-[0.75rem] text-muted">You would pay</div>
+          <div className="text-[0.8125rem] text-muted">You would pay</div>
           <div className="text-[1.5rem] font-semibold tabular-nums">
             {option.you_pay_display}
           </div>
@@ -231,13 +231,13 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
               range. A family braces against a specific thing going wrong, and
               a bare pair of numbers invites the reader to average them. */}
           {option.band && option.band.high > option.band.expected && (
-            <div className="mt-0.5 text-[0.75rem] leading-snug text-muted">
+            <div className="mt-0.5 text-[0.8125rem] leading-snug text-muted">
               up to{' '}
               <span className="tabular-nums font-medium">
                 {option.band.high_display}
               </span>
               {option.band.high_driver && (
-                <span className="block max-w-[13rem] text-[0.6875rem] leading-snug">
+                <span className="block max-w-[13rem] text-[0.75rem] leading-snug">
                   with {option.band.high_driver}
                 </span>
               )}
@@ -257,7 +257,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
       </div>
 
       <div className="space-y-2.5 px-5 py-4">
-        <div className="text-[0.75rem]">
+        <div className="text-[0.8125rem]">
           <span className="text-muted">Room: </span>
           <span className="font-medium">
             {option.room.label} at {option.room.per_day_display} a day
@@ -265,18 +265,18 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
         </div>
 
         {option.reasons.map((reason) => (
-          <p key={reason} className="text-[0.8125rem] leading-relaxed">
+          <p key={reason} className="text-[0.875rem] leading-relaxed">
             <span className="text-brand">✓</span> {reason}
           </p>
         ))}
         {option.tradeoffs.map((tradeoff) => (
-          <p key={tradeoff} className="text-[0.8125rem] leading-relaxed text-muted">
+          <p key={tradeoff} className="text-[0.875rem] leading-relaxed text-muted">
             <span>−</span> {tradeoff}
           </p>
         ))}
 
         {option.counterfactual && (
-          <p className="rounded-lg bg-brand-soft px-3 py-2 text-[0.8125rem] leading-relaxed text-brand">
+          <p className="rounded-lg bg-brand-soft px-3 py-2 text-[0.875rem] leading-relaxed text-brand">
             {option.counterfactual}
           </p>
         )}
@@ -284,7 +284,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
         {option.warnings?.map((warning) => (
           <p
             key={warning}
-            className="rounded-lg bg-warn-soft px-3 py-2 text-[0.75rem] leading-relaxed text-warn"
+            className="rounded-lg bg-warn-soft px-3 py-2 text-[0.8125rem] leading-relaxed text-warn"
           >
             {warning}
           </p>
@@ -308,7 +308,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
 function Stat({ label, value, tone = 'neutral' }) {
   return (
     <div className="bg-surface px-5 py-3">
-      <div className="text-[0.6875rem] text-muted">{label}</div>
+      <div className="text-[0.75rem] text-muted">{label}</div>
       <div
         className={`mt-0.5 text-[0.9375rem] font-semibold tabular-nums ${
           tone === 'warn' ? 'text-warn' : ''
@@ -327,7 +327,7 @@ function Waterfall({ option }) {
 
   return (
     <div className="border-t border-line bg-canvas px-5 py-4">
-      <h4 className="text-[0.75rem] font-semibold">
+      <h4 className="text-[0.8125rem] font-semibold">
         From the hospital bill to what you pay
       </h4>
 
@@ -347,7 +347,7 @@ function Waterfall({ option }) {
               width={bill > 0 ? (step.payable_after / bill) * 100 : 0}
               tone="deduct"
             />
-            <p className="mt-1 pl-1 text-[0.6875rem] leading-relaxed text-muted">
+            <p className="mt-1 pl-1 text-[0.75rem] leading-relaxed text-muted">
               {step.explanation}
               {step.heads?.length > 0 && (
                 <span className="text-muted"> ({step.heads.join(', ')})</span>
@@ -365,15 +365,15 @@ function Waterfall({ option }) {
       </div>
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-[0.75rem] text-muted">
+        <summary className="cursor-pointer text-[0.8125rem] text-muted">
           The hospital bill, item by item
         </summary>
         <ul className="mt-2 space-y-1">
           {option.bill_lines.map((line, index) => (
-            <li key={index} className="flex justify-between gap-4 text-[0.75rem]">
+            <li key={index} className="flex justify-between gap-4 text-[0.8125rem]">
               <span className="text-muted">
                 {line.label}
-                {line.note && <span className="text-[0.625rem]"> ({line.note})</span>}
+                {line.note && <span className="text-[0.6875rem]"> ({line.note})</span>}
               </span>
               <span className="shrink-0 tabular-nums">{line.amount_display}</span>
             </li>
@@ -393,7 +393,7 @@ function Row({ label, amount, width, tone }) {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-4 text-[0.75rem]">
+      <div className="flex items-baseline justify-between gap-4 text-[0.8125rem]">
         <span className={tone === 'base' || tone === 'final' ? 'font-medium' : ''}>
           {label}
         </span>

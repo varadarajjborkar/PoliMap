@@ -122,7 +122,7 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
         onFocus={() => { setQuery(''); setOpen(true) }}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onKeyDown={onKeyDown}
-        className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[0.875rem] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+        className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[0.9375rem] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
       />
 
       {open && (
@@ -132,7 +132,7 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
           className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-surface shadow-lg motion-safe:animate-fade"
         >
           {matches.length === 0 && (
-            <li className="px-3 py-3 text-[0.8125rem] leading-relaxed text-muted">
+            <li className="px-3 py-3 text-[0.875rem] leading-relaxed text-muted">
               Nothing matched that. Try a simpler word, like the part of the
               body, or the word on your doctor&apos;s note.
             </li>
@@ -148,10 +148,10 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
                 }`}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[0.875rem]">
+                  <span className="block truncate text-[0.9375rem]">
                     {procedure.name}
                   </span>
-                  <span className="block truncate text-[0.75rem] text-muted">
+                  <span className="block truncate text-[0.8125rem] text-muted">
                     {procedure.specialty_label}
                     {procedure.typical_stay_days
                       ? ` · usually ${procedure.typical_stay_days} day${

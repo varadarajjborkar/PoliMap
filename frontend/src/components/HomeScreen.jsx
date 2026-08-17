@@ -34,7 +34,7 @@ export function SignIn({ onSignIn }) {
           className="space-y-3.5"
         >
           <label className="block">
-            <span className="mb-1.5 block text-[0.875rem] font-medium">
+            <span className="mb-1.5 block text-[0.9375rem] font-medium">
               What should we call you?
             </span>
             <Input
@@ -50,7 +50,7 @@ export function SignIn({ onSignIn }) {
           </Button>
         </form>
 
-        <p className="mt-4 border-t border-line pt-3.5 text-[0.8125rem] leading-relaxed text-muted">
+        <p className="mt-4 border-t border-line pt-3.5 text-[0.875rem] leading-relaxed text-muted">
           There is no password and no account. Nothing you enter is sent
           anywhere to identify you, and a different name on this device opens a
           different, separate set of stays.
@@ -78,7 +78,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
         </div>
         <button
           onClick={onSwitchUser}
-          className="shrink-0 text-[0.8125rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
+          className="shrink-0 text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
         >
           Not you?
         </button>
@@ -90,7 +90,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
 
       {stays.length > 0 && (
         <>
-          <h2 className="mt-9 mb-2.5 text-[0.875rem] font-semibold">
+          <h2 className="mt-9 mb-2.5 text-[0.9375rem] font-semibold">
             Your stays
           </h2>
           <ul className="space-y-2.5">
@@ -108,7 +108,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
                     <span className="block truncate text-[0.9375rem] font-medium">
                       {describeStay(stay)}
                     </span>
-                    <span className="mt-0.5 block truncate text-[0.8125rem] text-muted">
+                    <span className="mt-0.5 block truncate text-[0.875rem] text-muted">
                       {[stay.procedure, stay.stageLabel]
                         .filter(Boolean).join(' · ') || 'Policy read'}
                       {' · '}
@@ -118,7 +118,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
                   <button
                     onClick={() => onDelete(stay)}
                     aria-label={`Delete ${describeStay(stay)}`}
-                    className="shrink-0 rounded-lg px-2.5 py-2 text-[0.75rem] text-muted transition hover:bg-danger-soft hover:text-danger"
+                    className="shrink-0 rounded-lg px-2.5 py-2 text-[0.8125rem] text-muted transition hover:bg-danger-soft hover:text-danger"
                   >
                     Delete
                   </button>
@@ -126,7 +126,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-[0.8125rem] leading-relaxed text-muted">
+          <p className="mt-4 text-[0.875rem] leading-relaxed text-muted">
             These are stored on this device only. Clearing your browser data
             removes them.
           </p>

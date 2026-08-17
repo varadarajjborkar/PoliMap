@@ -60,7 +60,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
           <button
             onClick={onClose}
             aria-label="Close settings"
-            className="rounded-lg px-2 py-1 text-[0.8125rem] text-muted hover:bg-canvas hover:text-ink"
+            className="rounded-lg px-2 py-1 text-[0.875rem] text-muted hover:bg-canvas hover:text-ink"
           >
             Close
           </button>
@@ -93,7 +93,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
 
           {sessionId && (
             <Section title="This session">
-              <p className="pt-1 text-[0.75rem] leading-relaxed text-muted">
+              <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
                 Your policy and the hospitals found for you are held only while
                 this tab is open. Reloading the page starts over.
               </p>
@@ -134,7 +134,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
               onChange={(v) => set('showActivity', v)}
             />
 
-            <div className="border-t border-line pt-3 text-[0.75rem]">
+            <div className="border-t border-line pt-3 text-[0.8125rem]">
               <Row label="API">
                 {health ? (
                   <Badge tone="good">reachable</Badge>
@@ -172,19 +172,19 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
 
             {providers && (
               <div className="border-t border-line pt-3">
-                <p className="text-[0.75rem] font-medium text-muted">Models in use</p>
+                <p className="text-[0.8125rem] font-medium text-muted">Models in use</p>
                 {providers.llm_available ? (
                   <div className="mt-1.5 space-y-1">
                     {Object.entries(providers.roles ?? {}).map(([role, model]) => (
                       <Row key={role} label={ROLE_LABELS[role] ?? role.replace(/_/g, ' ')}>
-                        <span className="font-mono text-[0.6875rem] text-muted">
+                        <span className="font-mono text-[0.75rem] text-muted">
                           {model || 'unavailable'}
                         </span>
                       </Row>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
                     No language model is reachable. The app is running on its
                     rule-based extractor alone, which is a supported mode and
                     not an error.
@@ -210,9 +210,9 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
 function Choice({ label, hint, value, onChange, options }) {
   return (
     <div className="py-3">
-      <span className="block text-[0.8125rem] font-medium">{label}</span>
+      <span className="block text-[0.875rem] font-medium">{label}</span>
       {hint && (
-        <span className="mt-0.5 block text-[0.75rem] leading-relaxed text-muted">
+        <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted">
           {hint}
         </span>
       )}
@@ -227,7 +227,7 @@ function Choice({ label, hint, value, onChange, options }) {
             role="radio"
             aria-checked={value === option.value}
             onClick={() => onChange(option.value)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-[0.75rem] font-medium transition ${
+            className={`flex-1 rounded-md px-3 py-1.5 text-[0.8125rem] font-medium transition ${
               value === option.value
                 ? 'bg-surface text-ink shadow-sm'
                 : 'text-muted hover:text-ink'
@@ -244,10 +244,10 @@ function Choice({ label, hint, value, onChange, options }) {
 function Section({ title, note, children }) {
   return (
     <section className="border-b border-line py-3 last:border-0">
-      <h3 className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
+      <h3 className="text-[0.8125rem] font-semibold uppercase tracking-wide text-muted">
         {title}
       </h3>
-      {note && <p className="mt-1 text-[0.75rem] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">{note}</p>}
       <div className="mt-1">{children}</div>
     </section>
   )

@@ -47,7 +47,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
         <h1 className="text-[1.625rem] font-semibold tracking-tight">
           Find out what your hospital stay will really cost
         </h1>
-        <p className="mx-auto mt-2 max-w-lg text-[0.875rem] leading-relaxed text-muted">
+        <p className="mx-auto mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-muted">
           Upload your health insurance policy and we will show you which
           hospitals you are covered at, what room you are entitled to, and what
           you would pay yourself.
@@ -65,7 +65,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
             <button
               key={value}
               onClick={() => setMode(value)}
-              className={`flex-1 px-4 py-3 text-[0.8125rem] font-medium transition ${
+              className={`flex-1 px-4 py-3 text-[0.875rem] font-medium transition ${
                 mode === value
                   ? 'border-b-2 border-brand text-brand'
                   : 'text-muted hover:text-ink'
@@ -120,17 +120,17 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
                 />
                 {file ? (
                   <>
-                    <p className="text-[0.875rem] font-medium">{file.name}</p>
-                    <p className="mt-1 text-[0.75rem] text-muted">
+                    <p className="text-[0.9375rem] font-medium">{file.name}</p>
+                    <p className="mt-1 text-[0.8125rem] text-muted">
                       {(file.size / 1024 / 1024).toFixed(1)} MB. Click to choose a different file.
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-[0.875rem] font-medium">
+                    <p className="text-[0.9375rem] font-medium">
                       Drop your policy here, or click to choose
                     </p>
-                    <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+                    <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
                       A PDF or a photo both work. A photo of the printed policy
                       taken on your phone is fine; we will read it.
                     </p>

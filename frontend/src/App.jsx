@@ -339,6 +339,8 @@ export default function App() {
     onStartOver: discardStay,
     hasSession: Boolean(sessionId),
     user,
+    onToggleText: () =>
+      set('textSize', settings.textSize === 'large' ? 'default' : 'large'),
   }
 
 
@@ -440,7 +442,7 @@ function StayGone({ onHome, onNew }) {
   return (
     <div className="mx-auto max-w-md px-4 py-20 text-center motion-safe:animate-rise">
       <h2 className="text-lg font-semibold">This stay is not on this device</h2>
-      <p className="mt-2 text-[0.875rem] leading-relaxed text-muted">
+      <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">
         Stays are saved on the device they were created on. If this link came
         from another phone or another browser, the admission it points to is
         still there, not here.
@@ -457,7 +459,7 @@ function BackLink({ onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className="group inline-flex items-center gap-1.5 text-[0.8125rem] text-muted transition hover:text-brand"
+      className="group inline-flex items-center gap-1.5 text-[0.875rem] text-muted transition hover:text-brand"
     >
       <span
         aria-hidden="true"
@@ -472,14 +474,14 @@ function BackLink({ onClick, children }) {
 
 function Shell({
   children, events, connected, settings, onOpenSettings,
-  step, reachable, onGo, onHome, onStartOver, hasSession, user,
+  step, reachable, onGo, onHome, onStartOver, hasSession, user, onToggleText,
 }) {
   const showActivity = settings.showActivity
 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
           <button
             onClick={onHome}
             className="group flex items-center gap-2.5 text-left"
@@ -501,21 +503,38 @@ function Shell({
 
           <div className="flex items-center gap-2">
             {showActivity && events.length > 0 && (
-              <span className="hidden text-[0.6875rem] text-muted sm:inline">
+              <span className="hidden text-[0.75rem] text-muted sm:inline">
                 {events.length} steps
               </span>
             )}
-            <span className="hidden text-[0.8125rem] text-muted sm:inline">{user}</span>
+            <span className="hidden text-[0.875rem] text-muted sm:inline">{user}</span>
             {hasSession && (
-              <Button variant="secondary" onClick={onStartOver}>
+              <Button variant="secondary" onClick={onStartOver} className="px-3 py-1.5">
                 Start over
               </Button>
             )}
             <button
+              onClick={onToggleText}
+              aria-label={
+                settings.textSize === 'large'
+                  ? 'Use the normal text size'
+                  : 'Make the text larger'
+              }
+              title="Text size"
+              aria-pressed={settings.textSize === 'large'}
+              className={`rounded-lg border px-2.5 py-1.5 text-[0.9375rem] font-semibold leading-none transition ${
+                settings.textSize === 'large'
+                  ? 'border-brand bg-brand-soft text-brand'
+                  : 'border-line text-muted hover:bg-canvas hover:text-ink'
+              }`}
+            >
+              A<span className="text-[0.75rem]">A</span>
+            </button>
+            <button
               onClick={onOpenSettings}
               aria-label="Settings"
               title="Settings"
-              className="rounded-lg border border-line px-3 py-2 text-[0.8125rem] text-muted transition hover:bg-canvas hover:text-ink"
+              className="rounded-lg border border-line px-2.5 py-2 text-[0.875rem] text-muted transition hover:bg-canvas hover:text-ink"
             >
               <GearIcon />
             </button>
@@ -567,7 +586,7 @@ function StepNav({ step, onGo, reachable }) {
           disabled={!enabled}
           aria-current={isCurrent ? 'step' : undefined}
           onClick={() => onGo(entry.id)}
-          className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-[0.8125rem] font-medium transition ${
+          className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-1.5 py-2 text-[0.8125rem] font-medium transition sm:px-2 sm:text-[0.875rem] ${
             isCurrent
               ? 'border-brand text-brand'
               : enabled
@@ -576,7 +595,7 @@ function StepNav({ step, onGo, reachable }) {
           }`}
         >
           <span
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.6875rem] transition ${
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.75rem] transition ${
               isCurrent
                 ? 'bg-brand text-on-brand'
                 : isDone
