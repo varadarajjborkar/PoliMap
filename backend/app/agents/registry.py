@@ -60,7 +60,7 @@ class ModelRegistry:
 
     def _build_providers(self) -> list[LLMProvider]:
         """Providers in preference order, honouring an explicit override."""
-        wanted = settings.coverpath_provider
+        wanted = settings.polimap_provider
         providers: list[LLMProvider] = []
 
         if wanted in (Provider.AUTO, Provider.OLLAMA) and settings.has_ollama:

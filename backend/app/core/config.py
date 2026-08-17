@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     )
 
     # --- provider ---
-    coverpath_provider: Provider = Provider.AUTO
+    polimap_provider: Provider = Provider.AUTO
     ollama_api_key: str = ""
     ollama_host: str = "https://ollama.com"
     anthropic_api_key: str = ""
@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     # group, which is what a deployed instance needs. "memory" is faster and is
     # what the tests use, since they want isolation rather than durability.
     session_store: SessionStore = SessionStore.SQLITE
-    session_db_path: Path = DATA_DIR / "coverpath.db"
+    session_db_path: Path = DATA_DIR / "polimap.db"
     session_ttl_minutes: int = Field(default=720, ge=5)
     session_limit: int = Field(default=500, ge=1)
 

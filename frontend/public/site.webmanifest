@@ -1,6 +1,6 @@
 {
-  "name": "CoverPath",
-  "short_name": "CoverPath",
+  "name": "PoliMap",
+  "short_name": "PoliMap",
   "description": "Know what your hospital stay will cost.",
   "start_url": "/",
   "display": "standalone",

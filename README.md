@@ -1,4 +1,4 @@
-# ![](docs/images/logo-inline.png) CoverPath
+# ![](docs/images/logo-inline.png) PoliMap
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
 
@@ -23,7 +23,7 @@ separate places, and the person holding the policy is the patient.
 
 A system that stops at "extract the fields, filter the hospitals, show a list"
 answers *where can I go*. It does not answer **what will this cost me**, which
-is the question that causes the financial stress. CoverPath answers that one, in
+is the question that causes the financial stress. PoliMap answers that one, in
 rupees, with the reasoning shown.
 
 ---
@@ -273,8 +273,8 @@ decides the shape of the deployment.
 
 ```bash
 # API
-docker build -f backend/Dockerfile -t coverpath-api .
-docker run -p 8000:8000 --env-file backend/.env coverpath-api
+docker build -f backend/Dockerfile -t polimap-api .
+docker run -p 8000:8000 --env-file backend/.env polimap-api
 
 # Frontend
 cd frontend && VITE_API_BASE=https://your-api-host npm run build

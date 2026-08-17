@@ -1,4 +1,4 @@
-# Deploying CoverPath
+# Deploying PoliMap
 
 Two pieces, deployed differently, for one reason.
 
@@ -25,8 +25,8 @@ work; the Dockerfile is not specific to any of them.
 ### Build and run locally first
 
 ```bash
-docker build -f backend/Dockerfile -t coverpath-api .
-docker run -p 8000:8000 --env-file backend/.env coverpath-api
+docker build -f backend/Dockerfile -t polimap-api .
+docker run -p 8000:8000 --env-file backend/.env polimap-api
 
 curl localhost:8000/api/health
 ```
@@ -82,7 +82,7 @@ Import the repository, then set:
 - **Root directory**: `frontend`
 - **Framework preset**: Vite (detected)
 - **Environment variable**: `VITE_API_BASE` = your API's origin, for example
-  `https://coverpath-api.onrender.com`, with no trailing slash
+  `https://polimap-api.onrender.com`, with no trailing slash
 
 `frontend/vercel.json` already handles the rest: the SPA rewrite so a deep link
 like `/#/hospitals` resolves, and long cache headers on the hashed assets.
@@ -97,8 +97,8 @@ redeploying, not just restarting.
 The two settings have to name each other:
 
 ```
-API:       CORS_ORIGINS=https://coverpath.vercel.app
-Frontend:  VITE_API_BASE=https://coverpath-api.onrender.com
+API:       CORS_ORIGINS=https://polimap.vercel.app
+Frontend:  VITE_API_BASE=https://polimap-api.onrender.com
 ```
 
 Both must be `https` if the site is. A browser refuses to let an https page call

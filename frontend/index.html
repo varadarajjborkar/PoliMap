@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CoverPath: know what your hospital stay will cost</title>
+    <title>PoliMap: know what your hospital stay will cost</title>
     <meta name="description" content="Insurance-aware hospital decision support for patients and caregivers in India." />
 
     <!-- The mark is transparent, so it sits on whatever the browser or phone
@@ -27,7 +27,7 @@
     <script>
       (function () {
         try {
-          var saved = JSON.parse(localStorage.getItem('coverpath.settings') || '{}')
+          var saved = JSON.parse(localStorage.getItem('polimap.settings') || '{}')
           var theme = saved.theme || 'system'
           var dark =
             theme === 'dark' ||

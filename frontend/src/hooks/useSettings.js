@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 // Also read by the boot script in index.html, which applies the theme before
 // the first paint. Change one and change the other.
-const KEY = 'coverpath.settings'
+const KEY = 'polimap.settings'
 
 export const DEFAULTS = {
   // "system" follows the operating system and changes with it.

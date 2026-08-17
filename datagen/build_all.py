@@ -96,7 +96,7 @@ def report(
     add = lines.append
 
     add("=" * 68)
-    add("COVERPATH DATASET")
+    add("POLIMAP DATASET")
     add("=" * 68)
     add(f"procedures : {len(procedures)}")
     add(f"hospitals  : {len(hospitals)}")

@@ -312,7 +312,7 @@ function Shell({
               height="28"
               className="h-7 w-7 shrink-0"
             />
-            <span className="text-[0.9375rem] font-semibold tracking-tight">CoverPath</span>
+            <span className="text-[0.9375rem] font-semibold tracking-tight">PoliMap</span>
             <span className="hidden text-[0.75rem] text-muted lg:inline">
               Know what your hospital stay will cost
             </span>

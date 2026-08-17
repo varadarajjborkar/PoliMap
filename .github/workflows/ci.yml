@@ -106,11 +106,11 @@ jobs:
       # Proves the Dockerfile still builds, which is the thing that actually
       # breaks a deployment. Nothing is pushed anywhere.
       - name: Build the API image
-        run: docker build -f backend/Dockerfile -t coverpath-api .
+        run: docker build -f backend/Dockerfile -t polimap-api .
 
       - name: Check it serves
         run: |
-          docker run -d --name api -p 8000:8000 coverpath-api
+          docker run -d --name api -p 8000:8000 polimap-api
           for i in $(seq 1 30); do
             if curl -fs localhost:8000/api/health; then
               echo "\nAPI is up"

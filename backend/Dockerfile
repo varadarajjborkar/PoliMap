@@ -1,4 +1,4 @@
-# CoverPath API.
+# PoliMap API.
 #
 # The image exists because this service is not a pure Python app: reading a
 # photographed policy needs the Tesseract binary and its English language data,
@@ -6,8 +6,8 @@
 # platforms and is why the API is deployed as a container while the frontend is
 # a static bundle.
 #
-#   docker build -f backend/Dockerfile -t coverpath-api .
-#   docker run -p 8000:8000 --env-file backend/.env coverpath-api
+#   docker build -f backend/Dockerfile -t polimap-api .
+#   docker run -p 8000:8000 --env-file backend/.env polimap-api
 #
 # Build context is the repository root, not backend/, because the image needs
 # datagen/ to produce the hospital corpus at build time.

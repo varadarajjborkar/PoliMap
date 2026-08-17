@@ -34,8 +34,8 @@ async def lifespan(app: FastAPI):
     bus.bind_loop(asyncio.get_running_loop())
 
     log.info(
-        "coverpath starting",
-        provider=settings.coverpath_provider.value,
+        "polimap starting",
+        provider=settings.polimap_provider.value,
         session_store=settings.session_store.value,
     )
 
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_probe_models())
 
     yield
-    log.info("coverpath stopped")
+    log.info("polimap stopped")
 
 
 async def _probe_models() -> None:
@@ -75,7 +75,7 @@ async def _probe_models() -> None:
 
 
 app = FastAPI(
-    title="CoverPath",
+    title="PoliMap",
     description=(
         "Insurance-aware hospital decision support. " + DISCLAIMER
     ),
@@ -99,7 +99,7 @@ app.include_router(router)
 @app.get("/")
 def root() -> JSONResponse:
     return JSONResponse({
-        "name": "CoverPath",
+        "name": "PoliMap",
         "docs": "/docs",
         "health": "/api/health",
         "providers": "/api/health/providers",
