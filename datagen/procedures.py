@@ -24,6 +24,7 @@ from app.schemas.money import round_inr
 from app.schemas.policy import ExpenseHead as H
 from app.schemas.procedure import CostSplit, Procedure
 from app.schemas.procedure import Specialty as S
+from datagen.synonyms import specialty_terms_for, synonyms_for
 
 NABH_PREMIUM = Decimal("1.15")
 
@@ -254,6 +255,8 @@ def build_procedures() -> list[Procedure]:
                     else 0.45 if archetype == "icu_medical"
                     else 0.30
                 ),
+                synonyms=synonyms_for(code),
+                specialty_terms=specialty_terms_for(code),
             )
         )
     return procedures

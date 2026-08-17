@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
+import { TreatmentPicker } from './TreatmentPicker'
 
 // Search controls and ranked results.
 //
@@ -8,15 +9,6 @@ import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } fro
 // number.
 
 export function SearchPanel({ reference, value, onChange, onSearch, busy }) {
-  const grouped = useMemo(() => {
-    const map = new Map()
-    for (const procedure of reference?.procedures ?? []) {
-      if (!map.has(procedure.specialty_label)) map.set(procedure.specialty_label, [])
-      map.get(procedure.specialty_label).push(procedure)
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
-  }, [reference])
-
   const set = (key) => (event) => onChange({ ...value, [key]: event.target.value })
 
   return (
@@ -27,19 +19,15 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy }) {
       />
       <div className="grid gap-4 p-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="Treatment">
-            <Select value={value.procedure_code} onChange={set('procedure_code')}>
-              <option value="">Choose a treatment</option>
-              {grouped.map(([specialty, procedures]) => (
-                <optgroup key={specialty} label={specialty}>
-                  {procedures.map((procedure) => (
-                    <option key={procedure.code} value={procedure.code}>
-                      {procedure.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
+          <Field
+            label="Treatment"
+            hint="Type what you were told. We will match it to the closest treatment we can cost."
+          >
+            <TreatmentPicker
+              procedures={reference?.procedures ?? []}
+              value={value.procedure_code}
+              onChange={(code) => onChange({ ...value, procedure_code: code })}
+            />
           </Field>
         </div>
 

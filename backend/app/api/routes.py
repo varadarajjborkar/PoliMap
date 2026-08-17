@@ -149,6 +149,11 @@ def reference() -> dict[str, Any]:
                     "specialty_label": p.specialty.label,
                     "typical_stay_days": p.typical_los_days,
                     "indicative_cost": float(p.base_rate_non_nabh),
+                    # What people actually type. The picker matches on these as
+                    # well as the clinical name, so "heart blockage" reaches the
+                    # angioplasty entry.
+                    "synonyms": p.synonyms,
+                    "specialty_terms": p.specialty_terms,
                 }
                 for p in procedures.values()
             ),

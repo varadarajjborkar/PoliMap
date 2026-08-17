@@ -121,6 +121,16 @@ class Procedure(BaseModel):
     """Relative spread of stay length, used to build the low/high cost band
     rather than presenting a single falsely precise number."""
 
+    synonyms: list[str] = Field(default_factory=list)
+    """Words that mean *this* treatment: "stent", "piles", "gall bladder". A
+    catalogue of clinical names assumes the person searching already knows the
+    clinical name, and the person searching was handed a chit an hour ago."""
+
+    specialty_terms: list[str] = Field(default_factory=list)
+    """Words that only narrow the field: "heart", "bone", "kidney". Held apart
+    from `synonyms` and ranked lower, because one combined list put "delivery"
+    on every obstetrics row and answered that search with a cystectomy."""
+
     def base_rate(self, *, nabh: bool) -> Decimal:
         return self.base_rate_nabh if nabh else self.base_rate_non_nabh
 
