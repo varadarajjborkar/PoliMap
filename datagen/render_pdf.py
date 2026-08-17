@@ -312,7 +312,12 @@ def _wording_story(bp: PolicyBlueprint) -> list:
     story.append(Paragraph("3. WAITING PERIODS", H2))
     story.append(_grid_table(
         ["Waiting Period", "Applicable To"],
-        [[f"{months} months", applies] for months, applies in bp.waiting_periods],
+        [
+            # One month is the standard 30-day initial waiting period, and is
+            # always written that way on a real schedule.
+            ["30 days" if months == 1 else f"{months} months", applies]
+            for months, applies in bp.waiting_periods
+        ],
         (40 * mm, 134 * mm),
     ))
 

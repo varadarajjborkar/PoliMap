@@ -267,7 +267,10 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
                  rng.choice([150000, 200000, 250000]))
             )
 
-        waiting = [(30, "all illnesses other than accidental injury")]
+        # The initial waiting period is universally 30 days in India, not 30
+        # months. It is carried as one month internally and printed as "30 days",
+        # which is how every real schedule words it.
+        waiting = [(1, "all illnesses other than accidental injury")]
         waiting.append((rng.choice([24, 36, 48]), "pre-existing diseases"))
         if rng.random() < 0.6:
             waiting.append((24, "cataract, hernia, and joint replacement"))
