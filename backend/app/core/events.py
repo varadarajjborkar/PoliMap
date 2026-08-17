@@ -9,6 +9,7 @@ to report progress, so writes are marshalled back onto the main loop.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import threading
 import time
 from collections import deque
@@ -97,11 +98,10 @@ class EventBus:
         subscribers: list[asyncio.Queue[PipelineEvent]], event: PipelineEvent
     ) -> None:
         for q in subscribers:
-            try:
+            # A stalled browser tab must never block the pipeline, so a full
+            # queue drops the event rather than waiting for room.
+            with contextlib.suppress(asyncio.QueueFull):
                 q.put_nowait(event)
-            except asyncio.QueueFull:
-                # A stalled browser tab must never block the pipeline.
-                pass
 
     def publish(
         self,

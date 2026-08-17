@@ -165,7 +165,7 @@ def simulate(
         current = ledger.amounts.get(sublimit.head, ZERO)
         cap = sublimit.resolve(policy.sum_insured, days=max(int(bill.los_days), 1))
         if current > cap:
-            taken = ledger.reduce(sublimit.head, current - cap)
+            ledger.reduce(sublimit.head, current - cap)
             record(
                 DeductionKind.SUBLIMIT,
                 f"Your policy covers {sublimit.head.label.lower()} only up to "
@@ -184,7 +184,9 @@ def simulate(
         nights = Decimal(str(bill.los_days)) - Decimal(str(bill.icu_days))
         nights = max(nights, ZERO)
         excess = (bill.room_rate_per_day - room_cap) * nights
-        taken = ledger.reduce(ExpenseHead.ROOM_RENT, excess)
+        # The return value is deliberately unused: `record` measures each step
+        # from the ledger's own delta, so the waterfall cannot fail to sum.
+        ledger.reduce(ExpenseHead.ROOM_RENT, excess)
         record(
             DeductionKind.ROOM_RENT_CAP,
             f"Your room costs {format_inr(bill.room_rate_per_day)} a day but your "

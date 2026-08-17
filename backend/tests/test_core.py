@@ -11,7 +11,6 @@ from app.core.config import DEFAULT_MODEL_CHAINS, ModelRole, Settings
 from app.core.events import EventBus
 from app.schemas.events import EventStatus, PipelineEvent, PipelineStage
 
-
 # --- config ---------------------------------------------------------------
 
 

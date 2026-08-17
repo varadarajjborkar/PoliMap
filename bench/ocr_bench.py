@@ -31,7 +31,6 @@ import fitz
 
 from app.core.config import GENERATED_DIR
 from app.pipeline.s0_intake import intake
-from app.schemas.document import SourceMode
 from bench import REPORTS_DIR
 from datagen.build_policies import load_manifest
 

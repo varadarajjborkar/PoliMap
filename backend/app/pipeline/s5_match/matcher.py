@@ -38,13 +38,12 @@ from app.schemas.match import (
     ExclusionCause,
     MatchResult,
     Objectives,
-    Preference,
     RankedOption,
     Relaxation,
     RelaxationKind,
 )
 from app.schemas.money import format_inr
-from app.schemas.policy import SELECTABLE_ROOMS, NormalizedPolicy, RoomCategory
+from app.schemas.policy import NormalizedPolicy, RoomCategory
 from app.schemas.procedure import Procedure, Urgency
 from app.schemas.simulation import CostBand, SettlementMode
 
@@ -111,10 +110,13 @@ def _filter_hospitals(
             drop(hospital, ExclusionCause.SPECIALTY_UNAVAILABLE)
             continue
 
-        if filters.require_cashless and context.insurer_id:
-            if not hospital.is_cashless_for(context.insurer_id):
-                drop(hospital, ExclusionCause.NOT_CASHLESS)
-                continue
+        if (
+            filters.require_cashless
+            and context.insurer_id
+            and not hospital.is_cashless_for(context.insurer_id)
+        ):
+            drop(hospital, ExclusionCause.NOT_CASHLESS)
+            continue
 
         rooms = _eligible_rooms(hospital, policy, filters)
         if not rooms:
@@ -153,9 +155,8 @@ def _choose_room(
     deduction. Where nothing fits, the cheapest room is taken and the cost
     engine reports the consequence rather than the matcher hiding it.
     """
-    if context.preferred_room:
-        if hospital.tariff_for(context.preferred_room):
-            return context.preferred_room
+    if context.preferred_room and hospital.tariff_for(context.preferred_room):
+        return context.preferred_room
 
     rooms = _eligible_rooms(hospital, policy, filters)
     available = [r for r in rooms if r.has_availability] or rooms
@@ -554,7 +555,6 @@ def find_options(
 def _result_message(options: list[RankedOption], relaxations: list[Relaxation]) -> str:
     if not options:
         return "We could not find a suitable hospital."
-    best = options[0]
     lead = (
         f"{len(options)} option{'s' if len(options) != 1 else ''} found. "
         f"Your lowest estimated cost is {format_inr(min(o.simulation.out_of_pocket for o in options))}."

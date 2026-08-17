@@ -1,26 +1,60 @@
+# --- python ---
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
 venv/
-.env
-*.egg-info/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
 
+# --- secrets ---
+# Never commit a key. Both files carry one; .env.example is the template.
+.env
+.env.*
+!.env.example
+frontend/.env.local
+frontend/.env.*.local
+
+# --- node ---
 node_modules/
 frontend/dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
 
-# Generated corpus, rebuilt with `python -m datagen.build_all`
+# --- generated corpus ---
+# Rebuilt with `python -m datagen.build_all`, or `--core` for just the data the
+# running app reads. 80 MB of rendered policy documents does not belong in git.
 data/generated/
 data/uploads/
-*.db
-*.sqlite3
 
+# --- runtime state ---
+# Session rows and anything else written while the app runs.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+*.log
+
+# --- benchmark output ---
+# Reports are reproducible from the corpus; the numbers that matter are quoted
+# in the README instead.
 bench/reports/
 
+# --- deployment ---
+.vercel/
+.railway/
+
+# --- editors and os ---
 .DS_Store
 .idea/
 .vscode/
+*.swp
 
-# Playwright / local verification artifacts
+# --- local scratch ---
 /tmp/
+scratch/

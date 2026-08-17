@@ -1,0 +1,48 @@
+# Lint configuration for the whole repository.
+#
+# At the root rather than under backend/ because datagen/ and bench/ are held
+# to the same standard, and a config that only covers one directory means the
+# other two drift until nobody trusts the result.
+
+line-length = 90
+target-version = "py312"
+
+exclude = [
+    ".venv",
+    "data",
+    "frontend",
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import ordering
+    "UP",   # modern syntax for the target version
+    "B",    # likely bugs
+    "SIM",  # simplifications
+]
+ignore = [
+    "E501",  # line length is a formatter's job, not a blocker
+]
+
+[lint.flake8-bugbear]
+# FastAPI declares dependencies as argument defaults by design, so B008 fires
+# on every correct route signature. These are the framework's own markers.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+]
+
+[lint.isort]
+# Without this, `app` and `datagen` are sorted in with third-party packages and
+# the grouping stops telling you anything.
+known-first-party = ["app", "datagen", "bench"]
+
+[lint.per-file-ignores]
+# Tests reach into private helpers deliberately, to assert on behaviour that
+# has no public surface but does have a failure mode worth pinning.
+"backend/tests/*" = ["SLF001"]

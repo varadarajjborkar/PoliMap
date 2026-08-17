@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 
 from app.core.events import bus
 from app.schemas.document import IngestedDocument, Page
-from app.schemas.events import EventStatus, PipelineStage
+from app.schemas.events import PipelineStage
 from app.schemas.policy import DocumentSection
 
 STAGE = PipelineStage.TRIAGE

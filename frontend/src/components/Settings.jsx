@@ -8,6 +8,16 @@ import { Badge, Button, Toggle } from './Primitives'
 // the user. The activity stream belongs to whoever is building or judging this,
 // so it sits under its own heading, off by default, and says what it is.
 
+// Written out rather than derived from the role name, so that "vision_ocr"
+// does not render as "Vision Ocr".
+const ROLE_LABELS = {
+  extract: 'Extract',
+  challenge: 'Challenge',
+  adjudicate: 'Adjudicate',
+  vision_ocr: 'Vision OCR',
+  narrate: 'Narrate',
+}
+
 export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, onForget }) {
   const [health, setHealth] = useState(null)
   const [providers, setProviders] = useState(null)
@@ -166,7 +176,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
                 {providers.llm_available ? (
                   <div className="mt-1.5 space-y-1">
                     {Object.entries(providers.roles ?? {}).map(([role, model]) => (
-                      <Row key={role} label={role.replace(/_/g, ' ')}>
+                      <Row key={role} label={ROLE_LABELS[role] ?? role.replace(/_/g, ' ')}>
                         <span className="font-mono text-[11px] text-muted">
                           {model || 'unavailable'}
                         </span>

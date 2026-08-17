@@ -63,8 +63,8 @@ from app.schemas.simulation import (
     BillLine,
     DeductionKind,
     EstimatedBill,
-    SimulationResult,
     SettlementMode,
+    SimulationResult,
     WaterfallStep,
 )
 

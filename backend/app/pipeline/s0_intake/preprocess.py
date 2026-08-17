@@ -293,10 +293,9 @@ def estimate_dpi(img: np.ndarray) -> int:
     though the source was fine.
     """
     height, width = img.shape[:2]
-    if height >= width:
-        dpi = height / A4_HEIGHT_INCHES
-    else:
-        dpi = width / A4_HEIGHT_INCHES  # Landscape capture of a portrait page.
+    # The long edge, whichever it is: a portrait page photographed in landscape
+    # is still a portrait page.
+    dpi = max(height, width) / A4_HEIGHT_INCHES
     return int(min(max(dpi, DPI_BOUNDS[0]), DPI_BOUNDS[1]))
 
 

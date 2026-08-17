@@ -22,7 +22,8 @@ from decimal import Decimal
 
 from app.schemas.money import round_inr
 from app.schemas.policy import ExpenseHead as H
-from app.schemas.procedure import CostSplit, Procedure, Specialty as S
+from app.schemas.procedure import CostSplit, Procedure
+from app.schemas.procedure import Specialty as S
 
 NABH_PREMIUM = Decimal("1.15")
 

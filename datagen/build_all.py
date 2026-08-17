@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import GENERATED_DIR
-from app.schemas.hospital import Accreditation, Hospital, HospitalType, Insurer
+from app.schemas.hospital import Hospital, HospitalType, Insurer
 from app.schemas.money import format_inr
 from app.schemas.policy import RoomCategory
 from app.schemas.procedure import Procedure

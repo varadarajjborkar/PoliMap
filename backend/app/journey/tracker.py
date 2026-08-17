@@ -130,7 +130,10 @@ def advance(
         summary=f"{previous.label} to {target.label}"
                 + (f", {len(alerts)} thing{'s' if len(alerts) != 1 else ''} to know"
                    if alerts else ""),
-        stage=target.value,
+        # Not `stage=`: the bus already takes that as its first positional
+        # argument, and passing it again raises before the event is ever built.
+        from_stage=previous.value,
+        to_stage=target.value,
         alerts=len(alerts),
         accrued=float(state.accrued_total),
     )

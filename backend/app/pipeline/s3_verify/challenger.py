@@ -23,11 +23,11 @@ from decimal import Decimal, InvalidOperation
 from app.core.logging import get_logger
 from app.pipeline.s2_atomize import patterns as P
 from app.schemas.policy import (
+    REQUIRED_CLAUSE_KINDS,
     Challenge,
     ChallengeKind,
     Clause,
     ClauseKind,
-    REQUIRED_CLAUSE_KINDS,
 )
 
 log = get_logger(__name__)
@@ -122,12 +122,14 @@ def check_plausible(clause: Clause) -> Challenge | None:
         if not (low <= value <= high):
             return objection(f"A cover amount of {value} is not realistic.")
 
-    if clause.kind in (ClauseKind.ROOM_RENT_CAP, ClauseKind.ICU_CAP):
-        if clause.params.get("basis") in ("flat", "pct_with_max"):
-            low, high = ROOM_CAP_RANGE
-            if (amount := _num(clause.params.get("amount_inr"))) is not None:
-                if not (low <= amount <= high):
-                    return objection(f"A daily room limit of {amount} is not realistic.")
+    if (
+        clause.kind in (ClauseKind.ROOM_RENT_CAP, ClauseKind.ICU_CAP)
+        and clause.params.get("basis") in ("flat", "pct_with_max")
+    ):
+        low, high = ROOM_CAP_RANGE
+        amount = _num(clause.params.get("amount_inr"))
+        if amount is not None and not (low <= amount <= high):
+            return objection(f"A daily room limit of {amount} is not realistic.")
 
     if clause.kind is ClauseKind.COPAY and value > MAX_COPAY_PCT:
         return objection(f"A co-payment of {value}% is not realistic.")

@@ -1,0 +1,22 @@
+# The corpus is rebuilt inside the image; shipping the local copy would add
+# 80 MB of policy documents the running service never opens.
+data/
+
+.git/
+.venv/
+venv/
+node_modules/
+frontend/dist/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+bench/reports/
+docs/images/
+
+.env
+*.db
+*.sqlite3
+.DS_Store

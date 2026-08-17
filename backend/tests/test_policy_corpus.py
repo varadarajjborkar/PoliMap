@@ -208,8 +208,8 @@ def test_every_profile_alters_the_page(rendered):
 
 
 def test_degradation_is_deterministic_for_a_seed(rendered, tmp_path):
-    import numpy as np
     import cv2
+    import numpy as np
 
     _, source = rendered
     a = degrade_to_photo(source, PROFILES[2], tmp_path / "a.jpg", seed=5)

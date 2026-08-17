@@ -21,12 +21,12 @@ from decimal import Decimal, InvalidOperation
 
 from app.core.events import bus
 from app.core.logging import get_logger
-from app.schemas.events import EventStatus, PipelineStage
+from app.schemas.events import PipelineStage
 from app.schemas.money import format_inr
 from app.schemas.policy import (
+    ClarificationRequest,
     Clause,
     ClauseKind,
-    ClarificationRequest,
     ClauseStatus,
     Exclusion,
     ExpenseHead,

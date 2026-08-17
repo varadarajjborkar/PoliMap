@@ -21,8 +21,8 @@ from app.api.session import datasets
 from app.core import artifacts
 from app.core.config import settings
 from app.core.events import bus
-from app.core.logging import configure_logging, get_logger
 from app.core.guardrails import DISCLAIMER
+from app.core.logging import configure_logging, get_logger
 
 log = get_logger(__name__)
 

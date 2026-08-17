@@ -1,0 +1,124 @@
+name: CI
+
+# Runs on every push and every pull request. The point is that a change which
+# breaks the money engine, the extractor or the build is caught here rather
+# than the first time someone opens the app.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch cancels the run still in flight. Nobody
+# needs the result for a commit that has already been replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # Reading a photographed policy needs the Tesseract binary. Without the
+      # -eng language pack, recognition returns empty text instead of failing,
+      # which would look like a silent accuracy collapse.
+      - name: Install Tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt ruff
+
+      - name: Lint
+        run: ruff check .
+
+      # Cached on the generator's own source: the corpus is deterministic, so
+      # it only needs rebuilding when the code that produces it changes.
+      - name: Cache generated corpus
+        id: corpus
+        uses: actions/cache@v4
+        with:
+          path: data/generated
+          key: corpus-${{ hashFiles('datagen/**/*.py', 'backend/app/schemas/**/*.py') }}
+
+      - name: Build corpus
+        if: steps.corpus.outputs.cache-hit != 'true'
+        run: python -m datagen.build_all
+
+      # No OLLAMA_API_KEY is set here on purpose. With no model reachable the
+      # app runs its deterministic path, which is a supported mode, and it
+      # means CI never spends money or fails because a provider is down.
+      - name: Test
+        working-directory: backend
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile,
+      # so CI cannot pass on a dependency tree that no one else has.
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  image:
+    name: API image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Only after the code itself is known good. A green image build on top of
+    # failing tests is not worth the minutes.
+    needs: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Proves the Dockerfile still builds, which is the thing that actually
+      # breaks a deployment. Nothing is pushed anywhere.
+      - name: Build the API image
+        run: docker build -f backend/Dockerfile -t coverpath-api .
+
+      - name: Check it serves
+        run: |
+          docker run -d --name api -p 8000:8000 coverpath-api
+          for i in $(seq 1 30); do
+            if curl -fs localhost:8000/api/health; then
+              echo "\nAPI is up"
+              docker rm -f api
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become healthy"
+          docker logs api
+          exit 1

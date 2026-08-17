@@ -9,8 +9,6 @@ wrong filter costs more accuracy than doing nothing at all.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import cv2
 import numpy as np
 import pytest
@@ -18,7 +16,6 @@ import pytest
 from app.pipeline.s0_intake import ocr, preprocess
 from app.schemas.document import IngestedDocument, InputKind, Page, SourceMode, Word
 from app.schemas.policy import BoundingBox
-
 
 # --- helpers --------------------------------------------------------------
 
