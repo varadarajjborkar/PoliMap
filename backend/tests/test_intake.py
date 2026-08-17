@@ -1,4 +1,4 @@
-"""M4 — document intake and the OCR ladder.
+"""M4, document intake and the OCR ladder.
 
 Detector tests use synthetic images with known defects rather than corpus
 documents, so a failure points at one specific piece of logic instead of at

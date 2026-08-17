@@ -3,7 +3,7 @@
 Chains stages 0 through 4: read the document, work out what it is, break it into
 clauses, attack those clauses, and compile what survives into an executable
 policy. One entry point so the API, the benchmarks and the tests all exercise
-the same path — a benchmark that measured a different code path from the one
+the same path: a benchmark that measured a different code path from the one
 users hit would be worse than no benchmark.
 """
 

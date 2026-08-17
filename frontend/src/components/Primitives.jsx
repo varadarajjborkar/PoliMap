@@ -57,6 +57,44 @@ export function Input({ className = '', ...props }) {
   return <input className={`${controlClass} ${className}`} {...props} />
 }
 
+// A switch with its label as part of the hit area. Anything smaller is hard to
+// use one-handed, which is how this app tends to get used.
+export function Toggle({ checked, onChange, label, hint, disabled }) {
+  return (
+    <label
+      className={`flex items-start justify-between gap-4 py-3 ${
+        disabled ? 'opacity-50' : 'cursor-pointer'
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium">{label}</span>
+        {hint && (
+          <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
+            {hint}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${
+          checked ? 'bg-brand' : 'bg-line'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-sm transition-all ${
+            checked ? 'left-[22px]' : 'left-0.5'
+          }`}
+        />
+      </button>
+    </label>
+  )
+}
+
 export function Badge({ tone = 'neutral', children }) {
   const tones = {
     neutral: 'bg-canvas text-muted border-line',
@@ -80,7 +118,7 @@ export function Money({ value, className = '' }) {
 export function Disclaimer({ className = '' }) {
   return (
     <p className={`text-[11px] leading-relaxed text-muted ${className}`}>
-      Estimates are for guidance only — not a quote, not an approval, and not
+      Estimates are for guidance only, not a quote, not an approval, and not
       medical advice. Confirm all amounts with your insurer and the hospital
       insurance desk.
     </p>

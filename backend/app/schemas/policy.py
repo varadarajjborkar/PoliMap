@@ -111,7 +111,7 @@ _ROOM_LINKED_POST_2024: frozenset[ExpenseHead] = frozenset(
     }
 )
 
-# Never reimbursable under any regime — the IRDAI non-payable list.
+# Never reimbursable under any regime: the IRDAI non-payable list.
 _NEVER_PAYABLE: frozenset[ExpenseHead] = frozenset({ExpenseHead.NON_MEDICAL})
 
 
@@ -327,7 +327,7 @@ class Clause(BaseModel):
     clause_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:10])
     kind: ClauseKind
     verbatim: str
-    """Exact source text. Must really occur in the document — enforced by the
+    """Exact source text. Must really occur in the document, enforced by the
     grounding check in the atomize stage, not by asking a model nicely."""
 
     evidence: Evidence
@@ -449,8 +449,8 @@ class RoomLimitBasis(StrEnum):
 class RoomLimit(BaseModel):
     """The room entitlement, however the policy chose to express it.
 
-    Policies mix bases freely — "1% of sum insured per day, subject to a maximum
-    of Rs. 5,000" is two limits at once — so all forms are held together and
+    Policies mix bases freely, "1% of sum insured per day, subject to a maximum
+    of Rs. 5,000" is two limits at once, so all forms are held together and
     resolved to a single effective daily figure.
     """
 
@@ -464,7 +464,7 @@ class RoomLimit(BaseModel):
     def effective_daily_cap(self, sum_insured: Decimal) -> Decimal | None:
         """The binding rupee cap per day, or None when uncapped.
 
-        Where a percentage and a flat maximum both appear, the lower binds —
+        Where a percentage and a flat maximum both appear, the lower binds,
         that is what "subject to a maximum of" means.
         """
         from app.schemas.money import apply_pct

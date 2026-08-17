@@ -13,7 +13,7 @@ That correlation structure is what makes the matching stage interesting. If
 price, quality and network status were independent random draws there would be
 no real trade-offs to reason about, and the ranking engine would have nothing to
 say. Here, the cheap hospital genuinely tends to be the one outside your network
-with no ICU — which is exactly the decision a family actually faces.
+with no ICU, which is exactly the decision a family actually faces.
 
 Generation is seeded, so the corpus is identical on every machine.
 """

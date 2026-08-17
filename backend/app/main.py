@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 
     if not datasets.is_built:
         log.warning(
-            "dataset not built — run `python -m datagen.build_all` from the "
+            "dataset not built, run `python -m datagen.build_all` from the "
             "repository root before using the app"
         )
 
@@ -68,7 +68,7 @@ async def _probe_models() -> None:
             log.info("model role resolved", role=role, model=label)
     else:
         log.warning(
-            "no language model available — running with the rule-based "
+            "no language model available, running with the rule-based "
             "extractor only. Set OLLAMA_API_KEY in backend/.env to enable "
             "model-assisted extraction and verification."
         )

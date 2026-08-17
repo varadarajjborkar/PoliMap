@@ -2,7 +2,7 @@
 
 This provider deliberately serves nothing. Its purpose is to let the application
 boot, run, and be demonstrated with no credentials at all: the pipeline detects
-that no language model is reachable and runs its deterministic path only — the
+that no language model is reachable and runs its deterministic path only. It is the
 grammar-based clause extractor, the rule engine, the cost simulator, matching
 and ranking are all pure Python and need no model.
 
@@ -31,8 +31,8 @@ class OfflineProvider(LLMProvider):
     name = "offline"
 
     def available(self) -> bool:
-        # Always "available" in the sense that it can be selected — it is the
-        # terminal fallback — but it never serves a completion.
+        # Always "available" in the sense that it can be selected, being
+        # the terminal fallback, but it never serves a completion.
         return True
 
     def probe(self, model: str) -> bool:

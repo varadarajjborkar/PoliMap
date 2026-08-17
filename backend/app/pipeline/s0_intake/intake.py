@@ -1,4 +1,4 @@
-"""Stage 0 — turn an uploaded file into pages of text with provenance.
+"""Stage 0: turn an uploaded file into pages of text with provenance.
 
 The routing decision is per page, not per document, because real uploads are
 mixed: a PDF often carries a digitally generated schedule alongside a scanned
@@ -247,7 +247,7 @@ def _ingest_pdf(
         page_count = doc.page_count
         bus.publish(
             STAGE, "open_pdf", session_id=session_id,
-            summary=f"Opened {path.name} — {page_count} page"
+            summary=f"Opened {path.name}, {page_count} page"
                     f"{'s' if page_count != 1 else ''}",
             pages=page_count,
         )
@@ -265,7 +265,7 @@ def _ingest_pdf(
                 pages.append(native)
                 continue
 
-            # Too little text to be a real text layer — treat it as an image.
+            # Too little text to be a real text layer, treat it as an image.
             scanned_pages += 1
             image = _rasterize(pdf_page)
             page = _ocr_page(

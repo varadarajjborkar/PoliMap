@@ -1,7 +1,7 @@
 """Model-assisted clause extraction.
 
 The grammar rules cover the phrasings that were anticipated. This layer exists
-for the ones that were not — an insurer wording a room limit as "eligible for
+for the ones that were not: an insurer wording a room limit as "eligible for
 accommodation up to the Single Occupancy category" carries no percentage, no
 rupee figure and no keyword the rules look for, but a language model reads it
 without difficulty.

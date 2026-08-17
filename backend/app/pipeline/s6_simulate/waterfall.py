@@ -1,4 +1,4 @@
-"""Stage 6 — apply a policy to a bill and explain every rupee of the difference.
+"""Stage 6: apply a policy to a bill and explain every rupee of the difference.
 
 This is the question the problem statement says goes unanswered: not "am I
 covered" but "what will I actually pay". The answer is produced as an ordered
@@ -9,14 +9,14 @@ money went.
 Order is not arbitrary. Insurers apply these tests in a specific sequence and
 the sequence changes the answer: a co-payment taken before a sum-insured cap
 gives a different result from one taken after. The order below follows Indian
-settlement practice — remove what is never payable, apply the caps that bind
+settlement practice: remove what is never payable, apply the caps that bind
 particular expenses, then the proportionate reduction, then the policyholder's
 own share, and only then test the total against remaining cover.
 
 The proportionate deduction is the part most people have never heard of and the
 part that costs them most. Taking a room above your eligible category does not
 just cost the difference in room rent; it reduces the payout on everything
-priced by room tier — surgeon, theatre, nursing. Since the IRDAI master circular
+priced by room tier: surgeon, theatre and nursing. Since the IRDAI master circular
 of May 2024 it no longer touches ICU, pharmacy, diagnostics, implants or
 consumables, and modelling that boundary correctly is the difference between a
 useful estimate and a scary wrong one.
@@ -211,7 +211,7 @@ def simulate(
             DeductionKind.PROPORTIONATE,
             f"Because your room is above your eligible category, your insurer "
             f"pays only {_format_ratio(ratio)} of the charges that are priced by "
-            f"room type — the surgeon, theatre and nursing charges. Your ICU "
+            f"room type: the surgeon, theatre and nursing charges. Your ICU "
             f"stay, medicines, tests and implants are not reduced.",
             heads=linked_heads,
             clause_ids=policy.room_limit.source_clause_ids,
@@ -255,7 +255,7 @@ def simulate(
             pct=float(policy.copay_pct),
         )
 
-    # 6. Deductible — the band a top-up plan only starts paying above.
+    # 6. Deductible: the band a top-up plan only starts paying above.
     if policy.deductible > 0:
         _reduce_proportionally(ledger, min(policy.deductible, ledger.total))
         record(

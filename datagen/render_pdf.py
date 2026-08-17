@@ -2,7 +2,7 @@
 
 Layout follows the convention Indian insurers use: a schedule page carrying this
 policyholder's actual figures, then wording pages carrying generic terms. That
-separation is not cosmetic — it is the distinction the triage stage has to make,
+separation is not cosmetic; it is the distinction the triage stage has to make,
 because the schedule overrides the wording when they disagree, and a pipeline
 that reads them as one document will confidently report the wrong number.
 
@@ -45,7 +45,7 @@ BAND = colors.HexColor("#E8E8E8")
 RUPEE_CODEPOINT = 0x20B9
 
 # reportlab's built-in Helvetica has no rupee sign, and neither do several fonts
-# that look like safe bets — Arial Unicode predates the 2010 introduction of the
+# that look like safe bets, Arial Unicode predates the 2010 introduction of the
 # glyph and silently emits NUL for it. Registration therefore proves nothing;
 # the font's character map has to be inspected directly.
 #
@@ -174,7 +174,7 @@ def _grid_table(header: list[str], rows: list[list[str]], widths) -> Table:
 def _schedule_story(bp: PolicyBlueprint) -> list:
     story: list = []
     story.append(Paragraph(bp.insurer_name.upper(), H1))
-    story.append(Paragraph(f"{bp.plan_name} — {bp.policy_type} Policy", BODY))
+    story.append(Paragraph(f"{bp.plan_name}, {bp.policy_type} Policy", BODY))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph("<b>POLICY SCHEDULE</b>", CENTRE))
     story.append(Spacer(1, 3 * mm))
@@ -262,7 +262,7 @@ def _schedule_story(bp: PolicyBlueprint) -> list:
 
 
 def _wording_story(bp: PolicyBlueprint) -> list:
-    story: list = [Paragraph(f"{bp.insurer_name.upper()} — POLICY WORDING", H1),
+    story: list = [Paragraph(f"{bp.insurer_name.upper()}, POLICY WORDING", H1),
                    Paragraph(f"{bp.plan_name}", BODY), Spacer(1, 4 * mm)]
 
     story.append(Paragraph("1. DEFINITIONS", H2))
@@ -359,7 +359,7 @@ def render_policy_pdf(bp: PolicyBlueprint, path: Path) -> Path:
         pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=16 * mm, bottomMargin=20 * mm,
-        title=f"{bp.plan_name} — Policy {bp.policy_number}",
+        title=f"{bp.plan_name}, Policy {bp.policy_number}",
         author=bp.insurer_name,
         subject="Health Insurance Policy",
     )

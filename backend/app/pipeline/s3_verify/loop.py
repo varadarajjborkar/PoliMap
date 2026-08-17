@@ -1,4 +1,4 @@
-"""Stage 3 — the verification loop.
+"""Stage 3: the verification loop.
 
 Runs challenge and adjudication rounds until the ledger stops changing. Each
 round re-derives its objections from the current state, so rejecting a clause in
@@ -6,7 +6,7 @@ round one can expose a contradiction that only becomes visible in round two, and
 the loop keeps going until nothing moves.
 
 It terminates on whichever comes first: no open challenges, no progress since
-the previous round, or the configured round limit. Convergence is not assumed —
+the previous round, or the configured round limit. Convergence is not assumed,
 a document that keeps producing objections stops after the limit and hands the
 remainder to the user rather than spinning.
 """
@@ -83,7 +83,7 @@ def verify(
 
         with bus.step(
             STAGE, "challenge_round", session_id=session_id, round=round_number,
-            summary=f"Double-checking the policy — round {round_number}",
+            summary=f"Double-checking the policy, round {round_number}",
         ) as step:
             raised = [
                 c for c in challenger.raise_challenges(clauses, round_number=round_number)
@@ -113,7 +113,7 @@ def verify(
 
             step.ok(
                 f"{len(raised)} question"
-                f"{'s' if len(raised) != 1 else ''} raised — "
+                f"{'s' if len(raised) != 1 else ''} raised, "
                 f"{upheld} rejected a reading, {dismissed} settled from the "
                 f"document, {escalated} need you",
                 challenges=len(raised),

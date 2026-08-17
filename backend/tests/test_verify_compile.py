@@ -1,8 +1,8 @@
-"""M6 and M7 — verification and compilation.
+"""M6 and M7, verification and compilation.
 
 The verification loop exists because of a measured problem: adding a language
 model to extraction halved missed fields and tripled *confidently wrong* ones.
-These tests hold the loop to the job that justified it — catching wrong values
+These tests hold the loop to the job that justified it, catching wrong values
 without simply discarding the recall the model bought.
 
 Escalating to the user counts as success. A question is a safe outcome; a
@@ -52,7 +52,7 @@ def C(
 
 
 # Built fresh per use rather than shared. The verification loop mutates clause
-# status in place — the ledger is its working state — so module-level instances
+# status in place, the ledger is its working state, so module-level instances
 # would leak a rejection from one test into the next.
 def sum_insured() -> Clause:
     return C(ClauseKind.SUM_INSURED, {"amount_inr": "500000"},

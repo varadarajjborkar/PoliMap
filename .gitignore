@@ -10,7 +10,7 @@ venv/
 node_modules/
 frontend/dist/
 
-# Generated corpus — rebuilt with `python -m datagen.build_all`
+# Generated corpus, rebuilt with `python -m datagen.build_all`
 data/generated/
 data/uploads/
 *.db

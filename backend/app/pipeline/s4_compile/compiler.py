@@ -1,7 +1,7 @@
-"""Stage 4 — compile a verified clause ledger into an executable policy.
+"""Stage 4: compile a verified clause ledger into an executable policy.
 
 The ledger is evidence: overlapping, sometimes contradictory, carrying claims of
-varying authority. The cost engine needs the opposite — one settled, strongly
+varying authority. The cost engine needs the opposite: one settled, strongly
 typed answer per question. This stage performs that collapse, and it is the only
 place allowed to choose between competing clauses.
 
@@ -242,7 +242,7 @@ def compile_policy(
         )
         if asks:
             step.warn(
-                f"{summary} — {len(asks)} thing"
+                f"{summary}, {len(asks)} thing"
                 f"{'s' if len(asks) != 1 else ''} to confirm with you",
                 sum_insured=float(policy.sum_insured),
                 clarifications=len(asks),
@@ -334,7 +334,7 @@ def _overall_confidence(
 ) -> float:
     """How much of this compilation the user should be shown as settled.
 
-    Weighted toward the clauses that drive money — a perfectly read policy
+    Weighted toward the clauses that drive money: a perfectly read policy
     number does not offset an uncertain room limit.
     """
     weights = {

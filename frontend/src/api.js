@@ -1,8 +1,16 @@
 // Thin API client. Errors are surfaced with the server's own message where it
 // gave one, because those messages are written for the person reading them.
+//
+// In development the Vite proxy puts the API on this same origin, so the base
+// is empty. A deployed frontend is served from somewhere the API is not, so it
+// sets VITE_API_BASE to the API's origin at build time.
+
+const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
+
+export const apiUrl = (path) => `${BASE}${path}`
 
 async function request(path, options = {}) {
-  const response = await fetch(path, options)
+  const response = await fetch(apiUrl(path), options)
   if (!response.ok) {
     let message = `Something went wrong (${response.status}).`
     try {
@@ -11,7 +19,9 @@ async function request(path, options = {}) {
     } catch {
       // Non-JSON error body; the generic message stands.
     }
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    throw error
   }
   return response.json()
 }
@@ -26,6 +36,11 @@ export const api = {
   health: () => request('/api/health'),
   providers: () => request('/api/health/providers'),
   reference: () => request('/api/reference'),
+
+  // Everything already done on a session, for putting the interface back
+  // together after a reload.
+  restore: (sessionId) => request(`/api/session/${sessionId}`),
+  clear: (sessionId) => request(`/api/session/${sessionId}`, { method: 'DELETE' }),
 
   uploadPolicy(file, insurerId) {
     const form = new FormData()
@@ -51,7 +66,7 @@ export const api = {
 
 // Subscribes to the pipeline's activity stream. Returns an unsubscribe function.
 export function subscribeToEvents(sessionId, onEvent) {
-  const source = new EventSource(`/api/events/${sessionId}`)
+  const source = new EventSource(apiUrl(`/api/events/${sessionId}`))
   source.onmessage = (message) => {
     try {
       onEvent(JSON.parse(message.data))

@@ -3,7 +3,7 @@
 The problem statement is explicit: the solution must function strictly as
 decision support and must not provide medical diagnoses, clinical treatment
 recommendations, or binding insurance advice. Those are not stylistic
-preferences — a tool that drifts into clinical advice is dangerous, and one that
+preferences, a tool that drifts into clinical advice is dangerous, and one that
 states a payout as a promise will be relied on and then contradicted by an
 insurer.
 
@@ -23,7 +23,7 @@ DISCLAIMER = (
     "hospital insurance desk."
 )
 
-SHORT_DISCLAIMER = "Estimate only — confirm with your insurer."
+SHORT_DISCLAIMER = "Estimate only. Confirm with your insurer."
 
 # Phrasings that would make an estimate read as a commitment.
 _PROMISE_PATTERNS = [

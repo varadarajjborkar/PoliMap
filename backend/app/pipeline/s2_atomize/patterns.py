@@ -81,7 +81,7 @@ def _amount_from_match(match: re.Match[str]) -> Decimal | None:
         value *= CRORE
 
     # A bare number with no currency marker, no scale and no trailer is too
-    # weak to treat as money — it is as likely a clause number or a date part.
+    # weak to treat as money; it is as likely a clause number or a date part.
     if not match.group("currency") and not scale and not match.group("trailer"):
         return None
 
@@ -92,8 +92,8 @@ def parse_amount(text: str) -> Decimal | None:
     """Read the first genuine rupee figure in `text`.
 
     Scans every candidate rather than stopping at the first regex hit. Policy
-    limits routinely lead with a percentage — "1% of Sum Insured per day,
-    subject to a maximum of Rs. 5,000" — and the leading "1" matches the number
+    limits routinely lead with a percentage, "1% of Sum Insured per day,
+    subject to a maximum of Rs. 5,000", and the leading "1" matches the number
     pattern while failing the currency test. Bailing out there loses the actual
     cap and silently reports the policy as uncapped in rupees, which is exactly
     the sort of confident wrong answer this parser exists to prevent.
@@ -172,8 +172,8 @@ def parse_capped_amount(text: str) -> Decimal | None:
     """The rupee ceiling in a "percentage, subject to a maximum of X" clause.
 
     Anchored on the words that introduce the ceiling rather than just taking the
-    last figure, because a limit line often ends with an unrelated number — a
-    per-day qualifier, a clause reference — and taking the last one gets it
+    last figure, because a limit line often ends with an unrelated number, a
+    per-day qualifier or a clause reference, and taking the last one gets it
     wrong in a way that is hard to notice.
     """
     match = MAXIMUM_RE.search(text)

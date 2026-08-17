@@ -186,7 +186,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
           </div>
           {option.band && (
             <div className="text-[11px] text-muted tabular-nums">
-              {option.band.low_display} – {option.band.high_display}
+              {option.band.low_display} to {option.band.high_display}
             </div>
           )}
         </div>
@@ -319,7 +319,7 @@ function Waterfall({ option }) {
             <li key={index} className="flex justify-between gap-4 text-[12px]">
               <span className="text-muted">
                 {line.label}
-                {line.note && <span className="text-[10px]"> — {line.note}</span>}
+                {line.note && <span className="text-[10px]"> ({line.note})</span>}
               </span>
               <span className="shrink-0 tabular-nums">{line.amount_display}</span>
             </li>

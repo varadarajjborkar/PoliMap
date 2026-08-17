@@ -2,7 +2,7 @@
 
 The manifest this writes is what the extraction benchmark reads. Each entry
 pairs a document with the exact answer for it, so accuracy can be reported per
-clause kind and per document condition — which is what makes it possible to say
+clause kind and per document condition, which is what makes it possible to say
 "OCR escalation improved room-limit recall on phone photos by X" instead of
 guessing whether a change helped.
 """
@@ -78,7 +78,7 @@ def build_policy_corpus(count: int = POLICY_COUNT) -> dict[str, Any]:
             }
         ]
 
-        # Health cards for a subset — the artefact people photograph most often,
+        # Health cards for a subset, the artefact people photograph most often,
         # and one that carries only a few of the fields.
         if index % 4 == 0:
             card = CARD_DIR / f"{bp.policy_id}_card.pdf"

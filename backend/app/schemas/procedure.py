@@ -80,7 +80,7 @@ class CostSplit(BaseModel):
         """Divide a package total into per-head amounts.
 
         Rounding residue is pushed onto the largest head so the parts always
-        reconcile exactly against the whole — a bill whose lines do not add up
+        reconcile exactly against the whole: a bill whose lines do not add up
         destroys trust faster than a wrong estimate.
         """
         if not self.fractions:

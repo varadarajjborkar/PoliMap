@@ -6,7 +6,7 @@ both unfair and misleading; the problem statement asks for synthetic insurance
 data in any case.
 
 Government schemes are modelled as insurers too, because from the user's side
-they answer the same questions — where am I covered, what will I pay — even
+they answer the same questions, where am I covered, what will I pay, even
 though they settle on fixed package rates rather than against a bill.
 """
 

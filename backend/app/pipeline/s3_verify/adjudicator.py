@@ -4,7 +4,7 @@ The adjudicator has three ways to settle an objection, tried in order of how
 much they can be trusted:
 
 1. **Rules.** A clause whose own quote does not contain the value it reports is
-   simply wrong, and precedence settles most contradictions — a schedule figure
+   simply wrong, and precedence settles most contradictions: a schedule figure
    beats the same figure in generic wording. No judgement is required.
 2. **A model re-reading the evidence.** Where two readings are both defensible,
    the competing quotes are put to a model with the question stated plainly.

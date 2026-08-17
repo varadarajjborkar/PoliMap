@@ -10,7 +10,7 @@ Two rules govern what it says.
 **Stages are administrative, never clinical.** Admission, investigation,
 procedure, recovery describe where the paperwork is. Nothing here infers,
 records or reasons about a diagnosis, and no alert ever suggests a course of
-treatment — the problem statement rules that out and the distinction is worth
+treatment: the problem statement rules that out and the distinction is worth
 holding precisely.
 
 **Every alert states a rupee figure and an action.** An alert that says "your
@@ -103,7 +103,7 @@ def advance(
         allowed = ", ".join(sorted(s.value for s in STAGE_TRANSITIONS[state.stage]))
         raise TransitionError(
             f"Cannot move from {state.stage.value} to {target.value}. "
-            f"Allowed: {allowed or 'none — this journey is complete'}"
+            f"Allowed: {allowed or 'none; this journey is complete'}"
         )
 
     previous = state.stage
@@ -128,7 +128,7 @@ def advance(
             a.severity is AlertSeverity.URGENT for a in alerts
         ) else EventStatus.OK,
         summary=f"{previous.label} to {target.label}"
-                + (f" — {len(alerts)} thing{'s' if len(alerts) != 1 else ''} to know"
+                + (f", {len(alerts)} thing{'s' if len(alerts) != 1 else ''} to know"
                    if alerts else ""),
         stage=target.value,
         alerts=len(alerts),
@@ -153,7 +153,7 @@ def record_cost(
 
     bus.publish(
         STAGE, "record_cost", session_id=state.session_id or None,
-        summary=f"{head.label} {format_inr(amount)} — "
+        summary=f"{head.label} {format_inr(amount)}, "
                 f"{format_inr(state.accrued_total)} so far",
         head=head.value, amount=float(amount),
         accrued=float(state.accrued_total),
@@ -270,7 +270,7 @@ def _sublimit_alerts(
             message=(
                 f"Your policy covers {format_inr(cap)} of "
                 f"{sublimit.head.label.lower()} and {format_inr(spent)} has been "
-                f"billed — {used:.0%} of the limit."
+                f"billed, {used:.0%} of the limit."
             ),
             action=(
                 "Anything beyond this you pay yourself. Ask the desk before "
@@ -349,7 +349,7 @@ def _non_payable_alerts(
         title="Charges your policy will not cover",
         message=(
             f"{format_inr(non_payable)} of the bill so far is for items no "
-            f"health policy reimburses — gloves, syringes, registration and "
+            f"health policy reimburses, gloves, syringes, registration and "
             f"similar. You pay these whatever else your policy covers."
         ),
         action="Ask for an itemised bill so you can check these are correct.",

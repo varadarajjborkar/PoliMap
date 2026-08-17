@@ -1,7 +1,7 @@
 """Console logging setup.
 
 Human-readable and colourised when attached to a terminal, JSON lines when
-piped — so `uvicorn ... | tee run.log` produces something machine-parseable
+piped, so `uvicorn ... | tee run.log` produces something machine-parseable
 while the live console stays readable during a demo.
 """
 

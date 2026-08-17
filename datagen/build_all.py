@@ -201,7 +201,7 @@ def _policy_report(manifest: dict[str, Any]) -> str:
         1 for p in policies for d in p["documents"] if not d["has_text_layer"]
     )
     add(f"  without a text layer: {scanned} "
-        f"({scanned / manifest['document_count']:.0%}) — OCR required")
+        f"({scanned / manifest['document_count']:.0%}), OCR required")
 
     add("  variation exercised:")
     add(f"    room limit phrasings : {dict(Counter(p['room_basis'] for p in policies))}")

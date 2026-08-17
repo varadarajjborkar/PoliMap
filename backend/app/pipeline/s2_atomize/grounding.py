@@ -1,10 +1,10 @@
-"""Evidence grounding — the rule that a clause must quote text that really exists.
+"""Evidence grounding: the rule that a clause must quote text that really exists.
 
 This is the system's structural defence against a model inventing a number, and
 it is enforced in code rather than requested in a prompt. A clause is admissible
 only if the text it claims to quote can be located in the page it claims to come
-from. A model may still misread a figure that is genuinely present — that is
-what the verification loop is for — but it cannot manufacture one out of nothing
+from. A model may still misread a figure that is genuinely present, which is
+what the verification loop is for, but it cannot manufacture one out of nothing
 and have it reach the user.
 
 Matching has to tolerate OCR damage without becoming so loose that it accepts
@@ -37,8 +37,15 @@ _OCR_FOLD = str.maketrans({
     "S": "5", "s": "5",
     "B": "8",
     "Z": "2", "z": "2",
-    "—": "-", "–": "-", "‐": "-",
-    "'": "", "'": "", "“": "", "”": "", '"': "",
+    # Dash and quote variants, written as escapes because they are data rather
+    # than prose: a printed en dash has to match a hyphen in the quote a clause
+    # claims to have read, or grounding rejects a clause that is actually fine.
+    "\u2014": "-",  # em dash
+    "\u2013": "-",  # en dash
+    "\u2010": "-",  # hyphen
+    "\u2018": "", "\u2019": "",  # single curly quotes
+    "\u201c": "", "\u201d": "",  # double curly quotes
+    '"': "",
 })
 
 

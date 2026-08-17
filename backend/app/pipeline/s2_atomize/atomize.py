@@ -1,8 +1,8 @@
-"""Stage 2 — build the clause ledger.
+"""Stage 2: build the clause ledger.
 
 Two independent extractors read the same pages: deterministic rules and a
-language model. Running both and merging is deliberate. They fail differently —
-the rules miss unfamiliar phrasings, the model misreads figures — so agreement
+language model. Running both and merging is deliberate. They fail differently:
+the rules miss unfamiliar phrasings, the model misreads figures, so agreement
 between them is real evidence, and disagreement is exactly what the verification
 loop in the next stage needs to see.
 

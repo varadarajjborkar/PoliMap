@@ -1,4 +1,4 @@
-"""M1 — domain contracts.
+"""M1, domain contracts.
 
 Money handling and the expense-head classification get the heaviest coverage:
 both are load-bearing for every rupee figure the system shows, and both are
@@ -216,7 +216,7 @@ def test_percentage_basis_resolves_against_sum_insured():
 
 
 def test_lower_of_percentage_and_flat_maximum_binds():
-    # "1% of sum insured per day, subject to a maximum of Rs. 4,000" — the
+    # "1% of sum insured per day, subject to a maximum of Rs. 4,000", the
     # stated maximum overrides the percentage when the percentage is higher.
     limit = RoomLimit(
         basis=RoomLimitBasis.PCT_OF_SI_PER_DAY,

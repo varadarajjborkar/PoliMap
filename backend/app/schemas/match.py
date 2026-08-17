@@ -5,7 +5,7 @@ Two design commitments show up in these types.
 First, **exclusions are data**. Every hospital that fails a filter records why.
 Without that, the system cannot explain an empty result, cannot relax the right
 constraint, and cannot tell a user "there are three cardiac hospitals nearby but
-none are in your insurer's cashless network" — which is far more useful than a
+none are in your insurer's cashless network", which is far more useful than a
 blank page.
 
 Second, **ranking is multi-objective and honest about it**. Cheapest, nearest

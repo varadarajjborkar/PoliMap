@@ -1,4 +1,4 @@
-"""M3 — synthetic policy corpus.
+"""M3, synthetic policy corpus.
 
 The corpus is the measuring instrument for everything downstream, so it is
 tested harder than the thing it measures. If ground truth is wrong, extraction

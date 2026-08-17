@@ -1,4 +1,4 @@
-"""M0 — configuration, telemetry, and caching."""
+"""M0: configuration, telemetry and caching."""
 
 from __future__ import annotations
 
@@ -141,7 +141,7 @@ def test_cache_key_changes_with_any_input(tmp_path):
     base = ResponseCache.make_key(model="m", prompt="p", schema={"a": 1})
     assert base != ResponseCache.make_key(model="m2", prompt="p", schema={"a": 1})
     assert base != ResponseCache.make_key(model="m", prompt="p2", schema={"a": 1})
-    # A changed schema must invalidate — otherwise prompt edits silently reuse.
+    # A changed schema must invalidate, otherwise prompt edits silently reuse.
     assert base != ResponseCache.make_key(model="m", prompt="p", schema={"a": 2})
 
 

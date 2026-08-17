@@ -4,9 +4,9 @@ Scored per clause kind against the generator's ground truth, and split by
 document condition, so a regression can be located rather than merely detected.
 The distinction that matters most is between two very different failures:
 
-* a **miss** — the clause is absent, which is a recall problem, and the user
+* a **miss**: the clause is absent, which is a recall problem, and the user
   simply gets asked;
-* a **wrong value** — a clause is present and confidently incorrect, which is
+* a **wrong value**: a clause is present and confidently incorrect, which is
   the dangerous case, because nobody is prompted to check it.
 
 They are reported separately, and wrong values are the number to drive to zero
@@ -113,7 +113,7 @@ def _compare_room_limit(
     """Room limits are compared on the rupee cap they resolve to.
 
     Comparing the stated basis would penalise an extractor that read "1% of
-    Rs. 5,00,000" as a flat Rs. 5,000 — a different description of the identical
+    Rs. 5,00,000" as a flat Rs. 5,000: a different description of the identical
     entitlement, and one that costs the user nothing.
     """
     from app.schemas.policy import RoomLimit, RoomLimitBasis
@@ -271,7 +271,7 @@ def report(results: list[PolicyResult]) -> str:
             continue
         c, w, m, n = tally(by_field[name])
         add(f"| {name} | {c} | {w} | {m} | {c / n:.0%} |" if n else
-            f"| {name} | — | — | — | n/a |")
+            f"| {name} | - | - | - | n/a |")
     add("")
 
     add("## By document condition")
@@ -286,7 +286,7 @@ def report(results: list[PolicyResult]) -> str:
         c, w, m, n = tally(fields)
         add(f"| {condition} | {len(group)} | {c / n:.0%} | {w} | "
             f"{sum(r.seconds for r in group) / len(group):.1f}s |" if n else
-            f"| {condition} | {len(group)} | n/a | 0 | — |")
+            f"| {condition} | {len(group)} | n/a | 0 | - |")
     add("")
 
     all_fields = [f for r in results for f in r.fields]

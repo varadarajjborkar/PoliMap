@@ -102,7 +102,7 @@ def find_document_quad(img: np.ndarray) -> np.ndarray | None:
     """Locate the page outline in a photo that includes background.
 
     Returns None when no convincing quadrilateral is found, or when the one
-    found covers nearly the whole frame — that means the page was scanned or
+    found covers nearly the whole frame: that means the page was scanned or
     cropped to its edges and there is no perspective to undo.
     """
     grey = to_grey(img)
@@ -180,7 +180,7 @@ LIGHTING_UNEVENNESS_THRESHOLD = 12.0
 def speckle_ratio(img: np.ndarray) -> float:
     """Share of ink components too small to be characters.
 
-    Bimodality is not the signal it looks like — a clean scan of black text on
+    Bimodality is not the signal it looks like: a clean scan of black text on
     white paper is strongly bimodal too, so thresholding on it classifies the
     easiest pages as the hardest. What actually separates a photocopy from a
     clean scan is impulse noise: thousands of isolated specks, each far smaller

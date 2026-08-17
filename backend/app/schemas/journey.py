@@ -6,7 +6,7 @@ pre-authorisation has a window that closes. The journey model exists so the
 system can re-answer "where do I stand" at every stage rather than once at
 admission.
 
-Stages are deliberately coarse and administrative — admission, investigation,
+Stages are deliberately coarse and administrative, admission, investigation,
 procedure, recovery. They describe *where the paperwork is*, never a clinical
 state, and nothing here infers or records a diagnosis.
 """

@@ -1,8 +1,8 @@
 """HTTP surface.
 
-Long-running work — reading a document runs OCR and several model calls — is
-pushed to a worker thread so the event loop stays free to stream progress to the
-browser while it happens. That streaming is the point: the user watches the
+Reading a document runs OCR and several model calls, so that work is
+pushed to a worker thread and the event loop stays free to stream progress
+to the browser while it happens. That streaming is the point: the user watches the
 system read their policy rather than staring at a spinner, and every step it
 reports is the same `PipelineEvent` the server logged.
 """

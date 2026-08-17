@@ -1,4 +1,4 @@
-"""M8 — the cost engine.
+"""M8: the cost engine.
 
 Every expected figure here is computed by hand in the test itself rather than
 captured from a previous run. A snapshot test on a money engine only proves the
@@ -149,7 +149,7 @@ def test_icu_days_are_excluded_from_the_room_rent_excess():
 
 
 def test_percentage_room_limit_resolves_against_sum_insured():
-    # 1% of 5,00,000 = 5,000/day — identical to the flat case.
+    # 1% of 5,00,000 = 5,000/day, identical to the flat case.
     policy = make_policy(
         room_limit=RoomLimit(basis=RoomLimitBasis.PCT_OF_SI_PER_DAY, pct_of_si=D(1))
     )

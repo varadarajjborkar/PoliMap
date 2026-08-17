@@ -1,18 +1,18 @@
-"""Stages 5 and 7 — find hospitals, cost them, rank them, and never return nothing.
+"""Stages 5 and 7: find hospitals, cost them, rank them, and never return nothing.
 
 Three commitments shape this module.
 
 **Exclusions are data.** Every hospital that fails a filter records why. Without
 that the system cannot explain an empty result, cannot decide which constraint
 to relax, and cannot tell a user "there are four cardiac hospitals within your
-radius but none are in your insurer's cashless network" — which is far more
+radius but none are in your insurer's cashless network", which is far more
 useful than a blank page and is exactly the situation that causes the panic the
 problem statement describes.
 
 **Ranking is multi-objective and says so.** Cheapest, nearest and best-equipped
 are usually three different hospitals. Rather than hiding that behind one score,
-the non-dominated set is computed first — options where nothing else is better
-on every axis at once — and only then ordered by a preference the user can see
+the non-dominated set is computed first (options where nothing else is better
+on every axis at once) and only then ordered by a preference the user can see
 and change.
 
 **Starvation is handled by relaxing constraints in a stated order**, cheapest
@@ -58,7 +58,7 @@ MAX_CANDIDATES_TO_COST = 40
 capability-filtered set is already ranked well enough to truncate."""
 
 # Rough city driving speed, used to turn distance into something a caregiver
-# can act on. Deliberately pessimistic — Indian metro traffic is the norm.
+# can act on. Deliberately pessimistic, Indian metro traffic is the norm.
 CITY_SPEED_KMH = 18.0
 
 CITYWIDE_RADIUS_KM = 30.0
@@ -282,7 +282,7 @@ def _explain(option: RankedOption, options: list[RankedOption], policy: Normaliz
     if option is cheapest:
         reasons.append("Lowest cost to you of the options found.")
     if option is nearest:
-        reasons.append(f"Closest — about {travel_minutes(option.distance_km)} minutes away.")
+        reasons.append(f"Closest, about {travel_minutes(option.distance_km)} minutes away.")
     if option is strongest:
         reasons.append("Best equipped of the options found.")
     if result.settlement_mode is SettlementMode.CASHLESS:
@@ -387,7 +387,7 @@ RELAXATION_LADDER: list[tuple[RelaxationKind, str, str]] = [
     (
         RelaxationKind.BED_AVAILABILITY,
         "We included hospitals with no bed free right now.",
-        "You would need to call ahead — a bed may not be available on arrival.",
+        "You would need to call ahead; a bed may not be available on arrival.",
     ),
     (
         RelaxationKind.NON_NETWORK,

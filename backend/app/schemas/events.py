@@ -2,7 +2,7 @@
 
 Every meaningful action in the system emits a `PipelineEvent`. The same object
 is written to the console, persisted, and streamed to the browser, so what the
-user sees in the UI is exactly what the server did — no separate reporting path
+user sees in the UI is exactly what the server did, no separate reporting path
 that can drift from reality.
 """
 
@@ -73,7 +73,7 @@ class PipelineEvent(BaseModel):
     """One line a non-technical user can read."""
 
     detail: dict[str, Any] = Field(default_factory=dict)
-    """Structured payload — counts, scores, decisions. Rendered as a table."""
+    """Structured payload, counts, scores, decisions. Rendered as a table."""
 
     duration_ms: float | None = None
     session_id: str | None = None

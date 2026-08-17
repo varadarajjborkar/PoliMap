@@ -3,7 +3,7 @@
 A note on structured output, because it shapes the whole extraction design:
 
 Ollama's documented `format=<json-schema>` parameter constrains generation to a
-schema. Self-hosted Ollama honours it. **Ollama Cloud currently ignores it** —
+schema. Self-hosted Ollama honours it. **Ollama Cloud currently ignores it**,
 verified against the live API, where even `format="json"` returns markdown
 prose. We therefore cannot treat schema conformance as a guarantee.
 
@@ -95,8 +95,8 @@ class OllamaProvider(LLMProvider):
     def list_catalogue(self) -> list[str]:
         """Every model the endpoint advertises.
 
-        The catalogue is not the same as what this account may call — plan gating
-        only surfaces on an actual request — so this is a starting point for
+        The catalogue is not the same as what this account may call, plan gating
+        only surfaces on an actual request, so this is a starting point for
         probing, not an availability answer.
         """
         try:

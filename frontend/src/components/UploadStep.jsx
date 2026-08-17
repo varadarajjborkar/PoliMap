@@ -103,7 +103,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
                   <>
                     <p className="text-[14px] font-medium">{file.name}</p>
                     <p className="mt-1 text-[12px] text-muted">
-                      {(file.size / 1024 / 1024).toFixed(1)} MB — click to choose a different file
+                      {(file.size / 1024 / 1024).toFixed(1)} MB. Click to choose a different file.
                     </p>
                   </>
                 ) : (
@@ -113,7 +113,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
                     </p>
                     <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
                       A PDF or a photo both work. A photo of the printed policy
-                      taken on your phone is fine — we will read it.
+                      taken on your phone is fine; we will read it.
                     </p>
                   </>
                 )}
@@ -121,7 +121,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
 
               {busy ? (
                 <div className="rounded-lg bg-canvas px-4 py-3">
-                  <Spinner label="Reading your policy — this can take a minute for a photo." />
+                  <Spinner label="Reading your policy. This can take a minute for a photo." />
                 </div>
               ) : (
                 <Button

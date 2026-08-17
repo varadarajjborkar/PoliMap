@@ -5,20 +5,12 @@ import { Badge } from './Primitives'
 // written to the server log. Nothing here is reconstructed or narrated on the
 // client, so the panel cannot drift from what actually happened.
 
-const STATUS_TONE = {
-  started: 'neutral',
-  ok: 'good',
-  warn: 'warn',
-  failed: 'bad',
-  skipped: 'neutral',
-}
-
 const STATUS_MARK = {
   started: '·',
   ok: '✓',
   warn: '!',
   failed: '✕',
-  skipped: '–',
+  skipped: '-',
 }
 
 function formatDetail(detail) {

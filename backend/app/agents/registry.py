@@ -1,6 +1,6 @@
 """Role-to-model resolution.
 
-Callers ask for a `ModelRole` — "give me something that can extract clauses" —
+Callers ask for a `ModelRole`, "give me something that can extract clauses",
 never for a named model. The registry walks that role's configured chain,
 probes each candidate against the live account, and memoises the first that
 answers. Plan gating and model deprecation therefore degrade gracefully instead

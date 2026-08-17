@@ -4,7 +4,7 @@ Everything the pipeline later claims about a policy has to be traceable back to
 a place on a page. These types carry that trail: each word keeps its bounding
 box and, when it came from OCR, its recognition confidence. That is what lets
 the interface show a user the exact patch of their own document a number was
-read from — which matters more here than in most extraction problems, because
+read from, which matters more here than in most extraction problems, because
 the user is being asked to confirm figures they may not understand.
 """
 

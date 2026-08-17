@@ -1,4 +1,4 @@
-"""M0 — provider layer.
+"""M0, provider layer.
 
 The JSON salvage parser gets the most attention here. Ollama Cloud ignores the
 `format` schema parameter, so every structured extraction in the system depends
@@ -148,7 +148,7 @@ def test_resolution_walks_the_chain_to_the_first_working_model():
     res = reg.resolve(ModelRole.EXTRACT)
     assert isinstance(res, Resolution)
     assert res.model == "works"
-    # Stops as soon as one answers — no wasted probes.
+    # Stops as soon as one answers, no wasted probes.
     assert provider.probes == ["gated-a", "gated-b", "works"]
 
 

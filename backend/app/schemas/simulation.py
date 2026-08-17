@@ -64,7 +64,7 @@ class DeductionKind(StrEnum):
     """Why money came off. Ordered as the waterfall applies them."""
 
     NON_PAYABLE = "non_payable"
-    """IRDAI non-medical items — gloves, gowns, admin fees."""
+    """IRDAI non-medical items, gloves, gowns, admin fees."""
     EXCLUSION = "exclusion"
     """Named policy exclusion."""
     WAITING_PERIOD = "waiting_period"

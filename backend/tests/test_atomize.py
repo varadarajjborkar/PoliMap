@@ -1,4 +1,4 @@
-"""M5 — triage and clause atomization.
+"""M5, triage and clause atomization.
 
 The grounding tests carry the most weight. Grounding is the structural
 guarantee that a language model cannot introduce a figure that does not exist

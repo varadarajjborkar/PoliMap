@@ -2,7 +2,7 @@
 
 The bill is constructed from three things: the procedure's CGHS-anchored package
 price, that hospital's cost index, and the room the patient actually occupies.
-Room choice does not merely change the room line — it moves the whole bill, and
+Room choice does not merely change the room line; it moves the whole bill, and
 that coupling is what makes the room decision expensive in ways people do not
 expect.
 
@@ -45,7 +45,7 @@ TIER_SCALED_HEADS = frozenset({
 })
 
 NON_MEDICAL_PER_DAY = Decimal(350)
-"""Registration, records, attendant meals and the like — never reimbursable."""
+"""Registration, records, attendant meals and the like: never reimbursable."""
 
 
 def estimate_bill(

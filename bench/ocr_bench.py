@@ -6,8 +6,8 @@ Two things are measured, and the second matters far more than the first.
 health check, and a page can score well on it while having mangled the one line
 that decides a claim.
 
-*Field recall* asks whether the specific figures the system depends on — sum
-insured, room rent limit, co-payment, policy number — are present and exactly
+*Field recall* asks whether the specific figures the system depends on (sum
+insured, room rent limit, co-payment, policy number) are present and exactly
 right in the recovered text. A pipeline cannot extract what OCR never produced,
 so this number is the ceiling on end-to-end accuracy, and it is the number to
 optimise.
@@ -292,7 +292,7 @@ def report(results: list[DocResult]) -> str:
         add("## Errors")
         add("")
         for r in failures[:10]:
-            add(f"- `{r.path}` — {r.error}")
+            add(f"- `{r.path}`: {r.error}")
         add("")
 
     worst = sorted(
@@ -306,7 +306,7 @@ def report(results: list[DocResult]) -> str:
         add("|---|---|---:|---|")
         for r in worst:
             add(f"| {r.policy_id} | {r.condition} | {r.field_recall:.0%} | "
-                f"{', '.join(r.missing_fields[:3]) or '—'} |")
+                f"{', '.join(r.missing_fields[:3]) or '-'} |")
         add("")
 
     return "\n".join(lines)

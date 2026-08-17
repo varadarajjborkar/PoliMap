@@ -4,7 +4,7 @@ Confidence is the point of this module. A flat transcription would be enough to
 extract from, but not enough to know *when not to trust the extraction*. Because
 per-word confidence is retained, the pipeline can escalate exactly the pages
 that need a vision model, attach a recognition confidence to each clause, and
-tell the user which figures deserve a second look — rather than treating a
+tell the user which figures deserve a second look, instead of treating a
 guess on a shadowed page identically to a clean read.
 """
 
@@ -132,7 +132,7 @@ def confidence_of_span(words: list[Word], needle: str) -> float | None:
     """Mean confidence over the words that make up `needle`.
 
     Lets a clause inherit the recognition quality of the exact text it quotes,
-    rather than the page average — a figure read cleanly on an otherwise poor
+    rather than the page average: a figure read cleanly on an otherwise poor
     page should not be distrusted, and vice versa.
     """
     target = [t.lower().strip(".,:;()") for t in needle.split()]

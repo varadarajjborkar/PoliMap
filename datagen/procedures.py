@@ -6,7 +6,7 @@ tiers on comparable line items.
 
 Two structural details from CGHS practice are modelled deliberately:
 
-* Implants — stents, intraocular lenses, meshes, valves — are reimbursed
+* Implants, stents, intraocular lenses, meshes, valves, are reimbursed
   *separately* from the package rate, at ceiling prices. They therefore appear
   as their own expense head with real weight, which matters because implants are
   exempt from proportionate deduction under the post-2024 rules. A patient in an
@@ -238,7 +238,7 @@ def build_procedures() -> list[Procedure]:
                 code=code,
                 name=name,
                 specialty=specialty,
-                description=f"{name} — indicative package, CGHS-anchored.",
+                description=f"{name}, indicative package, CGHS-anchored.",
                 base_rate_non_nabh=non_nabh,
                 base_rate_nabh=round_inr(non_nabh * NABH_PREMIUM),
                 typical_los_days=float(los),

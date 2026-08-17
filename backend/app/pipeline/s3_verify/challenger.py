@@ -4,8 +4,8 @@ Extraction produces a first draft. This module's job is to attack it.
 
 The benchmark that motivated this stage is worth stating plainly: adding a
 language model to extraction halved the number of missed fields and tripled the
-number of *confidently wrong* ones. Wrong values are the dangerous failure —
-nothing prompts anyone to check them — so a system that gains recall by taking
+number of *confidently wrong* ones. Wrong values are the dangerous failure:
+nothing prompts anyone to check them, so a system that gains recall by taking
 on wrong values has not improved. The challenger exists to convert that new
 recall into either a verified value or an honest question.
 
@@ -197,7 +197,7 @@ def check_cross_field_coherence(clauses: list[Clause]) -> list[Challenge]:
             clause_ids=[si_clause.clause_id, room_clause.clause_id],
             question=(
                 f"A daily room limit of {cap} against total cover of {si} does "
-                f"not fit — one of these was probably read from the wrong line."
+                f"not fit; one of these was probably read from the wrong line."
             ),
             rationale="Daily room limits are typically 1-2% of the sum insured.",
         ))

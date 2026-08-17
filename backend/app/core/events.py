@@ -1,9 +1,9 @@
 """In-process event bus for pipeline telemetry.
 
 One `emit` call fans out to three places: the console, a bounded replay buffer,
-and every live SSE subscriber. Emission is safe from worker threads — OCR and
+and every live SSE subscriber. Emission is safe from worker threads, since OCR and
 PDF rasterisation are CPU-bound and run off the event loop, but they still need
-to report progress — so writes are marshalled back onto the main loop.
+to report progress, so writes are marshalled back onto the main loop.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ class EventBus:
 
         loop = self._loop
         if loop is None or not loop.is_running():
-            # No server running (tests, CLI, datagen) — console output is enough.
+            # No server running (tests, CLI, datagen); console output is enough.
             return
 
         try:
@@ -139,7 +139,7 @@ class EventBus:
     ) -> Iterator[StepHandle]:
         """Time a block of work, emitting a start and a completion event.
 
-        Exceptions are reported as FAILED and re-raised — the bus observes, it
+        Exceptions are reported as FAILED and re-raised: the bus observes, it
         never swallows.
         """
         self.publish(

@@ -9,12 +9,12 @@ impression.
 The variation is chosen adversarially, around the places extraction really
 fails:
 
-* the same limit expressed four different ways — a flat rupee figure, a
+* the same limit expressed four different ways: a flat rupee figure, a
   percentage of sum insured, a percentage capped by a maximum, or a room
   category with no number at all;
 * figures written as "Rs. 5,00,000", "INR 5,00,000/-", "Rupees Five Lakh" and
   "5.00 Lakhs" within one corpus;
-* decoy numbers near the real ones — premium, GST, agent codes and UINs sit
+* decoy numbers near the real ones, premium, GST, agent codes and UINs sit
   beside the sum insured and are easy to grab by mistake;
 * a schedule that contradicts the wording, so precedence has to be applied;
 * top-up plans, where a large deductible changes the answer completely.
@@ -338,7 +338,7 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
                 # Roughly one policy in five disagrees with itself, forcing the
                 # precedence rule to be exercised on real documents. Only
                 # applies where the schedule states a figure the wording can
-                # contradict — a category-only or unlimited policy cannot.
+                # contradict, a category-only or unlimited policy cannot.
                 # Modulus 7 is coprime with the 5-length room_bases cycle, so
                 # this selects across all bases rather than colliding with one.
                 contradicts_wording=(

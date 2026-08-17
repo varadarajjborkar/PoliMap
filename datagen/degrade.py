@@ -124,7 +124,7 @@ def _perspective(img: np.ndarray, strength: float, rng: random.Random) -> np.nda
 
 
 def _lighting(img: np.ndarray, strength: float, rng: random.Random) -> np.ndarray:
-    """Directional shadow plus vignette — what a ceiling light does to paper."""
+    """Directional shadow plus vignette, what a ceiling light does to paper."""
     if strength <= 0:
         return img
     h, w = img.shape[:2]
@@ -173,7 +173,7 @@ def degrade_page(
     """Apply a profile in the order the damage really happens.
 
     Geometry first (the page was crooked when it was captured), then optics,
-    then sensor noise, then compression — which is the order that produces
+    then sensor noise, then compression, which is the order that produces
     realistic artefacts rather than a stack of independent-looking filters.
     """
     out = _rotate(img, profile.rotation_deg + rng.uniform(-0.4, 0.4))

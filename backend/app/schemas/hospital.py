@@ -2,7 +2,7 @@
 
 A deliberate constraint runs through this module: nothing here claims anything
 about clinical outcomes. `QualitySignals` holds only externally observable,
-verifiable facts — accreditation status, bed counts, whether a specialty is
+verifiable facts, accreditation status, bed counts, whether a specialty is
 present. The problem statement forbids clinical recommendation, and a
 "quality score" that implied outcome prediction would cross that line. What is
 modelled instead is *capability and assurance*, and the UI says so.
@@ -76,7 +76,7 @@ class GovernmentScheme(StrEnum):
     AROGYA_KARNATAKA = "arogya_karnataka"
     YESHASWINI = "yeshaswini"
     MJPJAY = "mjpjay"
-    """Mahatma Jyotirao Phule Jan Arogya Yojana — Maharashtra."""
+    """Mahatma Jyotirao Phule Jan Arogya Yojana, Maharashtra."""
     AAROGYASRI = "aarogyasri"
     """Telangana / Andhra Pradesh."""
     DELHI_AAROGYA_KOSH = "delhi_aarogya_kosh"
@@ -201,7 +201,7 @@ class Hospital(BaseModel):
     Captures city cost of living and positioning within that city."""
 
     cashless_insurers: list[str] = Field(default_factory=list)
-    """Insurer ids with a cashless tie-up. Absence means reimbursement only —
+    """Insurer ids with a cashless tie-up. Absence means reimbursement only,
     the patient pays upfront and claims later, which is a cash-flow problem
     even when the claim is eventually paid in full."""
 

@@ -1,7 +1,7 @@
 """Deterministic clause extraction from Indian policy documents.
 
 This is the pipeline's floor. It runs with no model, no key and no network, and
-its behaviour is fully predictable — which matters, because a system that gives
+its behaviour is fully predictable, which matters, because a system that gives
 a family a number about their own money should not depend entirely on something
 that can hallucinate. The language model layer widens recall on phrasings these
 rules do not know; it does not replace them, and where the two disagree the
@@ -204,7 +204,7 @@ def _confidence_for(base: float, verbatim: str, section: DocumentSection) -> flo
 
     Generic wording is not this policyholder's schedule, and wording that points
     at the schedule for the real figure carries almost none. Without this, an
-    unreadable schedule page lets a boilerplate default become the answer — the
+    unreadable schedule page lets a boilerplate default become the answer, the
     system reports a number nobody was ever sold, and reports it confidently.
     """
     confidence = base
@@ -289,7 +289,7 @@ def _room_params(value_text: str) -> dict[str, Any] | None:
     category = P.parse_room_category(value_text)
 
     if pct is not None and amount is not None:
-        # "1% of Sum Insured, subject to a maximum of Rs. 5,000" — both bind,
+        # "1% of Sum Insured, subject to a maximum of Rs. 5,000", both bind,
         # and the lower one wins at evaluation time.
         return {
             "basis": "pct_with_max",

@@ -1,4 +1,4 @@
-"""Stage 1 — work out what each page is before reading anything off it.
+"""Stage 1: work out what each page is before reading anything off it.
 
 This stage looks slight and carries a lot of weight. A policy *schedule* holds
 the figures belonging to this specific policyholder; policy *wording* holds
@@ -10,7 +10,7 @@ and report it with total confidence.
 The generated corpus contains policies that contradict themselves precisely so
 this failure is reachable in testing: the schedule states one room limit and the
 wording states another. Labelling the section is what lets the compile stage
-resolve that by precedence — schedule over wording, endorsement over both —
+resolve that by precedence, schedule over wording, endorsement over both,
 without ever bothering the user.
 
 Classification is deliberately keyword and structure based rather than
@@ -201,7 +201,7 @@ def triage(document: IngestedDocument) -> IngestedDocument:
 
         if not has_schedule:
             step.warn(
-                "No policy schedule found — figures may come from standard terms "
+                "No policy schedule found, figures may come from standard terms "
                 "rather than this policy",
                 sections=labels, insurer=insurer or None,
             )
@@ -213,7 +213,7 @@ def triage(document: IngestedDocument) -> IngestedDocument:
             step.ok(
                 f"{document.filename}: "
                 + ", ".join(f"{n} {s}" for s, n in sorted(labels.items()))
-                + (f" — {insurer}" if insurer else ""),
+                + (f", {insurer}" if insurer else ""),
                 sections=labels, insurer=insurer or None,
             )
 

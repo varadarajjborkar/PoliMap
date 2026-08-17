@@ -2,14 +2,14 @@
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
 
-Built for *Precision Care Challenge 2026 — "Hospitality: Holistic Optimization
+Built for *Precision Care Challenge 2026, "Hospitality: Holistic Optimization
 System for Policy-Integrated Admission & Treatment Intelligence."*
 
 ---
 
 ## The problem, and the gap
 
-Most people in India hold at least one health cover — private, employer, or a
+Most people in India hold at least one health cover, private, employer, or a
 government scheme like PM-JAY, ESI, Arogya Karnataka or Yeshaswini. During an
 admission, nobody can answer the questions that actually matter in time: *which
 hospitals am I covered at, what room am I entitled to, what will I have to pay
@@ -27,7 +27,7 @@ rupees, with the reasoning shown.
 
 Take a room above your eligible category in India and you do not merely pay the
 difference in room rent. Your insurer reduces its payout on everything priced by
-room tier — surgeon, theatre, nursing. Almost nobody knows this before they are
+room tier, surgeon, theatre, nursing. Almost nobody knows this before they are
 handed the bill.
 
 The IRDAI master circular of May 2024 narrowed that reduction so it no longer
@@ -49,7 +49,7 @@ two can be compared rather than asserted.
 
 A clause is admissible only if the text it claims to quote can be found in the
 page it claims to come from. This is enforced in code, not requested in a
-prompt. Matching tolerates OCR damage — folding `O`/`0`, `S`/`5` — while
+prompt. Matching tolerates OCR damage, folding `O`/`0`, `S`/`5`, while
 requiring that a quote's *digits* genuinely appear in the source, because a
 misread letter is harmless and an invented figure is not.
 
@@ -58,7 +58,7 @@ misread letter is harmless and an invented figure is not.
 Adding a language model to extraction halved the missed fields and **tripled the
 confidently wrong ones**. Wrong values are the dangerous failure: nothing
 prompts anyone to check them. So the model's output is attacked before it is
-believed — most sharply by re-parsing each clause's own quote and confirming it
+believed, most sharply by re-parsing each clause's own quote and confirming it
 still yields the value reported.
 
 Measured across 158 fields, 10 policies, 6 document conditions:
@@ -77,7 +77,7 @@ becomes a plain-language question rather than a silent guess.
 ### It never returns an empty page
 
 Every hospital that fails a filter records *why*. When nothing matches,
-constraints are relaxed in a stated order — cheapest sacrifice first — and each
+constraints are relaxed in a stated order, cheapest sacrifice first, and each
 relaxation is labelled with its consequence. Travelling further is an
 inconvenience; leaving your cashless network means funding the whole bill
 upfront, so those are not surrendered in the same breath.
@@ -99,19 +99,19 @@ cp backend/.env.example backend/.env    # then paste your OLLAMA_API_KEY into it
 .venv/bin/python -m datagen.build_all   # builds the corpus, ~2 minutes
 ```
 
-**Run it — two terminals**
+**Run it, two terminals**
 
 ```bash
-# Terminal 1 — API
+# Terminal 1, API
 cd backend && ../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — web interface
+# Terminal 2, web interface
 cd frontend && npm install && npm run dev
 ```
 
 Then open **http://localhost:5173**.
 
-Upload any policy from `data/generated/policies/` — try `clean/POL001.pdf` for
+Upload any policy from `data/generated/policies/`, try `clean/POL001.pdf` for
 the clean path, or `scanned/POL003_phone_photo.pdf` to watch the OCR ladder and
 vision escalation work on a photographed document.
 
@@ -150,7 +150,7 @@ the browser's activity panel, so what the user sees cannot drift from what the
 server did.
 
 **Intake ladder**, cheapest rung first: native text layer → Tesseract → vision
-model → ask the user. Preprocessing branches on measured page condition —
+model → ask the user. Preprocessing branches on measured page condition,
 speckle detection picks a median filter over non-local means, lighting is
 flattened only when a shadow is actually present, and capture DPI is inferred
 from page dimensions. Field recall across the corpus: **94.3%**, from 81.3%
@@ -170,7 +170,7 @@ Synthetic, per the problem statement's mandate, but generated from real anchors.
 Hospital attributes are *correlated*, not drawn independently: size drives
 accreditation odds and specialty breadth, locality drives tariffs, and both
 drive how many insurers sign a cashless tie-up. That is what gives matching real
-trade-offs — the cheap hospital genuinely tends to be the one outside your
+trade-offs, the cheap hospital genuinely tends to be the one outside your
 network without an ICU, which is the decision a family actually faces.
 
 The policy corpus is adversarial by design. The same room limit appears as a
@@ -188,7 +188,7 @@ companies would be misleading.
 
 This is a decision-support and information tool. It does not diagnose, does not
 recommend treatment, and does not give binding insurance advice. Journey stages
-are administrative — where the paperwork stands — and nothing in the system
+are administrative, where the paperwork stands, and nothing in the system
 records or reasons about a diagnosis. Every figure is an estimate and is
 labelled as one.
 
@@ -207,8 +207,8 @@ bench/          OCR and extraction benchmarks
 frontend/       React + Vite + Tailwind
 ```
 
-Models are addressed by *role* — extract, challenge, adjudicate, vision, narrate
-— never by name. Each role has a fallback chain probed at boot, so a plan
+Models are addressed by *role*, extract, challenge, adjudicate, vision, narrate
+never by name. Each role has a fallback chain probed at boot, so a plan
 change or a deprecated model degrades gracefully instead of breaking. With no
 key at all the application still runs, on the deterministic path only, and says
 so.

@@ -1,4 +1,4 @@
-"""M9 — matching, ranking and graceful degradation.
+"""M9, matching, ranking and graceful degradation.
 
 The starvation tests carry the most weight. Returning an empty list to someone
 standing in a hospital corridor is the failure this stage exists to prevent, so

@@ -1,4 +1,4 @@
-"""M2 — dataset generation.
+"""M2, dataset generation.
 
 The corpus is synthetic, so the thing worth testing is not the values but the
 *structure*: that attributes correlate the way real ones do, that the build is
@@ -6,7 +6,7 @@ reproducible, and that nothing downstream can be handed an incoherent record.
 
 The correlation tests matter most. If price, quality and network status were
 independent random draws, every hospital would be interchangeable and the
-ranking engine would have no real trade-offs to reason about — the demo would
+ranking engine would have no real trade-offs to reason about, the demo would
 look fine and mean nothing.
 """
 
