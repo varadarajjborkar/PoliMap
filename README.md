@@ -174,7 +174,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 402 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 400 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 
