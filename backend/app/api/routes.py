@@ -800,6 +800,58 @@ def restore_session(session_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/session/{session_id}/export")
+def export_session(session_id: str) -> dict[str, Any]:
+    """The whole session as plain JSON, for the browser to keep.
+
+    The browser, not this server, is the durable copy. Sessions here expire on a
+    timer and a container restart takes the file with it, so a stay tracked over
+    five days would not survive on the server alone. The client stores what this
+    returns and hands it back through `import` when the server no longer has it.
+    """
+    session = _session(session_id)
+    return {"snapshot": json.loads(session.to_json())}
+
+
+class SessionImport(BaseModel):
+    snapshot: dict[str, Any]
+
+
+@router.post("/session/import")
+def import_session(payload: SessionImport) -> dict[str, Any]:
+    """Rebuild a session the server has forgotten, from the browser's copy.
+
+    A fresh id is issued rather than reusing the one in the snapshot. The old id
+    may still exist here under a different state, and quietly overwriting it
+    would let one restored tab clobber another that is genuinely live.
+
+    Page images are not part of the snapshot and are not restored: they are
+    pictures of someone's insurance document and keeping them past their session
+    is not a trade worth making. Evidence crops degrade to the quoted text.
+    """
+    session = sessions.create()
+    restored_id = session.session_id
+
+    try:
+        rebuilt = Session.from_json(json.dumps(payload.snapshot))
+    except Exception as exc:
+        sessions.delete(restored_id)
+        raise HTTPException(
+            400, "That saved stay could not be read. Start a new one."
+        ) from exc
+
+    rebuilt.session_id = restored_id
+    if rebuilt.journey is not None:
+        # The journey carries the id it was created under, and the activity
+        # stream is keyed on it. Left stale, every event from here on would be
+        # published to a session nobody is listening to.
+        rebuilt.journey.session_id = restored_id
+
+    sessions.save(rebuilt)
+    log.info("session restored from client", session_id=restored_id)
+    return restore_session(restored_id)
+
+
 @router.delete("/session/{session_id}")
 def clear_session(session_id: str) -> dict[str, Any]:
     """Forget a session. Backs the "start over" action in the interface."""

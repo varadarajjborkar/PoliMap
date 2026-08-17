@@ -1,60 +1,75 @@
 import { useCallback, useEffect, useState } from 'react'
 
-// Routing on the URL hash.
+// Routing on real paths.
 //
-// The hash is used rather than the History API for one practical reason: it
-// needs no server rewrite rule, so the same build works behind the Vite dev
-// server and behind a static host without either being configured for it.
+// This used to route on the hash, which needs no server rewrite. The cost was a
+// URL that read as `#/` on the home screen and `#/hospitals` deeper in, neither
+// of which survived being pasted to anyone. Real paths are served by the SPA
+// rewrite already in `vercel.json`, and Vite's dev server falls back to
+// index.html on its own, so nothing extra is configured for either.
 //
-// Putting the step in the URL is what makes the browser's own back and forward
-// buttons work. People reach for those before they reach for anything we draw,
-// and a hospital cost estimate is exactly the kind of page someone backs out of
-// to compare against the previous one.
+// A stay's id is in the path. That is what makes a link to an admission mean
+// the same thing tomorrow as it does now, and it is why the browser's own back
+// button lands where the user expects instead of on a step that no longer has
+// anything behind it.
 
-export const STEPS = [
-  { id: 'upload', path: '/', label: 'Your policy', short: 'Policy' },
-  { id: 'policy', path: '/cover', label: 'Your cover', short: 'Cover' },
-  { id: 'search', path: '/hospitals', label: 'Hospitals', short: 'Hospitals' },
-  { id: 'journey', path: '/stay', label: 'Your stay', short: 'Stay' },
+export const SETUP_STEPS = [
+  { id: 'upload', segment: '', label: 'Your policy', short: 'Policy' },
+  { id: 'policy', segment: 'cover', label: 'Your cover', short: 'Cover' },
+  { id: 'search', segment: 'hospitals', label: 'Hospitals', short: 'Hospitals' },
 ]
 
-const BY_ID = Object.fromEntries(STEPS.map((s) => [s.id, s]))
-const BY_PATH = Object.fromEntries(STEPS.map((s) => [s.path, s]))
+export const TRACK_STEP = {
+  id: 'journey', segment: 'track', label: 'Your stay', short: 'Stay',
+}
 
-function currentId() {
-  const path = window.location.hash.replace(/^#/, '') || '/'
-  return (BY_PATH[path] ?? STEPS[0]).id
+export const STEPS = [...SETUP_STEPS, TRACK_STEP]
+
+const BY_ID = Object.fromEntries(STEPS.map((s) => [s.id, s]))
+const BY_SEGMENT = Object.fromEntries(STEPS.map((s) => [s.segment, s]))
+
+export function stayPath(stayId, stepId) {
+  const step = BY_ID[stepId] ?? SETUP_STEPS[0]
+  return `/stay/${stayId}${step.segment ? `/${step.segment}` : ''}`
+}
+
+// The path is the only source of truth for where the user is. Parsing it in one
+// place means a typed URL, a restored tab and a click all arrive as the same
+// shape, and none of them can disagree with the address bar.
+export function parse(pathname) {
+  const parts = pathname.split('/').filter(Boolean)
+
+  if (parts[0] === 'stay' && parts[1]) {
+    const step = BY_SEGMENT[parts[2] ?? ''] ?? SETUP_STEPS[0]
+    return { view: 'stay', stayId: parts[1], step: step.id }
+  }
+  if (parts[0] === 'new') return { view: 'stay', stayId: null, step: 'upload' }
+  return { view: 'home', stayId: null, step: null }
 }
 
 export function useRoute() {
-  const [route, setRoute] = useState(currentId)
+  const [location, setLocation] = useState(() => parse(window.location.pathname))
 
   useEffect(() => {
-    const onChange = () => setRoute(currentId())
-    window.addEventListener('hashchange', onChange)
-    return () => window.removeEventListener('hashchange', onChange)
+    const onPop = () => setLocation(parse(window.location.pathname))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   // Adds a history entry, so back returns to where the user was.
-  const go = useCallback((id) => {
-    const step = BY_ID[id] ?? STEPS[0]
-    if (window.location.hash.replace(/^#/, '') === step.path) {
-      setRoute(step.id)
+  const navigate = useCallback((path, { replace = false } = {}) => {
+    if (window.location.pathname === path) {
+      setLocation(parse(path))
       return
     }
-    window.location.hash = step.path
+    // `replace` is for corrections the app makes to itself. Pressing back
+    // should not return to a step the app has just decided was unreachable.
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', path)
+    setLocation(parse(path))
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
-  // Replaces the current entry. Used when the app corrects the URL itself, so
-  // that pressing back does not land on a step that was never reachable.
-  const replace = useCallback((id) => {
-    const step = BY_ID[id] ?? STEPS[0]
-    window.history.replaceState(null, '', `#${step.path}`)
-    setRoute(step.id)
-  }, [])
-
-  return { route, go, replace }
+  return { ...location, navigate }
 }
 
 export const stepIndex = (id) => STEPS.findIndex((s) => s.id === id)
-export const stepAt = (index) => STEPS[index] ?? null

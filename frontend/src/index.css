@@ -74,6 +74,40 @@ body {
 /* Let the browser render its own form controls and scrollbars to match. */
 html.theme-dark { color-scheme: dark; }
 
+/* Motion.
+   Short, and only ever in one direction: content arrives by settling into
+   place from slightly below, which reads as the page composing itself rather
+   than as decoration. Nothing loops, nothing bounces, and nothing moves after
+   the user has started reading it.
+
+   `motion-safe:` on the utilities means a reduced-motion setting removes these
+   entirely rather than merely shortening them, so the block below is a
+   backstop for transitions declared elsewhere. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* A number that has just changed, pulsed once. Used on running totals, where
+   the whole point is that the figure moved. */
+@keyframes settle {
+  0%   { background-color: var(--color-brand-soft); }
+  100% { background-color: transparent; }
+}
+
+@utility animate-rise {
+  animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@utility animate-fade {
+  animation: fade 0.24s ease-out both;
+}
+@utility animate-settle {
+  animation: settle 1.1s ease-out;
+}
+
 /* Respect a user who has asked for less motion; this app is used under stress. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

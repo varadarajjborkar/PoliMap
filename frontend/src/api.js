@@ -39,6 +39,12 @@ export const api = {
 
   clear: (sessionId) => request(`/api/session/${sessionId}`, { method: 'DELETE' }),
 
+  // The session as the server holds it, for the browser to keep. Sessions
+  // expire here and a restart drops them, so the device is the durable copy.
+  session: (sessionId) => request(`/api/session/${sessionId}`),
+  exportSession: (sessionId) => request(`/api/session/${sessionId}/export`),
+  importSession: (snapshot) => request('/api/session/import', json({ snapshot })),
+
   uploadPolicy(file, insurerId) {
     const form = new FormData()
     form.append('file', file)

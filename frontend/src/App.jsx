@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
+import { SignIn, StayList } from './components/HomeScreen'
 import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
 import { Results, SearchPanel } from './components/Results'
-import { Button, ErrorNote } from './components/Primitives'
+import { Button, ErrorNote, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
-import { STEPS, stepIndex, useRoute } from './hooks/useRoute'
+import {
+  SETUP_STEPS, TRACK_STEP, stayPath, stepIndex, useRoute,
+} from './hooks/useRoute'
 import { useSettings } from './hooks/useSettings'
+import { useStay } from './hooks/useStay'
+import {
+  clearUser, deleteAllStays, deleteStay, listStays, newStayId,
+  readUser, saveStay, writeUser,
+} from './lib/stays'
 
 // The server replays at most 500 events to a new subscriber, so holding more
 // than this only grows an array nobody scrolls back through.
@@ -24,10 +32,12 @@ const DEFAULT_SEARCH = {
 
 export default function App() {
   const { settings, set, reset } = useSettings()
-  const { route, go, replace } = useRoute()
+  const { view, stayId, step, navigate } = useRoute()
+
+  const [user, setUser] = useState(readUser)
+  const [stays, setStays] = useState([])
 
   const [reference, setReference] = useState(null)
-  const [session, setSession] = useState(null)
   const [policy, setPolicy] = useState(null)
   const [results, setResults] = useState(null)
   const [journey, setJourney] = useState(null)
@@ -40,6 +50,20 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [connected, setConnected] = useState(false)
 
+  // Destructured rather than held as an object: the hook returns a fresh one
+  // every render, and an effect depending on the object would re-run forever.
+  // The functions inside it are memoised, so these are stable.
+  const {
+    sessionId, adopt, scheduleSave, open: openSavedStay, restoring, gone,
+  } = useStay({ user, stayId })
+
+  const refreshStays = useCallback(() => setStays(listStays(user)), [user])
+  useEffect(refreshStays, [refreshStays])
+
+  useEffect(() => {
+    api.reference().then(setReference).catch((e) => setError(e.message))
+  }, [])
+
   // The stream is opened only when the panel that displays it is on.
   //
   // It used to run always, so a hidden developer panel cost an open connection
@@ -48,10 +72,10 @@ export default function App() {
   // waiting: the server keeps a replay buffer, so switching the panel on
   // mid-session still shows every step from the beginning.
   useEffect(() => {
-    if (!session || !settings.showActivity) return
+    if (!sessionId || !settings.showActivity) return
 
     setEvents([])
-    const stop = subscribeToEvents(session, (event) => {
+    const stop = subscribeToEvents(sessionId, (event) => {
       setConnected(true)
       setEvents((current) =>
         current.some((e) => e.id === event.id)
@@ -63,24 +87,53 @@ export default function App() {
       stop()
       setConnected(false)
     }
-  }, [session, settings.showActivity])
+  }, [sessionId, settings.showActivity])
 
-  useEffect(() => {
-    api.reference().then(setReference).catch((e) => setError(e.message))
+  // Put a restored session back on screen. The server returns every part of it
+  // in one payload, so a reload lands on the step the user left rather than
+  // sending them back to the upload screen with their document already read.
+  const hydrate = useCallback((restored) => {
+    if (!restored) return
+    setPolicy(restored.policy ?? null)
+    setResults(restored.search ?? null)
+    setJourney(restored.journey ?? null)
+    if (restored.search_context?.procedure_code) {
+      setSearch((current) => ({
+        ...current,
+        procedure_code: restored.search_context.procedure_code,
+        city: restored.search_context.city || current.city,
+        max_distance_km:
+          restored.search_context.max_distance_km ?? current.max_distance_km,
+        preference: restored.search_context.preference ?? current.preference,
+        urgency: restored.search_context.urgency ?? current.urgency,
+      }))
+    }
   }, [])
 
-  const reachable = {
-    upload: true,
-    policy: Boolean(policy),
-    search: Boolean(policy),
-    journey: Boolean(journey),
-  }
-
-  // Keep the URL honest. A reload holds nothing, so any step deeper than the
-  // upload screen has nothing behind it and sends the user back to the start.
+  // Opening a stay from a link, a reload, or the home screen all arrive here.
   useEffect(() => {
-    if (!reachable[route]) replace(policy ? 'policy' : 'upload')
-  }, [route, policy, journey, replace]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (view !== 'stay' || !stayId || !user) return
+    if (sessionId) return
+
+    let cancelled = false
+    setBusy('restore')
+    openSavedStay()
+      .then((restored) => { if (!cancelled) hydrate(restored) })
+      .catch((e) => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setBusy(null) })
+    return () => { cancelled = true }
+  }, [view, stayId, user, sessionId, openSavedStay, hydrate])
+
+  // Anything the server now holds is worth writing to the device.
+  //
+  // Deliberately an effect rather than a call at each site that changes state.
+  // A step added later cannot forget to save, and it solves a timing problem
+  // besides: the first policy is read at `/new`, before this stay has an id,
+  // so the save has to happen after the navigation that gives it one.
+  useEffect(() => {
+    if (!sessionId || !stayId) return
+    scheduleSave()
+  }, [sessionId, stayId, policy, results, journey, scheduleSave])
 
   async function run(name, work) {
     setBusy(name)
@@ -95,33 +148,49 @@ export default function App() {
     }
   }
 
-  function adopt(result) {
-    setSession(result.session_id)
+  // What this stay is, so the home screen lists it recognisably a day later.
+  // The hospital and the treatment are what someone recognises; the id is not.
+  const remember = useCallback((patch) => {
+    if (!user || !stayId) return
+    saveStay(user, { id: stayId, createdAt: Date.now(), ...patch })
+    setStays(listStays(user))
+  }, [user, stayId])
+
+  // Take a freshly read policy as this stay's starting point.
+  function adoptPolicy(result, id) {
+    adopt(result.session_id)
     setPolicy(result)
     setResults(null)
     setJourney(null)
-    go('policy')
+    navigate(stayPath(id, 'policy'), { replace: true })
   }
 
   async function handleUpload(file, insurerId) {
+    const id = stayId ?? newStayId()
     const result = await run('upload', () => api.uploadPolicy(file, insurerId))
-    if (result) adopt(result)
+    if (!result) return
+    saveStay(user, { id, createdAt: Date.now(), insurer: result.insurer_name })
+    adoptPolicy(result, id)
   }
 
   async function handleManual(payload) {
+    const id = stayId ?? newStayId()
     const result = await run('upload', () => api.manualPolicy(payload))
-    if (result) adopt(result)
+    if (!result) return
+    saveStay(user, { id, createdAt: Date.now() })
+    adoptPolicy(result, id)
   }
 
   async function handleAnswer(questionId, answer) {
-    const result = await run('answer', () => api.answer(session, questionId, answer))
+    const result = await run('answer', () =>
+      api.answer(sessionId, questionId, answer))
     if (result) setPolicy(result)
   }
 
   async function handleSearch() {
     const city = reference?.cities?.find((c) => c.city === search.city)
     const result = await run('search', () =>
-      api.search(session, {
+      api.search(sessionId, {
         procedure_code: search.procedure_code,
         lat: city?.lat ?? 12.9716,
         lon: city?.lon ?? 77.5946,
@@ -131,12 +200,17 @@ export default function App() {
         urgency: search.urgency,
       })
     )
-    if (result) setResults(result)
+    if (result) {
+      setResults(result)
+      const name = reference?.procedures
+        ?.find((p) => p.code === search.procedure_code)?.name
+      remember({ procedure: name })
+    }
   }
 
   async function handleStartJourney(option) {
     const result = await run('journey', () =>
-      api.startJourney(session, {
+      api.startJourney(sessionId, {
         hospital_id: option.hospital.id,
         procedure_code: search.procedure_code,
         room_category: option.room.category,
@@ -144,24 +218,39 @@ export default function App() {
     )
     if (result) {
       setJourney(result)
-      go('journey')
+      remember({
+        hospital: option.hospital.name,
+        stageLabel: result.stage_label,
+      })
+      navigate(stayPath(stayId, 'journey'))
     }
   }
 
   const journeyAction = (work) => async (...args) => {
     const result = await run('journey', () => work(...args))
-    if (result) setJourney(result)
+    if (result) {
+      setJourney(result)
+      remember({ stageLabel: result.stage_label })
+    }
   }
 
-  async function startOver({ forget = false } = {}) {
-    if (forget && session) {
-      // Best effort: the interface resets either way, and a failed delete
-      // should not strand someone on a screen they asked to leave.
-      await api.clear(session).catch(() => {})
-    }
-    // Clearing the session closes the stream: the effect that opened it is
-    // keyed on the session.
-    setSession(null)
+  // --- identity and stays ---------------------------------------------------
+
+  function signIn(name) {
+    writeUser(name)
+    setUser(name)
+    setStays(listStays(name))
+    navigate('/')
+  }
+
+  function switchUser() {
+    clearUser()
+    setUser('')
+    resetWorkingState()
+    navigate('/')
+  }
+
+  function resetWorkingState() {
     setPolicy(null)
     setResults(null)
     setJourney(null)
@@ -170,26 +259,99 @@ export default function App() {
     setConnected(false)
     setError(null)
     setSettingsOpen(false)
-    go('upload')
+    adopt(null)
+  }
+
+  function startNewStay() {
+    resetWorkingState()
+    navigate('/new')
+  }
+
+  function openStay(target) {
+    resetWorkingState()
+    navigate(stayPath(target.id, target.stageLabel ? 'journey' : 'policy'))
+  }
+
+  function goHome() {
+    resetWorkingState()
+    navigate('/')
+    setStays(listStays(user))
+  }
+
+  // "Start over" throws away this stay, and only this stay. Another name on
+  // the same device keeps everything, which is the point of having names.
+  async function discardStay() {
+    if (sessionId) await api.clear(sessionId).catch(() => {})
+    if (stayId) deleteStay(user, stayId)
+    goHome()
+  }
+
+  function removeStay(target) {
+    deleteStay(user, target.id)
+    setStays(listStays(user))
+  }
+
+  function forgetEverything() {
+    if (sessionId) api.clear(sessionId).catch(() => {})
+    deleteAllStays(user)
+    goHome()
+  }
+
+  // --- render ---------------------------------------------------------------
+
+  if (!user) return <SignIn onSignIn={signIn} />
+
+  if (view === 'home') {
+    return (
+      <>
+        <StayList
+          user={user}
+          stays={stays}
+          onOpen={openStay}
+          onNew={startNewStay}
+          onDelete={removeStay}
+          onSwitchUser={switchUser}
+        />
+        <SettingsPanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          settings={settings} set={set} reset={reset}
+          sessionId={null}
+          onForget={forgetEverything}
+        />
+      </>
+    )
+  }
+
+  const reachable = {
+    upload: true,
+    policy: Boolean(policy),
+    search: Boolean(policy),
+    journey: Boolean(journey),
   }
 
   const shell = {
-    events,
-    connected,
-    settings,
+    events, connected, settings,
     onOpenSettings: () => setSettingsOpen(true),
-    route,
-    go,
-    reachable,
-    onStartOver: () => startOver(),
-    hasSession: Boolean(session),
+    step, reachable,
+    onGo: (id) => navigate(stayPath(stayId, id)),
+    onHome: goHome,
+    onStartOver: discardStay,
+    hasSession: Boolean(sessionId),
+    user,
   }
 
 
   return (
     <>
       <Shell {...shell}>
-        {route === 'upload' ? (
+        {busy === 'restore' || restoring ? (
+          <div className="mx-auto max-w-2xl px-4 py-20 text-center motion-safe:animate-fade">
+            <Spinner label="Opening your stay. The server may take a moment to wake." />
+          </div>
+        ) : gone && !policy ? (
+          <StayGone onHome={goHome} onNew={startNewStay} />
+        ) : step === 'upload' ? (
           <UploadStep
             reference={reference}
             onUploaded={handleUpload}
@@ -199,26 +361,26 @@ export default function App() {
             onClearError={() => setError(null)}
           />
         ) : (
-          <div className="mx-auto max-w-3xl space-y-5 py-6">
+          <div className="mx-auto max-w-3xl space-y-5 py-6 motion-safe:animate-fade">
             <ErrorNote onDismiss={() => setError(null)}>{error}</ErrorNote>
 
-            {route === 'policy' && policy && (
+            {step === 'policy' && policy && (
               <>
-                <BackLink onClick={() => go('upload')}>
-                  Use a different policy
-                </BackLink>
+                <BackLink onClick={goHome}>All your stays</BackLink>
                 <PolicySummary
                   policy={policy}
                   onAnswer={handleAnswer}
-                  onContinue={() => go('search')}
+                  onContinue={() => navigate(stayPath(stayId, 'search'))}
                   answering={busy === 'answer'}
                 />
               </>
             )}
 
-            {route === 'search' && (
+            {step === 'search' && (
               <>
-                <BackLink onClick={() => go('policy')}>Back to your cover</BackLink>
+                <BackLink onClick={() => navigate(stayPath(stayId, 'policy'))}>
+                  Back to your cover
+                </BackLink>
                 <SearchPanel
                   reference={reference}
                   value={search}
@@ -234,26 +396,28 @@ export default function App() {
               </>
             )}
 
-            {route === 'journey' && (
+            {step === 'journey' && (
               <>
-                <BackLink onClick={() => go('search')}>Back to hospitals</BackLink>
+                <BackLink onClick={() => navigate(stayPath(stayId, 'search'))}>
+                  Back to hospitals
+                </BackLink>
                 <Journey
                   journey={journey}
                   busy={busy === 'journey'}
-                  sessionId={session}
+                  sessionId={sessionId}
                   onAdvance={journeyAction((stage, opts) =>
-                    api.advance(session, stage, opts)
+                    api.advance(sessionId, stage, opts)
                   )}
                   onRecordCost={journeyAction((payload) =>
-                    api.recordCost(session, payload)
+                    api.recordCost(sessionId, payload)
                   )}
                   onUpdateCost={journeyAction((entryId, patch) =>
-                    api.updateCost(session, entryId, patch)
+                    api.updateCost(sessionId, entryId, patch)
                   )}
                   onDeleteCost={journeyAction((entryId) =>
-                    api.deleteCost(session, entryId)
+                    api.deleteCost(sessionId, entryId)
                   )}
-                  onFilePreauth={journeyAction(() => api.filePreauth(session))}
+                  onFilePreauth={journeyAction(() => api.filePreauth(sessionId))}
                 />
               </>
             )}
@@ -264,13 +428,28 @@ export default function App() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        set={set}
-        reset={reset}
-        sessionId={session}
-        onForget={() => startOver({ forget: true })}
+        settings={settings} set={set} reset={reset}
+        sessionId={sessionId}
+        onForget={forgetEverything}
       />
     </>
+  )
+}
+
+function StayGone({ onHome, onNew }) {
+  return (
+    <div className="mx-auto max-w-md px-4 py-20 text-center motion-safe:animate-rise">
+      <h2 className="text-lg font-semibold">This stay is not on this device</h2>
+      <p className="mt-2 text-[0.875rem] leading-relaxed text-muted">
+        Stays are saved on the device they were created on. If this link came
+        from another phone or another browser, the admission it points to is
+        still there, not here.
+      </p>
+      <div className="mt-5 flex justify-center gap-2.5">
+        <Button variant="secondary" onClick={onHome}>Your stays</Button>
+        <Button onClick={onNew}>Start a new stay</Button>
+      </div>
+    </div>
   )
 }
 
@@ -278,9 +457,14 @@ function BackLink({ onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-[0.8125rem] text-muted transition hover:text-brand"
+      className="group inline-flex items-center gap-1.5 text-[0.8125rem] text-muted transition hover:text-brand"
     >
-      <span aria-hidden="true">&larr;</span>
+      <span
+        aria-hidden="true"
+        className="transition-transform group-hover:-translate-x-0.5"
+      >
+        &larr;
+      </span>
       {children}
     </button>
   )
@@ -288,18 +472,18 @@ function BackLink({ onClick, children }) {
 
 function Shell({
   children, events, connected, settings, onOpenSettings,
-  route, go, reachable, onStartOver, hasSession,
+  step, reachable, onGo, onHome, onStartOver, hasSession, user,
 }) {
   const showActivity = settings.showActivity
 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <button
-            onClick={onStartOver}
-            className="flex items-center gap-2.5 text-left"
-            title="Start again"
+            onClick={onHome}
+            className="group flex items-center gap-2.5 text-left"
+            title="Your stays"
           >
             {/* The mark has no background of its own, so it sits on the header
                 in either theme without a pale tile around it. */}
@@ -310,12 +494,9 @@ function Shell({
               alt=""
               width="28"
               height="28"
-              className="h-7 w-7 shrink-0"
+              className="h-7 w-7 shrink-0 transition-transform group-hover:scale-105"
             />
             <span className="text-[0.9375rem] font-semibold tracking-tight">PoliMap</span>
-            <span className="hidden text-[0.75rem] text-muted lg:inline">
-              Know what your hospital stay will cost
-            </span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -324,6 +505,7 @@ function Shell({
                 {events.length} steps
               </span>
             )}
+            <span className="hidden text-[0.8125rem] text-muted sm:inline">{user}</span>
             {hasSession && (
               <Button variant="secondary" onClick={onStartOver}>
                 Start over
@@ -340,7 +522,7 @@ function Shell({
           </div>
         </div>
 
-        <StepNav route={route} go={go} reachable={reachable} />
+        <StepNav step={step} onGo={onGo} reachable={reachable} />
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-5 px-4">
@@ -367,49 +549,61 @@ function Shell({
 // The step bar doubles as navigation and as a sense of place. A step already
 // visited stays clickable, because comparing what you were shown at one step
 // against another is the whole reason someone would move backwards here.
-function StepNav({ route, go, reachable }) {
-  const current = stepIndex(route)
+//
+// The three setup steps are grouped apart from the stay itself. They are
+// different kinds of work: the first three are answered once, at the start,
+// while the stay is returned to daily for as long as the admission lasts.
+function StepNav({ step, onGo, reachable }) {
+  const current = stepIndex(step)
+
+  const item = (entry, index) => {
+    const isCurrent = entry.id === step
+    const isDone = index < current && reachable[entry.id]
+    const enabled = reachable[entry.id]
+
+    return (
+      <li key={entry.id} className="min-w-0 flex-1">
+        <button
+          disabled={!enabled}
+          aria-current={isCurrent ? 'step' : undefined}
+          onClick={() => onGo(entry.id)}
+          className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-[0.8125rem] font-medium transition ${
+            isCurrent
+              ? 'border-brand text-brand'
+              : enabled
+                ? 'border-transparent text-muted hover:text-ink'
+                : 'cursor-not-allowed border-transparent text-muted/40'
+          }`}
+        >
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.6875rem] transition ${
+              isCurrent
+                ? 'bg-brand text-on-brand'
+                : isDone
+                  ? 'bg-brand-soft text-brand'
+                  : 'bg-canvas text-muted'
+            }`}
+          >
+            {isDone ? '✓' : index + 1}
+          </span>
+          <span className="truncate sm:hidden">{entry.short}</span>
+          <span className="hidden truncate sm:inline">{entry.label}</span>
+        </button>
+      </li>
+    )
+  }
 
   return (
     <nav aria-label="Progress" className="border-t border-line">
-      <ol className="mx-auto flex max-w-6xl items-stretch gap-1 px-2">
-        {STEPS.map((step, index) => {
-          const isCurrent = step.id === route
-          const isDone = index < current && reachable[step.id]
-          const enabled = reachable[step.id]
-
-          return (
-            <li key={step.id} className="min-w-0 flex-1">
-              <button
-                disabled={!enabled}
-                aria-current={isCurrent ? 'step' : undefined}
-                onClick={() => go(step.id)}
-                className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-[0.75rem] font-medium transition ${
-                  isCurrent
-                    ? 'border-brand text-brand'
-                    : enabled
-                      ? 'border-transparent text-muted hover:text-ink'
-                      : 'cursor-not-allowed border-transparent text-muted/40'
-                }`}
-              >
-                <span
-                  className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[0.625rem] ${
-                    isCurrent
-                      ? 'bg-brand text-on-brand'
-                      : isDone
-                        ? 'bg-brand-soft text-brand'
-                        : 'bg-canvas text-muted'
-                  }`}
-                >
-                  {isDone ? '✓' : index + 1}
-                </span>
-                <span className="truncate sm:hidden">{step.short}</span>
-                <span className="hidden truncate sm:inline">{step.label}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ol>
+      <div className="mx-auto flex max-w-6xl items-stretch px-2">
+        <ol className="flex min-w-0 flex-[3] items-stretch gap-1">
+          {SETUP_STEPS.map(item)}
+        </ol>
+        <div className="mx-1.5 my-2 w-px shrink-0 bg-line" aria-hidden="true" />
+        <ol className="flex min-w-0 flex-1 items-stretch">
+          {item(TRACK_STEP, SETUP_STEPS.length)}
+        </ol>
+      </div>
     </nav>
   )
 }
