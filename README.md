@@ -1,6 +1,4 @@
-![CoverPath](docs/images/logo.png)
-
-# CoverPath
+# ![](docs/images/logo-inline.png) CoverPath
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
 
