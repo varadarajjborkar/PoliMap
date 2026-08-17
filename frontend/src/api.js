@@ -54,6 +54,10 @@ export const api = {
   manualPolicy: (payload) => request('/api/policy/manual', json(payload)),
   answer: (sessionId, questionId, answer) =>
     request(`/api/policy/${sessionId}/answer`, json({ question_id: questionId, answer })),
+  // Skipping is not answering: the clause stays unconfirmed and the estimate
+  // still says where it is unsure. What stops is the asking.
+  skipQuestion: (sessionId, questionId) =>
+    request(`/api/policy/${sessionId}/skip`, json({ question_id: questionId })),
 
   search: (sessionId, payload) => request(`/api/search/${sessionId}`, json(payload)),
 

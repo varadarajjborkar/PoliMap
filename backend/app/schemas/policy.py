@@ -433,6 +433,29 @@ class ClarificationRequest(BaseModel):
     answered: bool = False
     answer: Any = None
 
+    expects: str = "amount"
+    """What kind of value settles this: "amount", "percent" or "choice". Set
+    from the field being asked about, never from what the user typed. An answer
+    is not allowed to decide which field it lands in, which is what stops a
+    typed near-miss creating a second, wrong field beside the real one."""
+
+    allow_other: bool = True
+    """Whether the offered choices can be escaped with free text. Fixed options
+    assume the user's situation is one the form anticipated, and often it is
+    not: their document says something none of the choices covers."""
+
+    skippable: bool = True
+    """Every question can be passed over. Someone may simply not know, and an
+    interrogation that cannot be ended is one people abandon."""
+
+    skipped: bool = False
+
+    pending_value: Any = None
+    """A reading of free text, held while the user confirms it. Nothing
+    interpreted from prose is applied before they have seen it restated."""
+
+    pending_restated: str = ""
+
 
 # ---------------------------------------------------------------------------
 # Compiled policy

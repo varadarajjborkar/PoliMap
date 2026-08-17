@@ -21,6 +21,7 @@ from decimal import Decimal, InvalidOperation
 
 from app.core.events import bus
 from app.core.logging import get_logger
+from app.pipeline.s4_compile.interpret import interpret
 from app.schemas.events import PipelineStage
 from app.schemas.money import format_inr
 from app.schemas.policy import (
@@ -103,6 +104,18 @@ def _room_limit_from(clause: Clause | None) -> RoomLimit:
     return RoomLimit()
 
 
+# What kind of value settles each question. Taken from the field, never from
+# what the user typed: an answer is not allowed to choose which field it lands
+# in, which is what stops a typed near-miss creating a second, wrong field.
+_EXPECTS: dict[ClauseKind, str] = {
+    ClauseKind.SUM_INSURED: "amount",
+    ClauseKind.ROOM_RENT_CAP: "amount",
+    ClauseKind.ICU_CAP: "amount",
+    ClauseKind.COPAY: "percent",
+    ClauseKind.DEDUCTIBLE: "amount",
+}
+
+
 def _ask(
     kind: ClauseKind, question: str, *, help_text: str = "",
     suggested: object = None, clause: Clause | None = None,
@@ -115,6 +128,7 @@ def _ask(
         suggested_value=suggested,
         options=options or [],
         evidence=clause.evidence if clause else None,
+        expects=_EXPECTS.get(kind, "amount"),
     )
 
 
@@ -360,6 +374,102 @@ def _overall_confidence(
     return round(max(0.0, min(1.0, base - 0.08 * len(asks))), 3)
 
 
+# Restored when a user rejects our reading of what they typed. Held here rather
+# than on the request so the wording is one thing in one place.
+_ORIGINAL_QUESTIONS: dict[ClauseKind, str] = {
+    ClauseKind.SUM_INSURED: "What is the total cover amount on your policy?",
+    ClauseKind.ROOM_RENT_CAP: (
+        "Does your policy limit how much it pays for your hospital room?"
+    ),
+    ClauseKind.COPAY: "What share of each claim do you pay yourself?",
+}
+
+
+def _looks_like_a_value(text: str) -> bool:
+    """Whether this is a plain value the existing paths already handle.
+
+    Bare digits, and the fixed option values the interface sends back, need no
+    interpretation. Everything else is prose and goes through the interpreter,
+    which is what makes "about five lakh" an acceptable answer.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if stripped in ("none", "no", "flat", "pct", "unknown", "yes"):
+        return True
+    try:
+        float(stripped.replace(",", ""))
+    except ValueError:
+        return False
+    return True
+
+
+def skip_question(policy: NormalizedPolicy, request_id: str) -> NormalizedPolicy:
+    """Pass over a question the user cannot answer.
+
+    Not the same as answering it. The clause stays unconfirmed and the overall
+    confidence still reflects that we do not know, so the interface can go on
+    saying so. What changes is that we stop asking, because an interrogation
+    with no exit is one people abandon halfway through.
+    """
+    for request in policy.open_clarifications:
+        if request.request_id == request_id:
+            request.skipped = True
+            request.answered = True
+
+    policy.open_clarifications = [
+        r for r in policy.open_clarifications if not r.answered
+    ]
+    policy.confidence = _overall_confidence(policy.clauses, policy.open_clarifications)
+    return policy
+
+
+def _interpret_free_text(
+    policy: NormalizedPolicy, request: ClarificationRequest, text: str
+) -> NormalizedPolicy | None:
+    """Read prose into a value, or turn it into a confirmation question.
+
+    Returns None when the text settled cleanly and the caller should carry on
+    applying it. Returns the policy when the question has been replaced by
+    something the user has to answer next, which is either a confirmation of
+    what we understood or a note that we did not understand at all.
+
+    Nothing a model interpreted is applied before the user has seen it restated.
+    A paraphrase becoming a settled number without them looking at it is exactly
+    how a near-miss turns into a wrong figure that nobody catches.
+    """
+    reading = interpret(request.question, text, expects=request.expects)
+    best = reading.best
+
+    if best is None:
+        request.help_text = reading.reason or request.help_text
+        policy.confidence = _overall_confidence(
+            policy.clauses, policy.open_clarifications
+        )
+        return policy
+
+    if best.is_none:
+        request.answer = "none"
+        return None
+
+    if reading.needs_confirmation:
+        request.pending_value = str(best.value)
+        request.pending_restated = best.restated
+        request.question = f"Did you mean {best.restated}?"
+        request.help_text = reading.reason
+        request.options = [
+            {"label": f"Yes, {best.restated}", "value": f"__confirm__{best.value}"},
+            {"label": "No, let me type it again", "value": "__retry__"},
+        ]
+        policy.confidence = _overall_confidence(
+            policy.clauses, policy.open_clarifications
+        )
+        return policy
+
+    request.answer = str(best.value)
+    return None
+
+
 def apply_answer(
     policy: NormalizedPolicy, request_id: str, answer: object
 ) -> NormalizedPolicy:
@@ -369,6 +479,29 @@ def apply_answer(
     )
     if request is None:
         return policy
+
+    text = answer if isinstance(answer, str) else ""
+
+    # A rejected confirmation reopens the question rather than settling it.
+    if text == "__retry__":
+        request.pending_value = None
+        request.pending_restated = ""
+        request.question = _ORIGINAL_QUESTIONS.get(
+            request.clause_kind, request.question
+        )
+        request.options = []
+        request.help_text = "Write it however it appears on your document."
+        return policy
+
+    if text.startswith("__confirm__"):
+        answer = text.removeprefix("__confirm__")
+    elif text and not _looks_like_a_value(text):
+        # Free text, either typed into "Other" or into the amount box. Nothing
+        # is applied until it has been read into a value we can name back.
+        replaced = _interpret_free_text(policy, request, text)
+        if replaced is not None:
+            return replaced
+        answer = request.answer
 
     request.answered = True
     request.answer = answer

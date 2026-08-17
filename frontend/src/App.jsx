@@ -187,6 +187,12 @@ export default function App() {
     if (result) setPolicy(result)
   }
 
+  async function handleSkip(questionId) {
+    const result = await run('answer', () =>
+      api.skipQuestion(sessionId, questionId))
+    if (result) setPolicy(result)
+  }
+
   async function handleSearch() {
     const city = reference?.cities?.find((c) => c.city === search.city)
     const result = await run('search', () =>
@@ -372,6 +378,7 @@ export default function App() {
                 <PolicySummary
                   policy={policy}
                   onAnswer={handleAnswer}
+                  onSkip={handleSkip}
                   onContinue={() => navigate(stayPath(stayId, 'search'))}
                   answering={busy === 'answer'}
                 />

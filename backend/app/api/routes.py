@@ -27,7 +27,7 @@ from app.core.events import bus
 from app.core.logging import get_logger
 from app.journey import position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes
-from app.pipeline.s4_compile.compiler import apply_answer
+from app.pipeline.s4_compile.compiler import apply_answer, skip_question
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
@@ -233,6 +233,13 @@ def _policy_payload(session: Session) -> dict[str, Any]:
                 "suggested": q.suggested_value,
                 "options": q.options,
                 "page": q.evidence.page_index + 1 if q.evidence else None,
+                # The interface needs these to offer a free-text escape and a
+                # way out. Fixed options assume the user's situation is one the
+                # form anticipated, and a question with no exit gets abandoned.
+                "expects": q.expects,
+                "allow_other": q.allow_other,
+                "skippable": q.skippable,
+                "confirming": bool(q.pending_value),
             }
             for q in policy.open_clarifications
         ],
@@ -344,6 +351,13 @@ class Answer(BaseModel):
     answer: Any
 
 
+MAX_CLARIFICATION_ROUNDS = 8
+"""How many times we will come back to the user before settling for what we
+have. Each round is a model call and a wait, and an interrogation that keeps
+producing another question is one people abandon halfway through, leaving us
+with less than if we had stopped and asked for the two things that matter."""
+
+
 @router.post("/policy/{session_id}/answer")
 def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
     """Fold a user's confirmation into their compiled policy."""
@@ -351,13 +365,51 @@ def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
     if session.policy is None:
         raise HTTPException(400, "No policy on this session yet.")
 
+    session.clarification_rounds += 1
     session.policy = apply_answer(session.policy, payload.question_id, payload.answer)
+
+    if session.clarification_rounds >= MAX_CLARIFICATION_ROUNDS:
+        # Said out loud rather than done quietly: the remaining questions are
+        # dropped and the confidence still reflects that we do not know.
+        dropped = len(session.policy.open_clarifications)
+        if dropped:
+            session.policy.open_clarifications = []
+            bus.publish(
+                __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
+                "clarification_limit", session_id=session_id,
+                summary=(
+                    f"Stopping after {MAX_CLARIFICATION_ROUNDS} questions. "
+                    f"{dropped} left unasked; the estimate says where it is unsure."
+                ),
+            )
+
     sessions.save(session)
     bus.publish(
         __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
         "user_answer", session_id=session_id,
         summary=f"You confirmed: {payload.answer}",
     )
+    return _policy_payload(session)
+
+
+class Skip(BaseModel):
+    question_id: str
+
+
+@router.post("/policy/{session_id}/skip")
+def skip_clarification(session_id: str, payload: Skip) -> dict[str, Any]:
+    """Pass over a question the user cannot answer.
+
+    Not the same as answering it: the clause stays unconfirmed and the overall
+    confidence still says we do not know. What stops is the asking.
+    """
+    session = _session(session_id)
+    if session.policy is None:
+        raise HTTPException(400, "No policy on this session yet.")
+
+    session.clarification_rounds += 1
+    session.policy = skip_question(session.policy, payload.question_id)
+    sessions.save(session)
     return _policy_payload(session)
 
 

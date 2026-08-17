@@ -49,6 +49,9 @@ class Session:
     match: MatchResult | None = None
     journey: JourneyState | None = None
     insurer_id: str = ""
+    clarification_rounds: int = 0
+    """How many questions this session has already put to the user. Bounded, so
+    the loop cannot keep asking and keep costing."""
 
     def touch(self) -> None:
         self.updated_at = datetime.now(UTC)
@@ -66,6 +69,7 @@ class Session:
                 "needed_ocr": self.needed_ocr,
                 "warnings": self.warnings,
                 "insurer_id": self.insurer_id,
+                "clarification_rounds": self.clarification_rounds,
                 "policy": self.policy.model_dump(mode="json") if self.policy else None,
                 "match": self.match.model_dump(mode="json") if self.match else None,
                 "journey": (
@@ -86,6 +90,7 @@ class Session:
             needed_ocr=data.get("needed_ocr", False),
             warnings=list(data.get("warnings", [])),
             insurer_id=data.get("insurer_id", ""),
+            clarification_rounds=data.get("clarification_rounds", 0),
             policy=(
                 NormalizedPolicy.model_validate(data["policy"])
                 if data.get("policy") else None

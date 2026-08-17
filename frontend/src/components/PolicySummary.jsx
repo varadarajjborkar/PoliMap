@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge, Button, Card, CardHeader, Input } from './Primitives'
 
 // What we read from the policy, and the things we could not settle.
@@ -54,7 +54,7 @@ function SchemeFacts({ policy }) {
   )
 }
 
-export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
+export function PolicySummary({ policy, onAnswer, onSkip, onContinue, answering }) {
   const question = policy.questions?.[0]
 
   return (
@@ -64,6 +64,7 @@ export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
           question={question}
           remaining={policy.questions.length - 1}
           onAnswer={onAnswer}
+          onSkip={onSkip}
           busy={answering}
         />
       )}
@@ -199,18 +200,48 @@ function Fact({ label, value, note, emphasis }) {
   )
 }
 
-function ClarificationCard({ question, remaining, onAnswer, busy }) {
+// One question at a time, with a way out of it.
+//
+// The old card offered fixed choices or a box that took digits. Both assume the
+// user's situation is one the form anticipated. Often it is not: their document
+// says something none of the options covers, or they know the answer in words
+// rather than figures. So every set of choices carries an "Other" that opens a
+// box, the box accepts prose, and every question can be skipped.
+//
+// What the box does not do is let the answer steer the system. Text is read
+// into the field that was asked about and no other, and anything the server had
+// to interpret comes back as a confirmation before it is used.
+function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
   const [typed, setTyped] = useState(
     question.suggested != null ? String(question.suggested) : ''
   )
+  const [other, setOther] = useState(false)
+
+  // A fresh question resets the box, otherwise an answer to the last one is
+  // sitting in it as a default for this one.
+  useEffect(() => {
+    setTyped(question.suggested != null ? String(question.suggested) : '')
+    setOther(false)
+  }, [question.id, question.suggested])
+
+  const placeholder =
+    question.expects === 'percent'
+      ? 'For example 10%, or ten percent'
+      : 'For example 5 lakh, 5,00,000, or no limit'
+
+  const showBox = other || !(question.options?.length > 0)
 
   return (
-    <Card className="border-brand/30 ring-1 ring-brand/10">
+    <Card className="border-brand/30 ring-1 ring-brand/10 motion-safe:animate-rise">
       <div className="px-5 py-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[0.875rem] font-semibold text-brand">We need one thing from you</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[0.875rem] font-semibold text-brand">
+            {question.confirming ? 'Just checking' : 'We need one thing from you'}
+          </h3>
           {remaining > 0 && (
-            <span className="text-[0.75rem] text-muted">{remaining} more after this</span>
+            <span className="shrink-0 text-[0.75rem] text-muted">
+              {remaining} more after this
+            </span>
           )}
         </div>
 
@@ -225,7 +256,7 @@ function ClarificationCard({ question, remaining, onAnswer, busy }) {
         )}
 
         <div className="mt-4 space-y-2">
-          {question.options?.length > 0 ? (
+          {question.options?.length > 0 && !other &&
             question.options.map((option) => (
               <button
                 key={option.value}
@@ -241,24 +272,61 @@ function ClarificationCard({ question, remaining, onAnswer, busy }) {
                   </span>
                 )}
               </button>
-            ))
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                autoFocus
-                value={typed}
-                onChange={(event) => setTyped(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && typed) onAnswer(question.id, typed)
-                }}
-                placeholder="Enter the amount"
-              />
-              <Button disabled={busy || !typed} onClick={() => onAnswer(question.id, typed)}>
-                Confirm
-              </Button>
+            ))}
+
+          {question.options?.length > 0 && !other && question.allow_other && (
+            <button
+              disabled={busy}
+              onClick={() => setOther(true)}
+              className="flex w-full items-center justify-between rounded-lg border border-dashed border-line px-4 py-3 text-left transition hover:border-brand hover:bg-brand-soft disabled:opacity-50"
+            >
+              <span className="text-[0.9375rem] font-medium">
+                None of these, let me explain
+              </span>
+            </button>
+          )}
+
+          {showBox && (
+            <div className="motion-safe:animate-fade">
+              <div className="flex gap-2">
+                <Input
+                  autoFocus
+                  value={typed}
+                  onChange={(event) => setTyped(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && typed) onAnswer(question.id, typed)
+                  }}
+                  placeholder={placeholder}
+                />
+                <Button
+                  disabled={busy || !typed}
+                  onClick={() => onAnswer(question.id, typed)}
+                >
+                  {busy ? 'Reading…' : 'Confirm'}
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+                Write it however it appears on your document, in words or
+                figures. We will read it back to you before using it.
+              </p>
             </div>
           )}
         </div>
+
+        {question.skippable && !question.confirming && (
+          <div className="mt-3 flex items-center gap-3 border-t border-line pt-3">
+            <button
+              disabled={busy}
+              onClick={() => onSkip(question.id)}
+              className="text-[0.8125rem] text-muted underline-offset-2 transition hover:text-ink hover:underline disabled:opacity-50"
+            >
+              I do not know this
+            </button>
+            <span className="text-[0.75rem] text-muted">
+              We will carry on and say where we are unsure.
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   )
