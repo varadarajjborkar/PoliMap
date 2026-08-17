@@ -7,6 +7,53 @@ import { Badge, Button, Card, CardHeader, Input } from './Primitives'
 // has just uploaded a document under stress can answer one clear question; a
 // form of six is abandoned.
 
+// A scheme has none of the things the indemnity grid asks about. Rendering it
+// through that grid put a room rent limit and a co-payment in front of a PM-JAY
+// beneficiary and told them consumables were theirs to pay, which is false and
+// false in the frightening direction. It is described in its own terms instead.
+function SchemeFacts({ policy }) {
+  return (
+    <>
+      <div className="grid gap-px bg-line sm:grid-cols-2">
+        <Fact
+          label="Cover this year"
+          value={policy.sum_insured_display}
+          note="Shared across your family for the year."
+          emphasis
+        />
+        <Fact
+          label="What you pay at an empanelled hospital"
+          value="Nothing"
+          note="Treatment is bought at a fixed package rate. There is no bill to settle and nothing to claim back."
+        />
+        <Fact
+          label="Room included"
+          value={policy.room_limit.description}
+          note="A higher room is yours to pay for, but it does not reduce what the scheme covers on anything else."
+        />
+        <Fact
+          label="Consumables, implants, medicines, tests"
+          value="Included in the package"
+        />
+      </div>
+      {policy.scheme_note && (
+        <div className="border-t border-line px-5 py-3.5">
+          <p className="text-[0.8125rem] leading-relaxed text-muted">
+            {policy.scheme_note}
+          </p>
+        </div>
+      )}
+      <div className="border-t border-line bg-warn-soft px-5 py-3.5">
+        <p className="text-[0.8125rem] leading-relaxed text-warn">
+          This only works at a hospital empanelled for {policy.scheme_label}.
+          Anywhere else the scheme pays nothing, and there is no claim to make
+          afterwards. The hospitals we show you are filtered on this.
+        </p>
+      </div>
+    </>
+  )
+}
+
 export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
   const question = policy.questions?.[0]
 
@@ -46,43 +93,47 @@ export function PolicySummary({ policy, onAnswer, onContinue, answering }) {
           aside={<ConfidenceBadge policy={policy} />}
         />
 
-        <div className="grid gap-px bg-line sm:grid-cols-2 [&>*:last-child:nth-child(odd)]:sm:col-span-2">
-          <Fact
-            label="Total cover this year"
-            value={policy.sum_insured_display}
-            emphasis
-          />
-          <Fact
-            label="Room you are covered for"
-            value={policy.room_limit.description}
-            note={
-              policy.room_limit.daily_cap
-                ? 'A costlier room also reduces what your insurer pays on surgeon, theatre and nursing charges.'
-                : null
-            }
-          />
-          <Fact
-            label="Your share of every claim"
-            value={policy.copay_pct > 0 ? `${policy.copay_pct}%` : 'None'}
-          />
-          <Fact label="ICU cover" value={policy.icu_limit} />
-          {policy.deductible > 0 && (
+        {policy.government_scheme ? (
+          <SchemeFacts policy={policy} />
+        ) : (
+          <div className="grid gap-px bg-line sm:grid-cols-2 [&>*:last-child:nth-child(odd)]:sm:col-span-2">
             <Fact
-              label="You pay first"
-              value={`₹${policy.deductible.toLocaleString('en-IN')}`}
-              note="This is a top-up policy. It pays only above this amount."
+              label="Total cover this year"
+              value={policy.sum_insured_display}
+              emphasis
             />
-          )}
-          <Fact
-            label="Consumables"
-            value={policy.covers_consumables ? 'Covered' : 'Not covered'}
-            note={
-              policy.covers_consumables
-                ? null
-                : 'Gloves, syringes and similar items are yours to pay.'
-            }
-          />
-        </div>
+            <Fact
+              label="Room you are covered for"
+              value={policy.room_limit.description}
+              note={
+                policy.room_limit.daily_cap
+                  ? 'A costlier room also reduces what your insurer pays on surgeon, theatre and nursing charges.'
+                  : null
+              }
+            />
+            <Fact
+              label="Your share of every claim"
+              value={policy.copay_pct > 0 ? `${policy.copay_pct}%` : 'None'}
+            />
+            <Fact label="ICU cover" value={policy.icu_limit} />
+            {policy.deductible > 0 && (
+              <Fact
+                label="You pay first"
+                value={`₹${policy.deductible.toLocaleString('en-IN')}`}
+                note="This is a top-up policy. It pays only above this amount."
+              />
+            )}
+            <Fact
+              label="Consumables"
+              value={policy.covers_consumables ? 'Covered' : 'Not covered'}
+              note={
+                policy.covers_consumables
+                  ? null
+                  : 'Gloves, syringes and similar items are yours to pay.'
+              }
+            />
+          </div>
+        )}
 
         {policy.sublimits?.length > 0 && (
           <div className="border-t border-line px-5 py-4">

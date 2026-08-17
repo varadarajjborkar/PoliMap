@@ -235,13 +235,24 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
         </div>
 
         <div className="text-right">
-          <div className="text-[0.6875rem] text-muted">You would pay</div>
+          <div className="text-[0.75rem] text-muted">You would pay</div>
           <div className="text-[1.5rem] font-semibold tabular-nums">
             {option.you_pay_display}
           </div>
-          {option.band && (
-            <div className="text-[0.6875rem] text-muted tabular-nums">
-              {option.band.low_display} to {option.band.high_display}
+          {/* Stated as a worst case with its cause rather than a symmetrical
+              range. A family braces against a specific thing going wrong, and
+              a bare pair of numbers invites the reader to average them. */}
+          {option.band && option.band.high > option.band.expected && (
+            <div className="mt-0.5 text-[0.75rem] leading-snug text-muted">
+              up to{' '}
+              <span className="tabular-nums font-medium">
+                {option.band.high_display}
+              </span>
+              {option.band.high_driver && (
+                <span className="block max-w-[13rem] text-[0.6875rem] leading-snug">
+                  with {option.band.high_driver}
+                </span>
+              )}
             </div>
           )}
         </div>

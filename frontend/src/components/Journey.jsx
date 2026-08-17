@@ -77,6 +77,8 @@ export function Journey({
         <BurnDown burn={journey.burn_down} accrued={journey.accrued_display} />
       </Card>
 
+      <Position position={journey.position} accrued={journey.accrued_display} />
+
       {journey.alerts.length > 0 && (
         <div className="space-y-3">
           {journey.alerts.map((alert, index) => {
@@ -349,6 +351,66 @@ function EditCharge({ cost, onSave, onClose, busy }) {
   )
 }
 
+// The one figure this screen exists to show.
+//
+// It used to show the accrued total, which is what the hospital has billed. The
+// hospital's number and the family's number are different, and the estimator on
+// the previous screen had already worked out the difference. Showing the first
+// while the previous screen showed the second left two numbers contradicting
+// each other with no way for a reader to tell which one to plan against.
+function Position({ position, accrued }) {
+  const [open, setOpen] = useState(false)
+  if (!position) return null
+
+  return (
+    <Card className="motion-safe:animate-rise">
+      <div className="px-5 py-5">
+        <p className="text-[0.8125rem] text-muted">You will pay, so far</p>
+        <p
+          key={position.you_pay}
+          className="mt-1 rounded text-[2rem] font-semibold leading-tight tabular-nums motion-safe:animate-settle"
+        >
+          {position.you_pay_display}
+        </p>
+        <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+          The hospital has billed {accrued}. Your insurer covers{' '}
+          {position.insurer_pays_display} of that.
+        </p>
+
+        {position.steps.length > 0 && (
+          <>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="mt-3 text-[0.8125rem] font-medium text-brand transition hover:underline"
+            >
+              {open ? 'Hide' : 'Show'} where the difference comes from
+            </button>
+
+            {open && (
+              <ul className="mt-3 space-y-2.5 border-t border-line pt-3 motion-safe:animate-fade">
+                {position.steps.map((step, index) => (
+                  <li key={index}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[0.8125rem] font-medium">{step.label}</span>
+                      <span className="shrink-0 text-[0.8125rem] tabular-nums text-danger">
+                        &minus;{step.deducted_display}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
+                      {step.explanation}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
+
 function BurnDown({ burn, accrued }) {
   const used = Math.min(100, burn.consumed_fraction * 100)
   const projected = Math.min(
@@ -380,11 +442,23 @@ function BurnDown({ burn, accrued }) {
         />
       </div>
 
-      <div className="mt-1.5 flex justify-between text-[0.6875rem] text-muted">
+      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[0.75rem] text-muted">
         <span>{burn.remaining_display} left</span>
-        {burn.will_exceed && (
-          <span className="text-warn">
-            On track to pass your cover
+        {/* The rate excludes one-off charges. A theatre bill on day one is not
+            a daily rate, and a family told their cover ends tomorrow when it
+            does not will stop believing anything else on this screen. */}
+        {burn.daily_run_rate > 0 && (
+          <span className={burn.will_exceed ? 'text-warn' : ''}>
+            {burn.daily_run_rate_display} a day
+            {burn.days_of_cover_left !== null &&
+              burn.days_of_cover_left !== undefined && (
+                <>
+                  {' · '}
+                  {burn.days_of_cover_left === 0
+                    ? 'cover reached today'
+                    : `about ${burn.days_of_cover_left} days of cover left`}
+                </>
+              )}
           </span>
         )}
       </div>
