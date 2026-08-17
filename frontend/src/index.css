@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-ink: #10151c;
+  --color-muted: #5b6672;
+  --color-line: #e3e7ec;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f8fa;
+  --color-brand: #0f5c4a;
+  --color-brand-soft: #e6f2ee;
+  --color-warn: #a2600a;
+  --color-warn-soft: #fdf3e2;
+  --color-danger: #a32020;
+  --color-danger-soft: #fdeded;
+}
+
+html { -webkit-font-smoothing: antialiased; }
+body { background: var(--color-canvas); color: var(--color-ink); }
+
+/* Respect a user who has asked for less motion; this app is used under stress. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

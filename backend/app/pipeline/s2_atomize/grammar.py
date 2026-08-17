@@ -419,11 +419,29 @@ def extract_waiting_periods(page: Page) -> list[Clause]:
             continue
 
         applies = re.sub(
-            r"\d{1,3}\s*(?:months?|mths?|years?|yrs?)", "", line, flags=re.IGNORECASE
+            r"\d{1,3}\s*(?:months?|mths?|years?|yrs?|days?)", "", line, flags=re.IGNORECASE
         ).strip(" -:|\t")
+
+        verbatim = line
+        if not applies:
+            # A two-column table puts "24 months" and what it applies to on
+            # separate lines once the layout is flattened, so the description
+            # is on the row below rather than beside it.
+            for offset in (1, 2):
+                if i + offset >= len(lines):
+                    break
+                candidate = lines[i + offset].strip(" -:|\t")
+                # Skip a bare duration: that is the next row, not this one's label.
+                if not candidate or P.parse_months(candidate) is not None:
+                    continue
+                if len(candidate) > 4 and not candidate.isdigit():
+                    applies = candidate
+                    verbatim = f"{line} {candidate}"
+                break
+
         clauses.append(
             _clause(
-                ClauseKind.WAITING_PERIOD, line, page,
+                ClauseKind.WAITING_PERIOD, verbatim, page,
                 params={"months": months, "applies_to": applies or "unspecified"},
                 confidence=0.74,
             )
