@@ -24,8 +24,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.core.config import GENERATED_DIR
-from app.pipeline.s0_intake.intake import ingest
-from app.pipeline.s2_atomize.atomize import atomize
+from app.pipeline.run import run_policy_pipeline
 from app.schemas.policy import Clause, ClauseKind
 from bench import REPORTS_DIR
 from datagen.build_policies import load_manifest
@@ -57,6 +56,7 @@ class PolicyResult:
     policy_id: str
     condition: str
     clause_count: int = 0
+    questions: int = 0
     seconds: float = 0.0
     fields: list[FieldResult] = field(default_factory=list)
     error: str = ""
@@ -203,6 +203,7 @@ def run(
     conditions: set[str] | None = None,
     *,
     use_model: bool = True,
+    verify_clauses: bool = True,
 ) -> list[PolicyResult]:
     manifest = load_manifest()
     policies = manifest["policies"][: limit or None]
@@ -224,12 +225,15 @@ def run(
             )
             started = time.perf_counter()
             try:
-                document = ingest(
+                outcome = run_policy_pipeline(
                     GENERATED_DIR / doc_entry["path"],
-                    session_id="bench", save_page_images=False,
+                    session_id="bench",
+                    use_model=use_model,
+                    verify_clauses=verify_clauses,
                 )
-                clauses = atomize(document, use_model=use_model)
+                clauses = outcome.verification.surviving
                 result.clause_count = len(clauses)
+                result.questions = len(outcome.policy.open_clarifications)
                 result.fields = evaluate(clauses, truth)
             except Exception as exc:
                 result.error = f"{type(exc).__name__}: {exc}"[:160]
@@ -287,8 +291,9 @@ def report(results: list[PolicyResult]) -> str:
 
     all_fields = [f for r in results for f in r.fields]
     c, w, m, n = tally(all_fields)
+    questions = sum(r.questions for r in results)
     add(f"**Overall: {c}/{n} correct ({c / n:.1%}), "
-        f"{w} wrong values, {m} missing.**")
+        f"{w} wrong values, {m} missing, {questions} questions raised.**")
     add("")
 
     wrong = [
@@ -322,6 +327,8 @@ def main() -> int:
     parser.add_argument("--condition", action="append")
     parser.add_argument("--no-model", action="store_true",
                         help="rules only, to isolate the model's contribution")
+    parser.add_argument("--no-verify", action="store_true",
+                        help="skip the challenge loop, to isolate its effect")
     args = parser.parse_args()
 
     started = time.perf_counter()
@@ -329,13 +336,14 @@ def main() -> int:
         limit=args.limit,
         conditions=set(args.condition) if args.condition else None,
         use_model=not args.no_model,
+        verify_clauses=not args.no_verify,
     )
     text = report(results)
     print(text)
     print(f"\ncompleted in {time.perf_counter() - started:.0f}s")
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = "_rules_only" if args.no_model else ""
+    suffix = ("_rules_only" if args.no_model else "") + ("_unverified" if args.no_verify else "")
     out = REPORTS_DIR / f"extract_bench{suffix}.md"
     out.write_text(text, encoding="utf-8")
     print(f"written to {out}")

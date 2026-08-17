@@ -140,7 +140,19 @@ def _params_for(clause: ModelClause) -> dict[str, Any] | None:
         return {"covered": raw.strip().lower() in ("true", "yes", "covered", "1")}
 
     if unit == "text":
-        return {"text": clause.verbatim}
+        # Free text is only a value for clauses that genuinely are text. For a
+        # limit it means the model recognised the label and failed to read the
+        # figure, and admitting it produces a clause that looks like an answer,
+        # carries nothing usable, and displaces the correct reading.
+        if kind == "exclusion":
+            return {"text": clause.verbatim}
+        # A room entitlement stated as a category is still recoverable.
+        if kind in ("room_rent_cap", "room_category_eligibility", "icu_cap"):
+            if category := P.parse_room_category(clause.verbatim):
+                return {"basis": "category", "category": category}
+            if P.states_no_limit(clause.verbatim):
+                return {"basis": "no_limit"}
+        return None
 
     return None
 
