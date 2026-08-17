@@ -111,7 +111,10 @@ export function Results({ results, onStartJourney, starting }) {
 
   if (!results) return null
 
-  const allOnFrontier = shown.every((o) => o.on_frontier)
+  // Judged across every result, not the filtered view: a badge that appeared
+  // and disappeared as someone typed in the search box would be saying
+  // something about the search rather than about the hospital.
+  const allOnFrontier = results.options.every((o) => o.on_frontier)
 
   return (
     <div className="space-y-4">

@@ -5,21 +5,40 @@ import { Button, Card, Disclaimer, ErrorNote, Field, Input, Select, Spinner } fr
 // technical, may be in a hurry, and may only have a phone photo of a document
 // they do not fully understand.
 
+// Matches the server's limit. Refusing here means someone who picked the wrong
+// file, or a photo straight off a modern phone camera, is told immediately
+// instead of after a long upload that ends in an error.
+const MAX_UPLOAD_MB = 25
+
 export function UploadStep({ reference, onUploaded, onManual, busy, error, onClearError }) {
   const [mode, setMode] = useState('upload')
   const [insurerId, setInsurerId] = useState('')
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
+  const [refused, setRefused] = useState('')
   const inputRef = useRef(null)
 
   const insurers = (reference?.insurers ?? []).filter((i) => !i.scheme)
   const schemes = (reference?.insurers ?? []).filter((i) => i.scheme)
 
   function pick(selected) {
-    if (selected) {
-      setFile(selected)
-      onClearError?.()
+    if (!selected) return
+    if (selected.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setRefused(
+        `That file is ${(selected.size / 1024 / 1024).toFixed(0)} MB, and we ` +
+          `can read up to ${MAX_UPLOAD_MB} MB. The pages listing your cover ` +
+          `are usually enough on their own.`
+      )
+      return
     }
+    setRefused('')
+    setFile(selected)
+    onClearError?.()
+  }
+
+  function dismiss() {
+    setRefused('')
+    onClearError?.()
   }
 
   return (
@@ -35,7 +54,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
         </p>
       </div>
 
-      <ErrorNote onDismiss={onClearError}>{error}</ErrorNote>
+      <ErrorNote onDismiss={dismiss}>{refused || error}</ErrorNote>
 
       <Card>
         <div className="flex border-b border-line">

@@ -14,10 +14,36 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Colours the browser chrome on a phone, matched to each theme so the
-         address bar does not sit as a bright band above a dark page. -->
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1117" />
+    <!-- Colours the browser chrome on a phone so the address bar does not sit
+         as a bright band above a dark page. Kept in step with the chosen theme
+         by the script below and by the settings hook. -->
+    <meta name="theme-color" content="#f6f8fa" />
+
+    <!-- Theme and text size, applied before the first paint.
+         React applies both as well, but it can only do so once it has mounted,
+         and a dark theme arriving after mount means a white page flashes past
+         first. That flash is at its worst in the situation this app is for:
+         a phone, at night, in a hospital. -->
+    <script>
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('coverpath.settings') || '{}')
+          var theme = saved.theme || 'system'
+          var dark =
+            theme === 'dark' ||
+            (theme === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('theme-dark', dark)
+          document.documentElement.dataset.text = saved.textSize || 'default'
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#0d1117' : '#f6f8fa')
+        } catch (e) {
+          // No stored settings, or storage refused. The defaults in the
+          // stylesheet stand, which is a correct page either way.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { useDialog } from '../hooks/useDialog'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // The care journey: where the paperwork stands, what has been billed, and what
@@ -477,12 +478,7 @@ function AdvanceCard({ journey, onAdvance, busy }) {
 function SkipDialog({ target, onConfirm, onCancel, busy }) {
   const [explain, setExplain] = useState(false)
   const [reason, setReason] = useState('')
-
-  useEffect(() => {
-    const onKey = (event) => event.key === 'Escape' && onCancel()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  const box = useDialog(true, onCancel)
 
   const skipped = target.skips ?? []
 
@@ -491,10 +487,12 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
       <button aria-label="Cancel" onClick={onCancel} className="absolute inset-0 bg-ink/30" />
 
       <div
+        ref={box}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="skip-title"
-        className="relative w-full max-w-md rounded-xl border border-line bg-surface shadow-xl"
+        className="relative w-full max-w-md rounded-xl border border-line bg-surface shadow-xl outline-none"
       >
         <div className="px-5 py-4">
           <h3 id="skip-title" className="text-[0.9375rem] font-semibold">
@@ -566,14 +564,32 @@ const HEADS = [
   ['non_medical', 'Non-medical items'],
 ]
 
+// Matches the server's limit. Checked here as well so a photograph that is too
+// large is refused instantly, rather than after being sent over a phone
+// connection in a hospital and rejected at the far end.
+const MAX_RECEIPT_MB = 10
+
 function CostCard({ onRecordCost, busy }) {
   const [head, setHead] = useState('room_rent')
   const [amount, setAmount] = useState('')
   const [advanceDay, setAdvanceDay] = useState(true)
   const [receipt, setReceipt] = useState(null)
+  const [tooLarge, setTooLarge] = useState('')
   const fileRef = useRef(null)
 
-  const heads = HEADS
+  function attach(file) {
+    if (!file) return
+    if (file.size > MAX_RECEIPT_MB * 1024 * 1024) {
+      setTooLarge(
+        `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB. ` +
+          `The largest we can take is ${MAX_RECEIPT_MB} MB.`
+      )
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    setTooLarge('')
+    setReceipt(file)
+  }
 
   return (
     <Card>
@@ -584,7 +600,7 @@ function CostCard({ onRecordCost, busy }) {
       <div className="space-y-3 p-5">
         <Field label="What is it for?">
           <Select value={head} onChange={(event) => setHead(event.target.value)}>
-            {heads.map(([value, label]) => (
+            {HEADS.map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </Select>
@@ -607,7 +623,7 @@ function CostCard({ onRecordCost, busy }) {
             type="file"
             accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.tif,.tiff"
             className="hidden"
-            onChange={(event) => setReceipt(event.target.files?.[0] ?? null)}
+            onChange={(event) => attach(event.target.files?.[0])}
           />
           {receipt ? (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2">
@@ -631,6 +647,11 @@ function CostCard({ onRecordCost, busy }) {
             >
               Attach the bill or receipt (optional)
             </button>
+          )}
+          {tooLarge && (
+            <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-warn">
+              {tooLarge}
+            </p>
           )}
         </div>
 

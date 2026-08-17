@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
 import { Journey } from './components/Journey'
@@ -9,6 +9,10 @@ import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
 import { STEPS, stepIndex, useRoute } from './hooks/useRoute'
 import { useSettings } from './hooks/useSettings'
+
+// The server replays at most 500 events to a new subscriber, so holding more
+// than this only grows an array nobody scrolls back through.
+const MAX_EVENTS = 400
 
 const DEFAULT_SEARCH = {
   procedure_code: '',
@@ -36,22 +40,30 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [connected, setConnected] = useState(false)
 
-  const unsubscribe = useRef(null)
+  // The stream is opened only when the panel that displays it is on.
+  //
+  // It used to run always, so a hidden developer panel cost an open connection
+  // and a re-render of the whole page per pipeline step, during the upload,
+  // which is the one moment the user is waiting on us. Nothing is lost by
+  // waiting: the server keeps a replay buffer, so switching the panel on
+  // mid-session still shows every step from the beginning.
+  useEffect(() => {
+    if (!session || !settings.showActivity) return
 
-  // One event stream per session, opened as soon as a session exists so the
-  // very first pipeline steps are captured rather than missed.
-  const connect = useCallback((sessionId, { fresh = true } = {}) => {
-    unsubscribe.current?.()
-    if (fresh) setEvents([])
-    unsubscribe.current = subscribeToEvents(sessionId, (event) => {
+    setEvents([])
+    const stop = subscribeToEvents(session, (event) => {
       setConnected(true)
       setEvents((current) =>
-        current.some((e) => e.id === event.id) ? current : [...current, event]
+        current.some((e) => e.id === event.id)
+          ? current
+          : [...current, event].slice(-MAX_EVENTS)
       )
     })
-  }, [])
-
-  useEffect(() => () => unsubscribe.current?.(), [])
+    return () => {
+      stop()
+      setConnected(false)
+    }
+  }, [session, settings.showActivity])
 
   useEffect(() => {
     api.reference().then(setReference).catch((e) => setError(e.message))
@@ -85,7 +97,6 @@ export default function App() {
 
   function adopt(result) {
     setSession(result.session_id)
-    connect(result.session_id)
     setPolicy(result)
     setResults(null)
     setJourney(null)
@@ -148,8 +159,8 @@ export default function App() {
       // should not strand someone on a screen they asked to leave.
       await api.clear(session).catch(() => {})
     }
-    unsubscribe.current?.()
-    unsubscribe.current = null
+    // Clearing the session closes the stream: the effect that opened it is
+    // keyed on the session.
     setSession(null)
     setPolicy(null)
     setResults(null)
@@ -292,8 +303,10 @@ function Shell({
           >
             {/* The mark has no background of its own, so it sits on the header
                 in either theme without a pale tile around it. */}
+            {/* 64px for a 28px slot: enough for a high-density screen, and a
+                twelfth the weight of the 192px icon the manifest needs. */}
             <img
-              src="/logo-192.png"
+              src="/logo-64.png"
               alt=""
               width="28"
               height="28"

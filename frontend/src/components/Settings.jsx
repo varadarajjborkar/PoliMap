@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useDialog } from '../hooks/useDialog'
 import { Badge, Button, Toggle } from './Primitives'
 
 // Settings, in a panel over the page.
@@ -34,12 +35,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
     api.providers().then(setProviders).catch(() => setProviders(null))
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event) => event.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  const panel = useDialog(open, onClose)
 
   if (!open) return null
 
@@ -52,10 +48,12 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
       />
 
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
-        className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl"
+        className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl outline-none"
       >
         <header className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-[0.9375rem] font-semibold tracking-tight">Settings</h2>

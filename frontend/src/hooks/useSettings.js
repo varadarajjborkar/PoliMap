@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from 'react'
 // honest behaviour while there are no accounts: the alternative is leaving
 // someone's insurance document on a device they may have borrowed.
 
+// Also read by the boot script in index.html, which applies the theme before
+// the first paint. Change one and change the other.
 const KEY = 'coverpath.settings'
 
 export const DEFAULTS = {
@@ -57,6 +59,13 @@ export function useSettings() {
         settings.theme === 'dark' ||
         (settings.theme === 'system' && prefersDark())
       root.classList.toggle('theme-dark', dark)
+      // Keep the phone's address bar on the same colour as the page. Read back
+      // from the stylesheet rather than restated here, so the palette has one
+      // home and this cannot drift from it.
+      const canvas = getComputedStyle(root).getPropertyValue('--color-canvas').trim()
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', canvas)
     }
     apply()
 

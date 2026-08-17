@@ -47,12 +47,18 @@
 
 /* Type scale.
    Sizes are in rem so this actually moves the text. They were in px, which is
-   why an earlier "larger text" setting only grew the spacing around it. */
+   why an earlier "larger text" setting only grew the spacing around it.
+
+   The root is a percentage rather than a pixel value: 112.5% of the usual 16px
+   default is the same 18px, but someone who has raised the text size in their
+   browser keeps that increase instead of having it overwritten. On this app
+   that is not a detail, since poor eyesight and a hospital corridor arrive
+   together often enough. */
 html {
-  font-size: 18px;
+  font-size: 112.5%;
   -webkit-font-smoothing: antialiased;
 }
-html[data-text="large"] { font-size: 20px; }
+html[data-text="large"] { font-size: 125%; }
 
 body {
   background: var(--color-canvas);
