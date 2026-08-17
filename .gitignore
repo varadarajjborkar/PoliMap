@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+node_modules/
+frontend/dist/
+
+# Generated corpus — rebuilt with `python -m datagen.build_all`
+data/generated/
+data/uploads/
+*.db
+*.sqlite3
+
+bench/reports/
+
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,140 @@
+"""Application settings, loaded from environment and `backend/.env`.
+
+Model roles are declared as *fallback chains* rather than single model names.
+Cloud model availability shifts with provider plans and deprecations, so every
+role names several acceptable models and the resolver (see `agents/registry.py`)
+probes them at boot and keeps the first that answers.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = BACKEND_DIR.parent
+DATA_DIR = PROJECT_ROOT / "data"
+GENERATED_DIR = DATA_DIR / "generated"
+UPLOADS_DIR = DATA_DIR / "uploads"
+
+
+class Provider(StrEnum):
+    AUTO = "auto"
+    OLLAMA = "ollama"
+    ANTHROPIC = "anthropic"
+    OFFLINE = "offline"
+
+
+class ModelRole(StrEnum):
+    """What a model is being asked to do, decoupled from which model does it."""
+
+    EXTRACT = "extract"
+    CHALLENGE = "challenge"
+    ADJUDICATE = "adjudicate"
+    VISION_OCR = "vision_ocr"
+    NARRATE = "narrate"
+
+
+# Ordered preferences per role, heavier models where correctness dominates and
+# lighter ones where the call is made many times per document. Chains are long
+# because cloud catalogues gate models by plan: the resolver probes downward
+# until it finds one this account can actually call.
+#
+# Measured single-call latency on the free tier (short extraction prompt):
+#   nemotron-3-super 11s | nemotron-3-nano 15s | gpt-oss:20b 22s
+#   gemma4:31b 23s | minimax-m3 25s | gpt-oss:120b 31s | nemotron-3-ultra 63s
+# Vision transcription is far quicker: gemma4:31b 1.6s, minimax-m3 2.8s.
+DEFAULT_MODEL_CHAINS: dict[ModelRole, list[str]] = {
+    ModelRole.EXTRACT: [
+        "gpt-oss:120b",
+        "nemotron-3-super",
+        "gpt-oss:20b",
+        "qwen3.5:397b",
+    ],
+    ModelRole.CHALLENGE: [
+        "nemotron-3-super",
+        "gpt-oss:20b",
+        "nemotron-3-nano:30b",
+        "deepseek-v4-flash:0731",
+    ],
+    ModelRole.ADJUDICATE: [
+        "gpt-oss:120b",
+        "nemotron-3-ultra",
+        "nemotron-3-super",
+        "glm-5.2",
+    ],
+    # Only vision-capable models belong here.
+    ModelRole.VISION_OCR: ["gemma4:31b", "minimax-m3", "kimi-k3"],
+    ModelRole.NARRATE: [
+        "gpt-oss:20b",
+        "nemotron-3-nano:30b",
+        "gemma4:31b",
+        "nemotron-3-super",
+    ],
+}
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        # `model_*` env vars are ours, not pydantic's reserved namespace.
+        protected_namespaces=(),
+    )
+
+    # --- provider ---
+    coverpath_provider: Provider = Provider.AUTO
+    ollama_api_key: str = ""
+    ollama_host: str = "https://ollama.com"
+    anthropic_api_key: str = ""
+
+    # --- model role chains (blank -> DEFAULT_MODEL_CHAINS) ---
+    model_extract: str = ""
+    model_challenge: str = ""
+    model_adjudicate: str = ""
+    model_vision_ocr: str = ""
+    model_narrate: str = ""
+
+    # --- behaviour ---
+    log_level: str = "INFO"
+    llm_cache_enabled: bool = True
+    llm_timeout_seconds: int = 120
+    max_challenge_rounds: int = Field(default=3, ge=1, le=10)
+    ocr_confidence_threshold: float = Field(default=0.72, ge=0.0, le=1.0)
+
+    # --- paths ---
+    data_dir: Path = DATA_DIR
+    generated_dir: Path = GENERATED_DIR
+    uploads_dir: Path = UPLOADS_DIR
+    database_url: str = f"sqlite:///{BACKEND_DIR / 'coverpath.db'}"
+
+    @field_validator("ollama_api_key", "anthropic_api_key", mode="after")
+    @classmethod
+    def _strip_key(cls, v: str) -> str:
+        # Pasted keys routinely carry stray whitespace or wrapping quotes.
+        return v.strip().strip('"').strip("'")
+
+    def chain_for(self, role: ModelRole) -> list[str]:
+        """Resolve a role to its ordered list of candidate model names."""
+        override = getattr(self, f"model_{role.value}", "")
+        if override.strip():
+            return [m.strip() for m in override.split(",") if m.strip()]
+        return list(DEFAULT_MODEL_CHAINS[role])
+
+    @property
+    def has_ollama(self) -> bool:
+        return bool(self.ollama_api_key)
+
+    @property
+    def has_anthropic(self) -> bool:
+        return bool(self.anthropic_api_key)
+
+
+settings = Settings()
+
+for _d in (DATA_DIR, GENERATED_DIR, UPLOADS_DIR):
+    _d.mkdir(parents=True, exist_ok=True)
