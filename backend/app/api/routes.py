@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
 from app.api.session import DatasetMissing, Session, datasets, sessions
+from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
 from app.journey import tracker
@@ -55,6 +56,8 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "dataset_built": datasets.is_built,
         "active_sessions": sessions.count(),
+        "session_store": sessions.kind,
+        "page_image_bytes": artifacts.disk_usage_bytes(),
     }
 
 
@@ -213,6 +216,7 @@ async def upload_policy(
     session.read_quality = result.document.quality_score
     session.needed_ocr = result.document.needed_ocr
     session.warnings = result.document.warnings
+    sessions.save(session)
 
     return _policy_payload(session)
 
@@ -262,6 +266,7 @@ def manual_policy(payload: ManualPolicy) -> dict[str, Any]:
         covers_consumables=payload.covers_consumables,
         confidence=1.0,
     )
+    sessions.save(session)
     return _policy_payload(session)
 
 
@@ -278,6 +283,7 @@ def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
         raise HTTPException(400, "No policy on this session yet.")
 
     session.policy = apply_answer(session.policy, payload.question_id, payload.answer)
+    sessions.save(session)
     bus.publish(
         __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
         "user_answer", session_id=session_id,
@@ -419,12 +425,21 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
         session.policy, context, session_id=session_id,
     )
     session.match = result
+    sessions.save(session)
+
+    return _search_payload(result)
+
+
+def _search_payload(result) -> dict[str, Any]:
+    code = result.context.procedure_code if result.context else None
+    procedure = datasets.procedures.get(code) if code else None
+    name = procedure.name if procedure else ""
 
     return {
         "message": result.message,
         "fully_satisfied": result.is_fully_satisfied,
         "considered": result.considered_count,
-        "options": [_option_payload(o, procedure.name) for o in result.options],
+        "options": [_option_payload(o, name) for o in result.options],
         "relaxations": [
             {
                 "kind": r.kind.name.lower(),
@@ -538,6 +553,7 @@ def start_journey(session_id: str, payload: StartJourney) -> dict[str, Any]:
         room_category=payload.room_category,
         room_rate_per_day=tariff.per_day if tariff else None,
     )
+    sessions.save(session)
     return _journey_payload(session)
 
 
@@ -556,6 +572,7 @@ def advance_journey(session_id: str, payload: Advance) -> dict[str, Any]:
         tracker.advance(session.journey, payload.stage, session.policy, note=payload.note)
     except tracker.TransitionError as exc:
         raise HTTPException(400, str(exc)) from exc
+    sessions.save(session)
     return _journey_payload(session)
 
 
@@ -578,6 +595,7 @@ def record_cost(session_id: str, payload: RecordCost) -> dict[str, Any]:
         session.journey, payload.head, Decimal(str(payload.amount)),
         session.policy, description=payload.description,
     )
+    sessions.save(session)
     return _journey_payload(session)
 
 
@@ -588,6 +606,7 @@ def file_preauth(session_id: str) -> dict[str, Any]:
         raise HTTPException(400, "No journey started yet.")
     session.journey.pre_auth_filed = True
     session.journey.active_alerts = tracker.evaluate(session.journey, session.policy)
+    sessions.save(session)
     bus.publish(
         __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.JOURNEY,
         "preauth_filed", session_id=session_id,
@@ -602,6 +621,42 @@ def get_journey(session_id: str) -> dict[str, Any]:
     if session.journey is None:
         raise HTTPException(404, "No journey started yet.")
     return _journey_payload(session)
+
+
+# --- session ---------------------------------------------------------------
+
+
+@router.get("/session/{session_id}")
+def restore_session(session_id: str) -> dict[str, Any]:
+    """Everything needed to put the interface back where the user left it.
+
+    The browser remembers only the session id. On a reload, or on following a
+    link straight to a later step, this returns the work already done so the
+    user is not sent back to the upload screen with their document read and
+    their results thrown away.
+    """
+    session = _session(session_id)
+    return {
+        "session_id": session.session_id,
+        "created_at": session.created_at.isoformat(),
+        "policy": _policy_payload(session) if session.policy else None,
+        "search": _search_payload(session.match) if session.match else None,
+        "journey": (
+            _journey_payload(session)
+            if session.journey and session.policy else None
+        ),
+        "search_context": (
+            session.match.context.model_dump(mode="json")
+            if session.match and session.match.context else None
+        ),
+    }
+
+
+@router.delete("/session/{session_id}")
+def clear_session(session_id: str) -> dict[str, Any]:
+    """Forget a session. Backs the "start over" action in the interface."""
+    sessions.delete(session_id)
+    return {"cleared": True}
 
 
 # --- activity stream ------------------------------------------------------

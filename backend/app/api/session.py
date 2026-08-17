@@ -1,55 +1,33 @@
-"""In-memory session store.
+"""Session state and the shared reference datasets.
 
-Everything a user is working on lives here: their compiled policy, the options
-found for them, and their journey. Kept in process rather than in a database
-because a session is short-lived working state, and because insurance data being
-held only for as long as the tab is open is a reasonable default for a decision
-support tool that never needed to keep it.
+A session is everything a user is working on: their compiled policy, the options
+found for them, and their journey. Where those rows live is decided in
+`store.py`; this module holds the accessor the API talks to and the read-only
+corpus that every session shares.
 
-The datasets are loaded once at import and shared read-only.
+The datasets are loaded once on first use and shared read-only.
 """
 
 from __future__ import annotations
 
 import json
 import threading
-import uuid
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
-from app.core.config import GENERATED_DIR
+from app.api.store import Session, SessionStore, build_store
+from app.core import artifacts
+from app.core.config import GENERATED_DIR, settings
 from app.core.logging import get_logger
 from app.schemas.hospital import Hospital, Insurer
-from app.schemas.journey import JourneyState
-from app.schemas.match import MatchResult
-from app.schemas.policy import NormalizedPolicy
 from app.schemas.procedure import Procedure
 
 log = get_logger(__name__)
 
-SESSION_LIMIT = 200
+__all__ = ["DatasetMissing", "Session", "datasets", "sessions"]
 
 
 class DatasetMissing(RuntimeError):
     """The generated corpus has not been built yet."""
-
-
-@dataclass
-class Session:
-    session_id: str
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    policy: NormalizedPolicy | None = None
-    document_name: str = ""
-    read_quality: float = 1.0
-    needed_ocr: bool = False
-    warnings: list[str] = field(default_factory=list)
-    match: MatchResult | None = None
-    journey: JourneyState | None = None
-    insurer_id: str = ""
-
-    def touch(self) -> None:
-        self.created_at = datetime.now(UTC)
 
 
 class _Datasets:
@@ -118,26 +96,39 @@ class _Datasets:
 
 
 class _Sessions:
+    """Facade over whichever store is configured.
+
+    The store is built on first use rather than at import so that a test can
+    point the settings at a temporary database, and so that importing the app
+    never creates a file as a side effect.
+    """
+
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._sessions: dict[str, Session] = {}
+        self._store: SessionStore | None = None
+
+    @property
+    def store(self) -> SessionStore:
+        with self._lock:
+            if self._store is None:
+                self._store = build_store(
+                    settings.session_store.value,
+                    path=settings.session_db_path,
+                    ttl_minutes=settings.session_ttl_minutes,
+                    limit=settings.session_limit,
+                )
+            return self._store
+
+    def use(self, store: SessionStore) -> None:
+        """Swap the store. For tests and for explicit wiring at startup."""
+        with self._lock:
+            self._store = store
 
     def create(self) -> Session:
-        session = Session(session_id=uuid.uuid4().hex[:12])
-        with self._lock:
-            # Bounded so a long-running demo cannot grow without limit.
-            if len(self._sessions) >= SESSION_LIMIT:
-                oldest = min(self._sessions.values(), key=lambda s: s.created_at)
-                self._sessions.pop(oldest.session_id, None)
-            self._sessions[session.session_id] = session
-        return session
+        return self.store.create()
 
     def get(self, session_id: str) -> Session | None:
-        with self._lock:
-            session = self._sessions.get(session_id)
-        if session:
-            session.touch()
-        return session
+        return self.store.get(session_id)
 
     def require(self, session_id: str) -> Session:
         session = self.get(session_id)
@@ -145,9 +136,27 @@ class _Sessions:
             raise KeyError(session_id)
         return session
 
+    def save(self, session: Session) -> Session:
+        """Persist changes. A no-op for the memory store, a write for SQLite."""
+        self.store.save(session)
+        return session
+
+    def delete(self, session_id: str) -> None:
+        """Forget a session and the page images read for it.
+
+        The images are the larger of the two by far, and they are pictures of
+        someone's insurance document, so they go at the same moment the row
+        does rather than waiting for the next sweep.
+        """
+        self.store.delete(session_id)
+        artifacts.purge(session_id)
+
     def count(self) -> int:
-        with self._lock:
-            return len(self._sessions)
+        return self.store.count()
+
+    @property
+    def kind(self) -> str:
+        return self.store.kind
 
 
 datasets = _Datasets()

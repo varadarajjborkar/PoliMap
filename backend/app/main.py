@@ -18,21 +18,13 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.api.session import datasets
+from app.core import artifacts
 from app.core.config import settings
 from app.core.events import bus
 from app.core.logging import configure_logging, get_logger
 from app.core.guardrails import DISCLAIMER
 
 log = get_logger(__name__)
-
-# The dev server runs on a different port from the API, so the browser needs
-# explicit permission to call it.
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:4173",
-]
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,7 +33,17 @@ async def lifespan(app: FastAPI):
     # hand them back to.
     bus.bind_loop(asyncio.get_running_loop())
 
-    log.info("coverpath starting", provider=settings.coverpath_provider.value)
+    log.info(
+        "coverpath starting",
+        provider=settings.coverpath_provider.value,
+        session_store=settings.session_store.value,
+    )
+
+    # Page images from sessions that have since expired have nothing left to
+    # trace back to, and they are the bulkiest thing this app writes.
+    swept = await asyncio.to_thread(artifacts.sweep)
+    if swept:
+        log.info("cleared stale page images", directories=swept)
 
     if not datasets.is_built:
         log.warning(
@@ -81,9 +83,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# The frontend is served from a different origin than the API, in development
+# and in deployment alike, so the browser needs explicit permission to call it.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

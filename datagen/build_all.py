@@ -2,7 +2,8 @@
 
 Run from the repository root:
 
-    python -m datagen.build_all
+    python -m datagen.build_all          # everything, including the documents
+    python -m datagen.build_all --core   # just what the running app reads
 
 Validation runs as part of the build rather than as a separate optional step.
 A corpus with a broken cost split or an unreachable procedure produces cost
@@ -12,6 +13,7 @@ this system has.
 
 from __future__ import annotations
 
+import argparse
 import json
 from collections import Counter
 from pathlib import Path
@@ -212,7 +214,20 @@ def _policy_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--core",
+        action="store_true",
+        help=(
+            "Build only the data the running application needs: procedures, "
+            "hospitals and insurers. Skips rendering the policy documents, "
+            "which take most of the time and all of the disk, and which only "
+            "the tests and benchmarks read."
+        ),
+    )
+    args = parser.parse_args(argv)
+
     procedures = build_procedures()
     insurers = build_insurers()
     hospitals = build_hospitals(procedures)
@@ -221,10 +236,14 @@ def main() -> int:
 
     print(report(procedures, hospitals, insurers))
 
-    print("building policy corpus (rendering and degrading documents)...")
-    manifest = build_policy_corpus()
-    print()
-    print(_policy_report(manifest))
+    if args.core:
+        print("core build: skipping the policy document corpus")
+        print()
+    else:
+        print("building policy corpus (rendering and degrading documents)...")
+        manifest = build_policy_corpus()
+        print()
+        print(_policy_report(manifest))
 
     if problems:
         print("-- VALIDATION FAILED " + "-" * 46)

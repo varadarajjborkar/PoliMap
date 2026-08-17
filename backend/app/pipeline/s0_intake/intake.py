@@ -28,6 +28,7 @@ import numpy as np
 
 from app.agents.base import LLMUnavailable
 from app.agents.registry import registry
+from app.core.artifacts import page_dir
 from app.core.config import ModelRole, settings
 from app.core.events import bus
 from app.core.logging import get_logger
@@ -60,12 +61,6 @@ VISION_PROMPT = (
     "Do not summarise, explain, correct, or add anything. Output only the "
     "transcription."
 )
-
-
-def _page_image_dir(session_id: str | None) -> Path:
-    base = settings.uploads_dir / "pages" / (session_id or "adhoc")
-    base.mkdir(parents=True, exist_ok=True)
-    return base
 
 
 def _native_page(page: fitz.Page, index: int) -> Page:
@@ -225,7 +220,7 @@ def _ingest_image(
         source_dpi = preprocess.estimate_dpi(image)
         page = _ocr_page(image, 0, session_id, source_dpi=source_dpi, aggressive=True)
         if save_page_images:
-            out = _page_image_dir(session_id) / f"{path.stem}_p0.png"
+            out = page_dir(session_id) / f"{path.stem}_p0.png"
             cv2.imwrite(str(out), image)
             page.image_path = str(out)
 
@@ -279,7 +274,7 @@ def _ingest_pdf(
             page.width, page.height = pdf_page.rect.width, pdf_page.rect.height
 
             if save_page_images:
-                out = _page_image_dir(session_id) / f"{path.stem}_p{index}.png"
+                out = page_dir(session_id) / f"{path.stem}_p{index}.png"
                 cv2.imwrite(str(out), image)
                 page.image_path = str(out)
             pages.append(page)

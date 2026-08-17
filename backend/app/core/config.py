@@ -28,6 +28,11 @@ class Provider(StrEnum):
     OFFLINE = "offline"
 
 
+class SessionStore(StrEnum):
+    MEMORY = "memory"
+    SQLITE = "sqlite"
+
+
 class ModelRole(StrEnum):
     """What a model is being asked to do, decoupled from which model does it."""
 
@@ -110,7 +115,20 @@ class Settings(BaseSettings):
     data_dir: Path = DATA_DIR
     generated_dir: Path = GENERATED_DIR
     uploads_dir: Path = UPLOADS_DIR
-    database_url: str = f"sqlite:///{BACKEND_DIR / 'coverpath.db'}"
+
+    # --- session storage ---
+    # "sqlite" survives a restart and is shared by every worker in the process
+    # group, which is what a deployed instance needs. "memory" is faster and is
+    # what the tests use, since they want isolation rather than durability.
+    session_store: SessionStore = SessionStore.SQLITE
+    session_db_path: Path = DATA_DIR / "coverpath.db"
+    session_ttl_minutes: int = Field(default=720, ge=5)
+    session_limit: int = Field(default=500, ge=1)
+
+    # --- deployment ---
+    # Origins allowed to call the API. The dev server and preview server are
+    # always permitted; a deployed frontend adds its own origin here.
+    cors_origins: str = ""
 
     @field_validator("ollama_api_key", "anthropic_api_key", mode="after")
     @classmethod
@@ -124,6 +142,21 @@ class Settings(BaseSettings):
         if override.strip():
             return [m.strip() for m in override.split(",") if m.strip()]
         return list(DEFAULT_MODEL_CHAINS[role])
+
+    def allowed_origins(self) -> list[str]:
+        """Browser origins permitted to call the API.
+
+        The local dev and preview servers are always included so a checkout
+        works with no configuration. A deployed frontend adds its own origin
+        through CORS_ORIGINS, comma separated.
+        """
+        local = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:4173",
+        ]
+        extra = [o.strip().rstrip("/") for o in self.cors_origins.split(",")]
+        return local + [o for o in extra if o]
 
     @property
     def has_ollama(self) -> bool:
