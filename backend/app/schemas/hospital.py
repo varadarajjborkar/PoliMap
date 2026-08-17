@@ -237,4 +237,10 @@ class Insurer(BaseModel):
     name: str
     short_name: str = ""
     is_government_scheme: bool = False
+    scheme: GovernmentScheme | None = None
+    """Which scheme, when this is one. The flag alone was not enough: the
+    compiled policy has to know *which* set of settlement rules applies, and
+    without it a scheme was chosen in the dropdown and then costed as though it
+    were a commercial indemnity policy."""
+
     network_size: int = 0

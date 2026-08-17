@@ -80,6 +80,14 @@ class DeductionKind(StrEnum):
     DEDUCTIBLE = "deductible"
     SUM_INSURED_EXHAUSTED = "sum_insured_exhausted"
 
+    # Scheme settlement. A package rate is not a deduction in the indemnity
+    # sense, but it is the same thing from the family's side: the gap between
+    # what the hospital would charge and what actually has to be found.
+    SCHEME_PACKAGE_RATE = "scheme_package_rate"
+    """The hospital's price replaced by the scheme's fixed package rate."""
+    SCHEME_NOT_EMPANELLED = "scheme_not_empanelled"
+    """This hospital cannot accept the scheme, so it pays nothing here."""
+
     @property
     def label(self) -> str:
         return {
@@ -93,6 +101,8 @@ class DeductionKind(StrEnum):
             DeductionKind.COPAY: "Your co-payment share",
             DeductionKind.DEDUCTIBLE: "Your deductible",
             DeductionKind.SUM_INSURED_EXHAUSTED: "Beyond your remaining cover",
+            DeductionKind.SCHEME_PACKAGE_RATE: "Covered by the scheme package",
+            DeductionKind.SCHEME_NOT_EMPANELLED: "This hospital does not accept your scheme",
         }[self]
 
 
@@ -117,16 +127,26 @@ class WaterfallStep(BaseModel):
 
 
 class CostBand(BaseModel):
-    """Low / expected / high range.
+    """Low / expected / high, with the reason the high figure is high.
 
-    Length of stay and consumable usage genuinely vary. Presenting one figure
-    would be more confident than the evidence supports, and a user who plans
-    against a single number and then overshoots it loses trust in the system.
+    An earlier version of this varied only the length of stay. Once the insurer
+    is paying for everything that scales with days, the only thing left moving
+    was the flat non-medical charge, so every estimate on every card came out at
+    the same few hundred rupees either side of centre. A range that never
+    changes is not a confidence interval; it is decoration, and a reader who
+    puts two cards side by side sees through it immediately.
+
+    The high figure is now a named scenario rather than a spread: a longer stay,
+    an extra day in intensive care, a second implant where the procedure uses
+    one. That is what a family is actually bracing for, and `high_driver` says
+    which of those it is so the number can be defended out loud.
     """
 
     low: Rupees
     expected: Rupees
     high: Rupees
+    high_driver: str = ""
+    """Plain-language cause of the high figure, e.g. "a second stent"."""
 
 
 class SettlementMode(StrEnum):

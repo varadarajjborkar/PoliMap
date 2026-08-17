@@ -28,8 +28,7 @@ from dataclasses import dataclass, field
 
 from app.core.events import bus
 from app.core.logging import get_logger
-from app.pipeline.s6_simulate.bill import estimate_bill, stay_range
-from app.pipeline.s6_simulate.waterfall import simulate
+from app.pipeline.s6_simulate.estimate import estimate_for
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import Hospital
 from app.schemas.match import (
@@ -45,7 +44,7 @@ from app.schemas.match import (
 from app.schemas.money import format_inr
 from app.schemas.policy import NormalizedPolicy, RoomCategory
 from app.schemas.procedure import Procedure, Urgency
-from app.schemas.simulation import CostBand, SettlementMode
+from app.schemas.simulation import SettlementMode
 
 log = get_logger(__name__)
 STAGE = PipelineStage.MATCH
@@ -189,25 +188,10 @@ def _cost_option(
     )
 
     try:
-        bill = estimate_bill(hospital, procedure, room)
-        result = simulate(
-            policy, bill, hospital_name=hospital.name,
-            is_network=is_network, room_category=room,
-        )
-
-        low_days, high_days = stay_range(procedure)
-        low = simulate(
-            policy, estimate_bill(hospital, procedure, room, los_days=low_days),
-            hospital_name=hospital.name, is_network=is_network, room_category=room,
-        )
-        high = simulate(
-            policy, estimate_bill(hospital, procedure, room, los_days=high_days),
-            hospital_name=hospital.name, is_network=is_network, room_category=room,
-        )
-        result.band = CostBand(
-            low=min(low.out_of_pocket, result.out_of_pocket),
-            expected=result.out_of_pocket,
-            high=max(high.out_of_pocket, result.out_of_pocket),
+        # One entry point, so a scheme beneficiary is costed as a scheme
+        # beneficiary here and everywhere else that asks the same question.
+        result = estimate_for(
+            policy, hospital, procedure, room, is_network=is_network,
         )
     except ValueError:
         return None
@@ -219,6 +203,40 @@ def _cost_option(
         objectives=Objectives(affordability=0, capability=0, proximity=0, cashless=0),
         score=0.0,
     )
+
+
+# How much of the ranking urgency is allowed to move. Enough to reorder options
+# that are close, not enough to override a preference the user set deliberately:
+# somebody who asked to protect their money in an emergency still meant it.
+_URGENCY_PROXIMITY_SHIFT: dict[Urgency, float] = {
+    Urgency.EMERGENCY: 0.25,
+    Urgency.URGENT: 0.10,
+    Urgency.PLANNED: 0.0,
+}
+
+
+def _weights_for(context: CareContext) -> dict[str, float]:
+    """The preference, tilted towards getting there when time is short.
+
+    Urgency used to change one filter and nothing else, so an emergency and a
+    planned admission produced identical rankings. Distance is the thing that
+    actually changes meaning between the two: forty minutes across a city is an
+    inconvenience when the procedure is three weeks away and a different kind of
+    problem when it is tonight.
+    """
+    weights = dict(context.preference.weights)
+    shift = _URGENCY_PROXIMITY_SHIFT.get(context.urgency, 0.0)
+    if shift <= 0:
+        return weights
+
+    # Taken from the money-shaped objectives rather than from capability. A
+    # hospital that cannot perform the procedure well is not a faster option.
+    movable = weights["affordability"] + weights["cashless"]
+    taken = min(shift, movable * 0.6)
+    weights["proximity"] += taken
+    weights["affordability"] -= taken * (weights["affordability"] / movable)
+    weights["cashless"] -= taken * (weights["cashless"] / movable)
+    return weights
 
 
 def _score(options: list[RankedOption], context: CareContext) -> None:
@@ -242,7 +260,7 @@ def _score(options: list[RankedOption], context: CareContext) -> None:
             return 1.0
         return round(1.0 - (value - low) / (high - low), 4)
 
-    weights = context.preference.weights
+    weights = _weights_for(context)
     for option in options:
         option.objectives = Objectives(
             affordability=invert(float(option.simulation.out_of_pocket), lo_cost, hi_cost),
@@ -337,18 +355,19 @@ def _counterfactual(option: RankedOption, policy: NormalizedPolicy) -> str:
     best_saving = None
     for tariff in sorted(cheaper, key=lambda t: -t.category.rank):
         try:
-            bill = estimate_bill(
-                hospital,
+            # No band here: this is a comparison between two rooms, and costing
+            # both ends of both of them triples the work to change nothing.
+            alternative = estimate_for(
+                policy, hospital,
                 _procedure_cache[option.simulation.procedure_code],
                 tariff.category,
+                is_network=(
+                    option.simulation.settlement_mode is SettlementMode.CASHLESS
+                ),
+                with_band=False,
             )
         except (ValueError, KeyError):
             continue
-        alternative = simulate(
-            policy, bill, hospital_name=hospital.name,
-            is_network=option.simulation.settlement_mode is SettlementMode.CASHLESS,
-            room_category=tariff.category,
-        )
         saving = option.simulation.out_of_pocket - alternative.out_of_pocket
         if saving > 0 and (best_saving is None or saving > best_saving[0]):
             best_saving = (saving, tariff.category, alternative)
@@ -372,31 +391,73 @@ def _counterfactual(option: RankedOption, policy: NormalizedPolicy) -> str:
 _procedure_cache: dict[str, Procedure] = {}
 
 
-# Relaxations in the order they are surrendered: least costly to the user first.
-RELAXATION_LADDER: list[tuple[RelaxationKind, str, str]] = [
-    (
-        RelaxationKind.WIDER_RADIUS,
+_RELAXATIONS: dict[RelaxationKind, tuple[str, str]] = {
+    RelaxationKind.WIDER_RADIUS: (
         "We looked further from you.",
-        "You would travel further, which matters most in an emergency.",
+        "You would travel further to get there.",
     ),
-    (
-        RelaxationKind.ROOM_CATEGORY,
+    RelaxationKind.ROOM_CATEGORY: (
         "We included rooms outside your usual entitlement.",
         "A room above your limit reduces what your insurer pays on other "
         "charges too. The cost shown already accounts for this.",
     ),
-    (
-        RelaxationKind.BED_AVAILABILITY,
+    RelaxationKind.BED_AVAILABILITY: (
         "We included hospitals with no bed free right now.",
         "You would need to call ahead; a bed may not be available on arrival.",
     ),
-    (
-        RelaxationKind.NON_NETWORK,
+    RelaxationKind.NON_NETWORK: (
         "We included hospitals outside your cashless network.",
         "You would pay the whole bill at the hospital and claim it back later, "
         "which means arranging the full amount upfront.",
     ),
-]
+}
+
+
+# What is surrendered, in what order, and what is not surrendered at all.
+#
+# This used to be one fixed ladder and urgency set a single flag, so switching a
+# planned angioplasty to an emergency changed nothing anyone could see. Worse,
+# a planned procedure three weeks out was told we had relaxed bed availability
+# and left the cashless network on its behalf, neither of which anyone planning
+# ahead needs or wants.
+#
+# What a family can afford to give up depends entirely on how much time they
+# have. In an emergency, getting treated tonight beats every financial
+# consideration, so the network goes early. Planning ahead, the opposite holds:
+# there is time to travel and time to wait for a bed, and leaving the cashless
+# network is a decision about money that should be made last or not at all.
+RELAXATION_ORDER: dict[Urgency, list[RelaxationKind]] = {
+    Urgency.EMERGENCY: [
+        RelaxationKind.WIDER_RADIUS,
+        RelaxationKind.ROOM_CATEGORY,
+        RelaxationKind.NON_NETWORK,
+    ],
+    Urgency.URGENT: [
+        RelaxationKind.WIDER_RADIUS,
+        RelaxationKind.ROOM_CATEGORY,
+        RelaxationKind.BED_AVAILABILITY,
+        RelaxationKind.NON_NETWORK,
+    ],
+    Urgency.PLANNED: [
+        RelaxationKind.WIDER_RADIUS,
+        RelaxationKind.ROOM_CATEGORY,
+        RelaxationKind.NON_NETWORK,
+    ],
+}
+"""Ordered least costly first, per urgency.
+
+An emergency never relaxes bed availability: a hospital with no free bed is not
+an option when the patient is in the car. A planned admission never relaxes it
+either, for the opposite reason, that waiting a week for a bed is a normal thing
+to do and does not need to be presented as a sacrifice.
+"""
+
+
+def _ladder_for(urgency: Urgency) -> list[tuple[RelaxationKind, str, str]]:
+    return [
+        (kind, *_RELAXATIONS[kind])
+        for kind in RELAXATION_ORDER.get(urgency, RELAXATION_ORDER[Urgency.PLANNED])
+    ]
 
 
 def _apply_relaxation(filters: _Filters, kind: RelaxationKind, context: CareContext) -> bool:
@@ -461,7 +522,8 @@ def find_options(
     )
 
     kept, excluded = [], []
-    ladder = iter(RELAXATION_LADDER)
+    # What gets given up, and in what order, depends on how much time there is.
+    ladder = iter(_ladder_for(context.urgency))
 
     with bus.step(
         STAGE, "find_options", session_id=session_id,

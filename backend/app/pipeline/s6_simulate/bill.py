@@ -131,3 +131,51 @@ def stay_range(procedure: Procedure) -> tuple[float, float]:
     low = max(typical * (1 - spread), 1.0 if not procedure.is_daycare else 0.5)
     high = typical * (1 + spread)
     return round(low, 1), round(high, 1)
+
+
+# What actually goes wrong, and by how much.
+#
+# Varying the stay alone understates the risk badly: the insurer absorbs most of
+# what scales with days, so the family's exposure barely moves. The charges that
+# genuinely land on a family are the ones a longer stay drags in with it, an
+# extra day of intensive care and a second device, and those are step changes
+# rather than a spread around the middle.
+EXTRA_ICU_DAYS = 1.0
+SECOND_IMPLANT_MULTIPLIER = Decimal("2.0")
+HEAVIER_USAGE_MULTIPLIER = Decimal("1.4")
+"""Pharmacy and consumables under a complicated recovery."""
+
+
+def adverse_bill(
+    hospital: Hospital,
+    procedure: Procedure,
+    room_category: RoomCategory,
+) -> tuple[EstimatedBill, str]:
+    """The plausible bad case, and a plain sentence naming what drove it.
+
+    Not a worst case. Nothing here assumes a catastrophe: it is a stay at the
+    long end of normal, one more day in intensive care, and, for a procedure
+    that fits a device, a second one. Every item is ordinary enough that a
+    family should be told about it before they choose a hospital rather than
+    at the discharge counter.
+    """
+    _, long_stay = stay_range(procedure)
+    icu = procedure.typical_icu_days + EXTRA_ICU_DAYS
+
+    bill = estimate_bill(
+        hospital, procedure, room_category,
+        los_days=max(long_stay, procedure.typical_los_days + EXTRA_ICU_DAYS),
+        icu_days=icu,
+    )
+
+    drivers = [f"a stay of {long_stay:g} days with an extra day in intensive care"]
+
+    for line in bill.lines:
+        if line.head is ExpenseHead.IMPLANTS and procedure.requires_implant:
+            line.amount = round_inr(line.amount * SECOND_IMPLANT_MULTIPLIER)
+            line.note = "a second device"
+            drivers.append("a second implant")
+        elif line.head in (ExpenseHead.PHARMACY, ExpenseHead.CONSUMABLES):
+            line.amount = round_inr(line.amount * HEAVIER_USAGE_MULTIPLIER)
+
+    return bill, " and ".join(drivers)

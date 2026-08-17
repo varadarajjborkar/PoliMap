@@ -94,6 +94,54 @@ def test_every_option_carries_a_cost_band(corpus, policy):
         assert band.low <= band.expected <= band.high
 
 
+def test_the_band_is_not_the_same_width_on_every_card(corpus, policy):
+    """The defect this replaced: the band varied only length of stay, and the
+    insurer absorbed everything that scaled with days, so the only thing left
+    moving was a flat per-day charge. Every card came out at the same few
+    hundred rupees either side of centre, on bills an order of magnitude apart.
+    Two cards side by side gave that away in seconds."""
+    hospitals, procedures = corpus
+    options = find_options(hospitals, procedures, policy, context()).options
+    widths = {
+        option.simulation.band.high - option.simulation.band.low
+        for option in options
+        if option.simulation.band
+    }
+    assert len(widths) > 1, "every option shares one band width"
+
+
+def test_the_band_says_why_the_high_figure_is_high(corpus, policy):
+    """A range without a cause is decoration. A named scenario can be argued
+    with, which is what makes it worth showing a family."""
+    hospitals, procedures = corpus
+    for option in find_options(hospitals, procedures, policy, context()).options:
+        band = option.simulation.band
+        assert band is not None
+        if band.high > band.expected:
+            assert band.high_driver, "a wider high figure with no stated cause"
+
+
+def test_the_band_scales_with_the_size_of_the_bill(corpus, policy):
+    """A claim to predict a two lakh admission as tightly as a twenty thousand
+    one is not a confidence interval, it is a decoration."""
+    hospitals, procedures = corpus
+    options = [
+        o for o in find_options(hospitals, procedures, policy, context()).options
+        if o.simulation.band
+    ]
+    if len(options) < 2:
+        pytest.skip("need at least two costed options to compare")
+
+    cheapest = min(options, key=lambda o: o.simulation.bill.total)
+    dearest = max(options, key=lambda o: o.simulation.bill.total)
+    if dearest.simulation.bill.total <= cheapest.simulation.bill.total * 2:
+        pytest.skip("the costed options are too close in size to compare")
+
+    narrow = cheapest.simulation.band.high - cheapest.simulation.band.low
+    wide = dearest.simulation.band.high - dearest.simulation.band.low
+    assert wide > narrow
+
+
 def test_excluded_hospitals_record_why(corpus, policy):
     """Without this the system cannot explain itself or relax the right thing."""
     hospitals, procedures = corpus
@@ -325,3 +373,69 @@ def test_emergency_urgency_demands_an_available_bed(corpus, policy):
     ):
         for option in result.options:
             assert option.hospital.available_rooms()
+
+
+# --- urgency has to mean something ------------------------------------------
+
+
+def test_a_planned_admission_is_never_told_we_relaxed_bed_availability(corpus, policy):
+    """Waiting a week for a bed is a normal thing to do when the procedure is
+    three weeks away. Presenting it as a sacrifice made on the family's behalf
+    is noise, and it was the review's clearest example of urgency doing nothing.
+    """
+    hospitals, procedures = corpus
+    result = find_options(
+        hospitals, procedures, policy,
+        # Deliberately starved, so the ladder is forced to run.
+        context(urgency=Urgency.PLANNED, max_distance_km=2.0,
+                origin=GeoPoint(lat=12.80, lon=77.45)),
+    )
+    kinds = {r.kind for r in result.relaxations}
+    assert RelaxationKind.BED_AVAILABILITY not in kinds
+
+
+def test_an_emergency_never_relaxes_bed_availability_either(corpus, policy):
+    """For the opposite reason: a hospital with no free bed is not an option
+    when the patient is already in the car."""
+    hospitals, procedures = corpus
+    result = find_options(
+        hospitals, procedures, policy,
+        context(urgency=Urgency.EMERGENCY, max_distance_km=2.0,
+                origin=GeoPoint(lat=12.80, lon=77.45)),
+    )
+    kinds = {r.kind for r in result.relaxations}
+    assert RelaxationKind.BED_AVAILABILITY not in kinds
+
+
+def test_urgency_changes_how_much_distance_counts(corpus, policy):
+    """Forty minutes across a city is an inconvenience when the procedure is
+    weeks away and a different problem when it is tonight. Ranking has to say
+    so, or the urgency control is decoration."""
+    hospitals, procedures = corpus
+
+    def ranked(urgency):
+        result = find_options(
+            hospitals, procedures, policy,
+            context(urgency=urgency, preference=Preference.PROTECT_MONEY,
+                    max_distance_km=2.0, origin=GeoPoint(lat=12.80, lon=77.45)),
+        )
+        return [o.hospital.hospital_id for o in result.options]
+
+    emergency, planned = ranked(Urgency.EMERGENCY), ranked(Urgency.PLANNED)
+    if len(emergency) < 3 or len(planned) < 3:
+        pytest.skip("not enough options to compare orderings")
+    assert emergency != planned, "urgency did not change the ranking at all"
+
+
+def test_the_urgency_weighting_never_overrides_a_stated_preference(corpus, policy):
+    """Somebody who asked to protect their money in an emergency still meant
+    it. Urgency tilts the ranking; it does not take it over."""
+    from app.pipeline.s5_match.matcher import _weights_for
+
+    for urgency in Urgency:
+        weights = _weights_for(context(
+            urgency=urgency, preference=Preference.PROTECT_MONEY
+        ))
+        assert abs(sum(weights.values()) - 1.0) < 1e-6
+        assert weights["affordability"] >= weights["proximity"]
+        assert all(w >= 0 for w in weights.values())

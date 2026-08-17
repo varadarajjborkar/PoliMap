@@ -25,7 +25,7 @@ from app.api.session import DatasetMissing, Session, datasets, sessions
 from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
-from app.journey import tracker
+from app.journey import position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes
 from app.pipeline.s4_compile.compiler import apply_answer
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
@@ -33,8 +33,9 @@ from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
 from app.schemas.match import CareContext, Preference
 from app.schemas.money import format_inr
-from app.schemas.policy import ExpenseHead, RoomCategory
+from app.schemas.policy import ExpenseHead, RoomCategory, RoomLimit, RoomLimitBasis
 from app.schemas.procedure import Specialty, Urgency
+from app.schemas.scheme import rules_for
 
 log = get_logger(__name__)
 router = APIRouter(prefix="/api")
@@ -47,6 +48,53 @@ def _session(session_id: str) -> Session:
         return sessions.require(session_id)
     except KeyError:
         raise HTTPException(404, "Session not found. Upload a policy first.") from None
+
+
+def _apply_scheme(session: Session) -> None:
+    """Stamp the chosen government scheme onto the compiled policy.
+
+    Picking PM-JAY in the dropdown used to set an insurer id and nothing more,
+    so the cost engine had no way to know it was not looking at a commercial
+    policy and adjudicated it as one. That produced advice, aimed at the poorest
+    users this system has, to arrange the full bill in cash and claim it back
+    afterwards, when the scheme has no reimbursement route at all.
+
+    A scheme also overrides the fields a scheme does not have. Leaving a room
+    cap or a co-payment behind from a manual form would quietly reintroduce the
+    deductions the scheme exists to prevent.
+    """
+    if session.policy is None or not session.insurer_id:
+        return
+
+    insurer = next(
+        (i for i in datasets.insurers if i.insurer_id == session.insurer_id), None
+    )
+    if insurer is None or insurer.scheme is None:
+        return
+
+    rules = rules_for(insurer.scheme)
+    if rules is None:
+        return
+
+    policy = session.policy
+    policy.government_scheme = insurer.scheme.value
+    policy.meta.insurer_name = insurer.name
+    policy.meta.policy_type = "government scheme"
+
+    if policy.sum_insured <= 0:
+        policy.sum_insured = rules.cover_per_year
+
+    # The package is all-inclusive, so the heads an indemnity policy strips out
+    # first are the ones a scheme covers.
+    policy.covers_consumables = True
+    policy.copay_pct = rules.copay_pct
+    policy.deductible = Decimal(0)
+    policy.room_limit = RoomLimit(
+        basis=RoomLimitBasis.CATEGORY_ONLY,
+        category_ceiling=rules.room_entitlement,
+    )
+    policy.pre_hospitalisation_days = rules.pre_hospitalisation_days
+    policy.post_hospitalisation_days = rules.post_hospitalisation_days
 
 
 # --- health ---------------------------------------------------------------
@@ -85,7 +133,11 @@ def reference() -> dict[str, Any]:
     return {
         "cities": cities,
         "insurers": [
-            {"id": i.insurer_id, "name": i.name, "scheme": i.is_government_scheme}
+            {
+                "id": i.insurer_id, "name": i.name,
+                "scheme": i.is_government_scheme,
+                "scheme_code": i.scheme.value if i.scheme else None,
+            }
             for i in insurers
         ],
         "procedures": sorted(
@@ -118,6 +170,7 @@ def _policy_payload(session: Session) -> dict[str, Any]:
     policy = session.policy
     assert policy is not None
     cap = policy.room_limit.effective_daily_cap(policy.sum_insured)
+    scheme_rules = rules_for(policy.government_scheme)
 
     return {
         "session_id": session.session_id,
@@ -144,6 +197,13 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         "copay_pct": float(policy.copay_pct),
         "deductible": float(policy.deductible),
         "covers_consumables": policy.covers_consumables,
+        # A scheme settles on package rates, so the interface has to describe
+        # it in those terms rather than as a cover with caps and a co-payment.
+        "government_scheme": policy.government_scheme,
+        "scheme_label": (
+            scheme_rules.label if scheme_rules else ""
+        ),
+        "scheme_note": scheme_rules.note if scheme_rules else "",
         "restore_benefit": policy.restore_benefit,
         "pre_hospitalisation_days": policy.pre_hospitalisation_days,
         "post_hospitalisation_days": policy.post_hospitalisation_days,
@@ -218,6 +278,7 @@ async def upload_policy(
     session.read_quality = result.document.quality_score
     session.needed_ocr = result.document.needed_ocr
     session.warnings = result.document.warnings
+    _apply_scheme(session)
     sessions.save(session)
 
     return _policy_payload(session)
@@ -268,6 +329,7 @@ def manual_policy(payload: ManualPolicy) -> dict[str, Any]:
         covers_consumables=payload.covers_consumables,
         confidence=1.0,
     )
+    _apply_scheme(session)
     sessions.save(session)
     return _policy_payload(session)
 
@@ -363,6 +425,10 @@ def _option_payload(option, procedure_name: str) -> dict[str, Any]:
                 "high": float(result.band.high),
                 "low_display": format_inr(result.band.low),
                 "high_display": format_inr(result.band.high),
+                # Without this the range is a pair of numbers a reader has no
+                # reason to believe. With it, the high figure is a scenario
+                # they can picture and argue with.
+                "high_driver": result.band.high_driver,
             }
             if result.band else None
         ),
@@ -480,6 +546,33 @@ def _natural_next(stage: JourneyStage) -> str | None:
     return min(ahead, key=lambda s: s.order).value if ahead else None
 
 
+def _position_payload(state, policy) -> dict[str, Any] | None:
+    """What the charges recorded so far come to after adjudication."""
+    result = position.position(state, policy)
+    if result is None:
+        return None
+
+    return {
+        "billed": float(result.bill.total),
+        "billed_display": format_inr(result.bill.total),
+        "insurer_pays": float(result.payable_by_insurer),
+        "insurer_pays_display": format_inr(result.payable_by_insurer),
+        "you_pay": float(result.out_of_pocket),
+        "you_pay_display": format_inr(result.out_of_pocket),
+        "steps": [
+            {
+                "label": s.label,
+                "kind": s.kind.value,
+                "deducted": float(s.deducted),
+                "deducted_display": format_inr(s.deducted),
+                "explanation": s.explanation,
+            }
+            for s in result.steps
+        ],
+        "warnings": result.warnings,
+    }
+
+
 def _journey_payload(session: Session) -> dict[str, Any]:
     state = session.journey
     policy = session.policy
@@ -525,7 +618,17 @@ def _journey_payload(session: Session) -> dict[str, Any]:
             "projected": float(burn.projected_total),
             "consumed_fraction": burn.consumed_fraction,
             "will_exceed": burn.will_exceed,
+            # From the recurring charges only. A theatre bill on day one is not
+            # a daily rate, and projecting it as one is how a family gets told
+            # their cover runs out tomorrow when it does not.
+            "daily_run_rate": float(tracker.daily_run_rate(state)),
+            "daily_run_rate_display": format_inr(tracker.daily_run_rate(state)),
+            "days_of_cover_left": tracker.days_until_cover_exhausted(state, policy),
         },
+        # The same waterfall that produced the estimate, run over what has
+        # actually been billed. Without it this screen shows the hospital's
+        # total and the previous screen shows the family's, and they disagree.
+        "position": _position_payload(state, policy),
         "alerts": [
             {
                 "kind": a.kind.value,

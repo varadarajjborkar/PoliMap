@@ -54,6 +54,7 @@ def build_insurers() -> list[Insurer]:
             name=scheme.label,
             short_name=scheme.label,
             is_government_scheme=True,
+            scheme=scheme,
         )
         for iid, scheme in SCHEME_INSURERS
     )

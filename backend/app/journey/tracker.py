@@ -25,6 +25,7 @@ from decimal import Decimal
 
 from app.core.events import bus
 from app.core.logging import get_logger
+from app.journey import position
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.journey import (
     Alert,
@@ -301,23 +302,57 @@ def remove_cost(
     return state
 
 
+# Charges that happen once, whatever the stay length. A surgeon is not paid
+# again tomorrow because the patient is still in bed, and a stent is bought
+# once. Dividing these by days elapsed and projecting forward is what turns a
+# seventy thousand rupee operation on day one into a seventy thousand rupee
+# daily rate, which is the kind of number that panics a family for no reason.
+_ONE_OFF_HEADS = frozenset({
+    ExpenseHead.SURGEON_FEE,
+    ExpenseHead.ANAESTHETIST_FEE,
+    ExpenseHead.OT_CHARGES,
+    ExpenseHead.IMPLANTS,
+    ExpenseHead.BLOOD,
+})
+
+PROJECTION_HORIZON_DAYS = Decimal(2)
+"""How far ahead the projection looks. Deliberately short: a family can act on
+what the next two days cost, and a five day forecast built from three days of
+data is a guess wearing a number."""
+
+
+def daily_run_rate(state: JourneyState) -> Decimal:
+    """What one more day is likely to cost, from the recurring charges only.
+
+    Separating one-off charges from recurring ones is the whole point. A stay
+    where the theatre bill has already landed has a low run rate and a high
+    total, and treating those as the same thing produces a projection that is
+    wrong by a multiple rather than by a margin.
+    """
+    days = Decimal(max(state.days_elapsed, 1))
+    recurring = sum(
+        (c.amount for c in state.costs if c.head not in _ONE_OFF_HEADS), ZERO
+    )
+    return round_inr(recurring / days)
+
+
 def burn_down(state: JourneyState, policy: NormalizedPolicy) -> BurnDown:
     """Cover consumed against cover available, projected to discharge.
 
-    Projection uses the daily rate observed so far rather than the original
-    estimate, because the point of tracking is to notice when reality has
-    departed from the plan.
+    Projection uses the observed rate of the *recurring* charges rather than
+    the original estimate, because the point of tracking is to notice when
+    reality has departed from the plan, and rather than the whole accrued
+    total, because most of that total is work already done and not repeatable.
     """
     consumed = state.accrued_total
     available = policy.available_cover
-    days = max(state.days_elapsed, 1)
 
     if state.stage in (JourneyStage.SETTLED, JourneyStage.DISCHARGE_PLANNING):
         projected = consumed
     else:
-        per_day = consumed / Decimal(days)
-        remaining_days = Decimal(2)  # A conservative near-term horizon.
-        projected = round_inr(consumed + per_day * remaining_days)
+        projected = round_inr(
+            consumed + daily_run_rate(state) * PROJECTION_HORIZON_DAYS
+        )
 
     return BurnDown(
         sum_insured=available,
@@ -325,6 +360,25 @@ def burn_down(state: JourneyState, policy: NormalizedPolicy) -> BurnDown:
         projected_total=max(projected, consumed),
         remaining=max(available - consumed, ZERO),
     )
+
+
+def days_until_cover_exhausted(
+    state: JourneyState, policy: NormalizedPolicy
+) -> int | None:
+    """How long the remaining cover lasts at the current recurring rate.
+
+    None when nothing recurring is accruing, or when the cover is already gone.
+    A number here is worth far more than a percentage: "you cross your cover on
+    day six" is something a family can act on, and "82% used" is not.
+    """
+    rate = daily_run_rate(state)
+    if rate <= 0 or not state.is_active:
+        return None
+
+    remaining = policy.available_cover - state.accrued_total
+    if remaining <= 0:
+        return 0
+    return int(remaining / rate)
 
 
 def evaluate(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
@@ -344,17 +398,48 @@ def evaluate(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
 
 
 def _room_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
-    """The proportionate-deduction warning, expressed in money already lost."""
-    if state.room_rate_per_day is None or not state.is_active:
+    """The proportionate-deduction warning, expressed in money already lost.
+
+    Tested against the rate the recorded charges imply, not the one captured
+    from the hospital's tariff at admission. Those disagree exactly when this
+    alert matters most: a room rent typed at a billing counter used to be
+    stored as an ordinary charge and compared to nothing, so a family paying
+    well above their limit was told nothing at all.
+    """
+    alerts: list[Alert] = []
+    if not state.is_active:
         return []
+
+    conflict = position.room_rate_conflict(state)
+    if conflict is not None:
+        booked, observed = conflict
+        alerts.append(Alert(
+            kind=AlertKind.ROOM_OVER_LIMIT,
+            severity=AlertSeverity.ATTENTION,
+            title="Your room is billing at a different rate",
+            message=(
+                f"This stay was set up at {format_inr(booked)} a day, and the "
+                f"room charges recorded work out at {format_inr(observed)} a "
+                f"day. Both cannot be right."
+            ),
+            action=(
+                "If you moved room, this is expected. If not, ask the billing "
+                "desk which rate applies before more days are added."
+            ),
+            stage=state.stage,
+        ))
+
+    rate = position.observed_room_rate(state)
+    if rate is None:
+        return alerts
 
     cap = policy.room_limit.effective_daily_cap(policy.sum_insured)
-    if cap is None or state.room_rate_per_day <= cap:
-        return []
+    if cap is None or rate <= cap:
+        return alerts
 
     days = max(state.days_elapsed, 1)
-    excess = round_inr((state.room_rate_per_day - cap) * Decimal(days))
-    ratio = cap / state.room_rate_per_day
+    excess = round_inr((rate - cap) * Decimal(days))
+    ratio = cap / rate
 
     room_linked = sum(
         (amount for head, amount in state.accrued_by_head().items()
@@ -363,16 +448,21 @@ def _room_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
     )
     knock_on = round_inr(room_linked * (Decimal(1) - ratio))
 
-    return [Alert(
+    alerts.append(Alert(
         kind=AlertKind.ROOM_OVER_LIMIT,
         severity=AlertSeverity.URGENT,
         title="Your room costs more than your policy covers",
         message=(
-            f"Your room is {format_inr(state.room_rate_per_day)} a day and your "
-            f"policy covers {format_inr(cap)}. After {days} day"
-            f"{'s' if days != 1 else ''} that is {format_inr(excess)} in room "
-            f"rent, plus about {format_inr(knock_on)} deducted from your "
-            f"surgeon, theatre and nursing charges."
+            f"Your room is {format_inr(rate)} a day and your policy covers "
+            f"{format_inr(cap)}. After {days} day{'s' if days != 1 else ''} "
+            f"that is {format_inr(excess)} in room rent, plus about "
+            f"{format_inr(knock_on)} deducted from your surgeon, theatre and "
+            f"nursing charges."
+            + (
+                " That second deduction applies even though those charges are "
+                "not the room, and it is the part most people never see coming."
+                if knock_on > 0 else ""
+            )
         ),
         action=(
             "Ask the hospital insurance desk about moving to a room within your "
@@ -381,7 +471,8 @@ def _room_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
         amount=round_inr(excess + knock_on),
         clause_ids=policy.room_limit.source_clause_ids,
         stage=state.stage,
-    )]
+    ))
+    return alerts
 
 
 _ROOM_LINKED_HEADS = frozenset({
@@ -444,16 +535,28 @@ def _cover_alerts(
         )]
 
     if burn.will_exceed and state.is_active:
+        days = days_until_cover_exhausted(state, policy)
+        rate = daily_run_rate(state)
         return [Alert(
             kind=AlertKind.COVER_NEARLY_EXHAUSTED,
             severity=AlertSeverity.ATTENTION,
             title="Costs are on track to pass your cover",
             message=(
-                f"At the current rate this stay reaches about "
-                f"{format_inr(burn.projected_total)}, above your "
-                f"{format_inr(burn.sum_insured)} cover."
+                f"Day-to-day charges are running at about {format_inr(rate)} a "
+                f"day, not counting the theatre and implant charges already "
+                f"billed. At that rate you cross your "
+                f"{format_inr(burn.sum_insured)} cover "
+                + (
+                    "today." if days == 0 else
+                    f"in about {days} day{'s' if days != 1 else ''}."
+                    if days is not None else "during this stay."
+                )
             ),
-            action="Ask the desk for a running bill so there are no surprises.",
+            action=(
+                "Worth raising now rather than at discharge: ask about a "
+                "top-up policy, whether any second cover applies, and what the "
+                "hospital's instalment desk offers."
+            ),
             amount=max(burn.projected_total - burn.sum_insured, ZERO),
             stage=state.stage,
         )]
