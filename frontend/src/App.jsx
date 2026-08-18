@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LanguageContext, useT } from './hooks/useLanguage'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
@@ -565,10 +565,6 @@ export default function App() {
         ) : step !== 'journey' ? (
           <>
             <ErrorNote onDismiss={() => setError(null)}>{error}</ErrorNote>
-            {/* Clears the sticky sub-step bar, which is fixed on small
-                screens because it has to sit under a header that is itself
-                sticky. */}
-            <div aria-hidden="true" className="h-9 lg:hidden" />
             <SetupFlow
               step={step}
               reached={reached}
@@ -754,16 +750,53 @@ function BackLink({ onClick, children }) {
   )
 }
 
+// Everything that has to sit below the header is offset by `--header-h`, and
+// that was a constant: 5.6rem, guessed once and then wrong. The header grows
+// with the text-size setting, with a longer word in another language, and it
+// grew again when the controls went to 16px so phones would stop zooming on
+// tap. Every offset built on the constant was then a few pixels out, and the
+// step bar landed on the heading.
+//
+// So it is measured. The observer catches a resize, a font swap and a language
+// change alike, none of which a media query would have caught.
+function useMeasuredHeader() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const apply = () => {
+      const { height } = el.getBoundingClientRect()
+      if (height > 0) {
+        document.documentElement.style.setProperty('--header-h', `${height}px`)
+      }
+    }
+
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return ref
+}
+
+
 function Shell({
   children, events, connected, settings, onOpenSettings,
   step, reachable, onGo, onHome, onStartOver, hasSession, user, onToggleText,
 }) {
   const t = useT()
   const showActivity = settings.showActivity
+  const header = useMeasuredHeader()
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
+      <header
+        ref={header}
+        className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur"
+      >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
           <button
             onClick={onHome}

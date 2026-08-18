@@ -72,9 +72,18 @@ export function Journey({
                     >
                       {done ? '✓' : ''}
                     </span>
+                    {/* Five labels across a phone leaves about fifty pixels
+                        each, so every one of them wrapped to three or four
+                        lines and the tracker became the tallest thing on the
+                        screen. On a phone only the stage you are at is named,
+                        which is the only one being read; the rest are dots
+                        until there is room, and stay available to a screen
+                        reader throughout. */}
                     <span
                       className={`max-w-[6.5rem] text-center text-[0.6875rem] leading-tight ${
-                        current ? 'font-semibold text-ink' : 'text-muted'
+                        current
+                          ? 'font-semibold text-ink'
+                          : 'sr-only text-muted sm:not-sr-only'
                       }`}
                     >
                       {t(`journey.stage.${value}`, label)}

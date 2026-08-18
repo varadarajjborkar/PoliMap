@@ -304,9 +304,9 @@ def _day_care_finding(
         headline="Check that day care treatment is covered",
         detail=(
             f"{procedure.name} usually finishes inside twenty-four hours, and "
-            f"standard cover in India requires a full day of admission. We could "
-            f"not find anything in your document either way. Ask your insurer "
-            f"whether it is on their day care list before you are admitted."
+            f"standard cover in India requires a full day of admission. "
+            f"Nothing we have says either way. Ask your insurer whether it is "
+            f"on their day care list before you are admitted."
         ),
         label="Day care treatment",
     )

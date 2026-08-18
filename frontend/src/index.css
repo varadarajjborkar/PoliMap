@@ -106,9 +106,14 @@ html.theme-dark { color-scheme: dark; }
   from { opacity: 1; filter: blur(0); transform: scale(1); }
   to   { opacity: 0; filter: blur(8px); transform: scale(0.985); }
 }
+/* Ends at `filter: none`, not `blur(0)`. They look identical and behave
+   differently: any filter value other than none makes the element the
+   containing block for every `position: fixed` descendant, and this animation
+   fills `both`, so the element kept that filter for the life of the page. A
+   fixed child then positioned itself against main instead of the viewport. */
 @keyframes blur-in {
   from { opacity: 0; filter: blur(8px); transform: scale(1.008); }
-  to   { opacity: 1; filter: blur(0); transform: none; }
+  to   { opacity: 1; filter: none; transform: none; }
 }
 
 /* The settings drawer, and the ground it darkens. It comes from the edge it

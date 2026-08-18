@@ -166,8 +166,8 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
           <div className="rounded-lg border border-line bg-surface px-3 py-3">
             <p className="text-[0.875rem] font-medium">{question.question}</p>
             <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-              Nothing in your document says this, and it changes the answer, so
-              we have to ask. Your answer stays on this device.
+              No policy states this, and it changes the answer, so we have to
+              ask. Your answer stays on this device.
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               <Button
@@ -323,8 +323,12 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
-        <div className="min-w-0 flex-1">
+      {/* Stacked on a phone, side by side once there is room. Side by side on
+          a narrow screen gave the name `flex-1 min-w-0` against a price column
+          that would not shrink, so the hospital ended up in a column about a
+          word wide while the amount kept its 13rem. */}
+      <div className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 sm:flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[0.75rem] font-semibold text-muted">#{option.rank}</span>
             <h3 className="text-[1rem] font-semibold tracking-tight">
@@ -340,10 +344,14 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-[0.8125rem] text-muted">You would pay</div>
-          <div className="text-[1.5rem] font-semibold tabular-nums">
-            {option.you_pay_display}
+        <div className="sm:text-right">
+          {/* On a phone the label and the amount sit on one line, so the card
+              does not spend three stacked rows saying one thing. */}
+          <div className="flex items-baseline gap-2 sm:block">
+            <div className="text-[0.8125rem] text-muted">You would pay</div>
+            <div className="text-[1.5rem] font-semibold tabular-nums">
+              {option.you_pay_display}
+            </div>
           </div>
           {/* Stated as a worst case with its cause rather than a symmetrical
               range. A family braces against a specific thing going wrong, and
@@ -355,7 +363,7 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
                 {option.band.high_display}
               </span>
               {option.band.high_driver && (
-                <span className="block max-w-[13rem] text-[0.75rem] leading-snug">
+                <span className="block text-[0.75rem] leading-snug sm:max-w-[13rem]">
                   with {option.band.high_driver}
                 </span>
               )}

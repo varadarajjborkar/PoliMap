@@ -102,39 +102,46 @@ export function SetupFlow({
   }, [])
 
   return (
-    <div className="flex gap-6 pb-6">
+    // The phone's step bar sits above the row rather than inside it. It is a
+    // sticky block in its own right, and as a child of the flex container it
+    // became a column of its own and squeezed the reading width to nothing.
+    <>
       <ThreadBar step={step} reached={reached} onGo={scrollTo} />
-      <Thread step={step} reached={reached} onGo={scrollTo} />
 
-      <div className="min-w-0 flex-1 space-y-16 pt-6">
-        {SETUP_STEPS.map(({ id, label }) => (
-          <section
-            key={id}
-            data-step={id}
-            ref={(node) => { refs.current[id] = node }}
-            aria-label={t(`step.${id}`, label)}
-            className="scroll-mt-[calc(var(--header-h)+3.5rem)] lg:scroll-mt-[calc(var(--header-h)+1.5rem)]"
-          >
-            {sections[id]}
-          </section>
-        ))}
-        {/* Room to scroll the last section to the top, so the thread's final
-            knot can actually be reached. */}
-        <div aria-hidden="true" className="h-[40vh]" />
+      <div className="flex gap-6 pb-6">
+        <Thread step={step} reached={reached} onGo={scrollTo} />
+
+        <div className="min-w-0 flex-1 space-y-16 pt-6">
+          {SETUP_STEPS.map(({ id, label }) => (
+            <section
+              key={id}
+              data-step={id}
+              ref={(node) => { refs.current[id] = node }}
+              aria-label={t(`step.${id}`, label)}
+              className="scroll-mt-[calc(var(--header-h)+3.5rem)] lg:scroll-mt-[calc(var(--header-h)+1.5rem)]"
+            >
+              {sections[id]}
+            </section>
+          ))}
+          {/* Room to scroll the last section to the top, so the thread's final
+              knot can actually be reached. */}
+          <div aria-hidden="true" className="h-[40vh]" />
+        </div>
+
+        {showRail ? (
+          <aside className="sticky top-[calc(var(--header-h)+1.5rem)] hidden h-fit w-64 shrink-0 lg:block">
+            {rail}
+          </aside>
+        ) : (
+          /* Nothing settled yet, so nothing to put here. The thread on the
+             left is still 11rem wide, and without something matching it on the
+             right the work sits off centre. This is that something: it holds
+             the column in the middle of the page until there is a reason
+             not to. */
+          <div aria-hidden="true" className="hidden w-44 shrink-0 lg:block" />
+        )}
       </div>
-
-      {showRail ? (
-        <aside className="sticky top-[calc(var(--header-h)+1.5rem)] hidden h-fit w-64 shrink-0 lg:block">
-          {rail}
-        </aside>
-      ) : (
-        /* Nothing settled yet, so nothing to put here. The thread on the left
-           is still 11rem wide, and without something matching it on the right
-           the work sits off centre. This is that something: it holds the
-           column in the middle of the page until there is a reason not to. */
-        <div aria-hidden="true" className="hidden w-44 shrink-0 lg:block" />
-      )}
-    </div>
+    </>
   )
 }
 
@@ -211,10 +218,14 @@ function ThreadBar({ step, reached, onGo }) {
   const t = useT()
   const current = SETUP_STEPS.findIndex((s) => s.id === step)
 
+  // Sticky, not fixed. Fixed placed it against whatever its containing block
+  // happened to be, and a spacer elsewhere in the tree had to guess its height
+  // to stop it landing on the heading. Sticky is in the flow, so it occupies
+  // its own space and needs nobody to reserve it.
   return (
     <nav
       aria-label="Setting up"
-      className="fixed inset-x-0 top-[var(--header-h)] z-10 border-b border-line bg-surface/95 backdrop-blur lg:hidden"
+      className="sticky top-[var(--header-h)] z-10 -mx-4 border-b border-line bg-surface/95 px-4 backdrop-blur lg:hidden"
     >
       <ol className="mx-auto flex max-w-3xl items-center px-4 py-2">
         {SETUP_STEPS.map(({ id, short }, index) => {
