@@ -108,6 +108,21 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
               emphasis
             />
             <Fact
+              label="Cover left this year"
+              value={policy.available_cover_display}
+              field="sum_insured_remaining"
+              current={policy.sum_insured_remaining ?? policy.sum_insured}
+              hint="What is left after any claim made earlier this policy year."
+              onEdit={onEditField}
+              note={
+                policy.sum_insured_remaining == null
+                  ? 'We have assumed no claims yet this year. If you have already claimed, correct this: it changes every estimate.'
+                  : policy.restore_benefit
+                    ? 'Your policy restores the cover once per year if it runs out.'
+                    : null
+              }
+            />
+            <Fact
               label="Room you are covered for"
               value={policy.room_limit.description}
               field="room_limit"

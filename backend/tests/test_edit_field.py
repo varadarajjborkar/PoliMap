@@ -218,3 +218,69 @@ def test_the_interface_is_told_which_fields_it_may_write_to(client, session_id):
     policy = client.get(f"/api/policy/{session_id}").json()
     assert "sum_insured" in policy["editable_fields"]
     assert "room_limit" in policy["editable_fields"]
+
+
+# --- cover already used this year ------------------------------------------
+
+
+def test_cover_left_can_be_corrected():
+    """No document can know this. The schedule states the cover bought, not
+    the cover left, so every estimate silently assumed a year with no claims."""
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    assert policy.available_cover == Decimal(500000)
+
+    edit_field(policy, "sum_insured_remaining", "2 lakh")
+    assert policy.sum_insured_remaining == Decimal(200000)
+    assert policy.available_cover == Decimal(200000)
+
+
+def test_cover_left_can_be_nothing():
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    edit_field(policy, "sum_insured_remaining", "0")
+    assert policy.sum_insured_remaining == Decimal(0)
+    assert policy.available_cover == Decimal(0)
+
+
+def test_cover_left_cannot_exceed_the_cover_bought():
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    with pytest.raises(Unreadable, match="more than your total cover"):
+        edit_field(policy, "sum_insured_remaining", "8 lakh")
+
+
+def test_a_used_up_policy_with_restore_says_so():
+    """Restoration is stated rather than added to the estimate: whether it can
+    be drawn on by the admission that exhausted the cover differs by product,
+    and the favourable reading would understate what has to be arranged."""
+    from app.pipeline.s6_simulate.waterfall import simulate
+    from app.schemas.policy import ExpenseHead, RoomCategory
+    from app.schemas.simulation import BillLine, EstimatedBill
+
+    policy = NormalizedPolicy(sum_insured=Decimal(500000), restore_benefit=True)
+    edit_field(policy, "sum_insured_remaining", "20000")
+
+    bill = EstimatedBill(
+        hospital_id="H1", procedure_code="CP-TEST-001",
+        room_category=RoomCategory.TWIN_SHARING, los_days=2,
+        room_rate_per_day=Decimal(0),
+        lines=[BillLine(head=ExpenseHead.SURGEON_FEE, label="Surgeon",
+                        amount=Decimal(200000))],
+    )
+    result = simulate(policy, bill)
+    assert any("restores the sum insured" in note for note in result.notes)
+
+
+def test_a_policy_without_restore_promises_nothing():
+    from app.pipeline.s6_simulate.waterfall import simulate
+    from app.schemas.policy import ExpenseHead, RoomCategory
+    from app.schemas.simulation import BillLine, EstimatedBill
+
+    policy = NormalizedPolicy(sum_insured=Decimal(500000), restore_benefit=False)
+    edit_field(policy, "sum_insured_remaining", "20000")
+    bill = EstimatedBill(
+        hospital_id="H1", procedure_code="CP-TEST-001",
+        room_category=RoomCategory.TWIN_SHARING, los_days=2,
+        room_rate_per_day=Decimal(0),
+        lines=[BillLine(head=ExpenseHead.SURGEON_FEE, label="Surgeon",
+                        amount=Decimal(200000))],
+    )
+    assert not any("restores" in note for note in simulate(policy, bill).notes)

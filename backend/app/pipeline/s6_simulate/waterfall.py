@@ -299,6 +299,18 @@ def simulate(
             f"This treatment would use up your remaining cover of "
             f"{format_inr(available)}."
         )
+        if policy.restore_benefit:
+            # Deliberately a note rather than money added to this estimate.
+            # Restoration reinstates the cover, but whether it can be drawn on
+            # by the admission that exhausted it or only by a later one differs
+            # between products, and inventing the favourable reading here would
+            # understate what somebody has to arrange before they are admitted.
+            notes.append(
+                f"This policy restores the sum insured once per policy year. "
+                f"That would put {format_inr(policy.sum_insured)} back for a "
+                f"later admission; ask your insurer whether it can be used for "
+                f"this one, since policies differ."
+            )
 
     payable = ledger.total
     out_of_pocket = round_inr(bill.total - payable)

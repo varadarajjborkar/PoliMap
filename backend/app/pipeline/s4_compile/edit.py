@@ -21,6 +21,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.pipeline.s4_compile.interpret import interpret, parse_amount, parse_percent
+from app.schemas.money import format_inr
 from app.schemas.policy import (
     ClauseStatus,
     NormalizedPolicy,
@@ -43,6 +44,7 @@ class Unreadable(ValueError):
 # clarification loop is built to avoid.
 EDITABLE: dict[str, str] = {
     "sum_insured": "amount",
+    "sum_insured_remaining": "amount",
     "room_limit": "amount",
     "copay_pct": "percent",
     "deductible": "amount",
@@ -53,6 +55,7 @@ EDITABLE: dict[str, str] = {
 
 LABELS: dict[str, str] = {
     "sum_insured": "Total cover this year",
+    "sum_insured_remaining": "Cover left this year",
     "room_limit": "Room rent limit",
     "copay_pct": "Your share of every claim",
     "deductible": "The amount you pay first",
@@ -112,6 +115,18 @@ def edit_field(
 
     if field == "sum_insured":
         policy.sum_insured = _amount(value, label)
+    elif field == "sum_insured_remaining":
+        # A claim earlier in the policy year is the commonest reason an estimate
+        # is wrong, and no document can know about it: the schedule states the
+        # cover bought, not the cover left. Nothing was setting this, so every
+        # estimate silently assumed a year with no claims in it.
+        remaining = _amount(value, label, allow_zero=True)
+        if remaining > policy.sum_insured:
+            raise Unreadable(
+                f"That is more than your total cover of "
+                f"{format_inr(policy.sum_insured)}."
+            )
+        policy.sum_insured_remaining = remaining
     elif field == "copay_pct":
         policy.copay_pct = _percent(value, label)
     elif field == "deductible":

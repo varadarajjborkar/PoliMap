@@ -222,6 +222,12 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         # interface so the two cannot disagree about what is writable.
         "editable_fields": sorted(EDITABLE),
         "restore_benefit": policy.restore_benefit,
+        "sum_insured_remaining": (
+            float(policy.sum_insured_remaining)
+            if policy.sum_insured_remaining is not None else None
+        ),
+        "available_cover": float(policy.available_cover),
+        "available_cover_display": format_inr(policy.available_cover),
         "pre_hospitalisation_days": policy.pre_hospitalisation_days,
         "post_hospitalisation_days": policy.post_hospitalisation_days,
         "sublimits": [
