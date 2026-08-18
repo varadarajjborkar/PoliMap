@@ -1,13 +1,14 @@
-<h1>
-  <img
-    src="docs/images/logo-inline.png"
-    alt="PoliMap logo"
-    style="width:40px !important; height:40px !important; object-fit:contain; vertical-align:-17px;"
-  >
+<h1 style="margin-bottom: 0;">
+  <img src="docs/images/logo-inline.png"
+       alt="PoliMap logo"
+       width="28"
+       align="center">
   PoliMap
 </h1>
 
-**Insurance-aware hospital decision support for patients and caregivers in India.**
+<p style="margin-top: -10px;">
+  <strong>Insurance-aware hospital decision support for patients and caregivers in India.</strong>
+</p>
 
 Upload your health policy. Find out which hospitals you are covered at, what
 room you are entitled to, and what you would actually pay yourself.
