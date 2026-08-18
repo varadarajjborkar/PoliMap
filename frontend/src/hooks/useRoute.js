@@ -57,7 +57,14 @@ export function useRoute() {
   }, [])
 
   // Adds a history entry, so back returns to where the user was.
-  const navigate = useCallback((path, { replace = false } = {}) => {
+  //
+  // `scroll` is off for a navigation that only describes where the reader
+  // already is. The setup flow is one scrolling page whose address bar follows
+  // the section on screen, so every scroll downwards was a navigation, and
+  // every navigation threw the reader back to the top, which put them back in
+  // the section above and did it again. Scrolling into the next section became
+  // something you had to fight the page to do.
+  const navigate = useCallback((path, { replace = false, scroll = true } = {}) => {
     if (window.location.pathname === path) {
       setLocation(parse(path))
       return
@@ -66,7 +73,7 @@ export function useRoute() {
     // should not return to a step the app has just decided was unreachable.
     window.history[replace ? 'replaceState' : 'pushState'](null, '', path)
     setLocation(parse(path))
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
   return { ...location, navigate }

@@ -790,3 +790,50 @@ def test_day_care_and_a_waiting_period_are_both_reported():
     verdict = E.assess(policy, DAY_CARE, on=START + timedelta(days=180))
     assert verdict.blocks
     assert len(verdict.findings) == 2
+
+
+def test_one_persons_answer_does_not_carry_into_another_persons_estimate(tmp_path):
+    """Two names on one device is the whole point of having names.
+
+    Whether a condition predates the policy is a fact about a person, and the
+    only place it exists is the answer they gave. A second stay that has not
+    been asked must come back asking, not carrying the first answer: an
+    estimate declined on somebody else's medical history is worse than no
+    estimate at all.
+    """
+    from pathlib import Path
+
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    document = Path("../data/generated/policies/clean/POL006.pdf")
+    if not document.exists():
+        pytest.skip("corpus not built")
+
+    search = {
+        "procedure_code": "CP-CARD-006", "lat": 12.9716, "lon": 77.5946,
+        "city": "Bengaluru", "max_distance_km": 25, "preference": "balanced",
+        "urgency": "planned", "preferred_room": "single_private",
+    }
+
+    with TestClient(app) as api:
+        def verdict_for(pre_existing):
+            session_id = api.post("/api/session").json()["session_id"]
+            api.post(
+                "/api/policy/upload-many",
+                files=[("files", (document.name, document.read_bytes(),
+                                  "application/pdf"))],
+                data={"insurer_id": "", "session_id": session_id},
+            )
+            found = api.post(
+                f"/api/search/{session_id}",
+                json={**search, "pre_existing": pre_existing},
+            ).json()
+            return found["eligibility"]["verdict"]
+
+        assert verdict_for(None) == "ask"
+        assert verdict_for(True) == "not_yet"
+        # The one that matters: a fresh stay is asked again.
+        assert verdict_for(None) == "ask"
+        assert verdict_for(False) == "covered"

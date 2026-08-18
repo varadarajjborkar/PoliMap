@@ -36,6 +36,11 @@ const DEFAULT_SEARCH = {
   patient_index: null,
 }
 
+// The two things no document holds and only the patient knows. Named rather
+// than written inline twice, so the value cleared on a reset cannot drift from
+// the value started with.
+const NO_CLAIM_FACTS = { pre_existing: null, accident: false }
+
 export default function App() {
   const { settings, set, reset } = useSettings()
   const { view, stayId, step, navigate } = useRoute()
@@ -53,7 +58,7 @@ export default function App() {
   // the policy, and whether this follows an accident. Kept beside the search
   // rather than inside it, because they are facts about the patient rather
   // than about what they are looking for.
-  const [claimFacts, setClaimFacts] = useState({ pre_existing: null, accident: false })
+  const [claimFacts, setClaimFacts] = useState(NO_CLAIM_FACTS)
 
   // A move within the setup flow, asked for by something inside it. Carries a
   // nonce so asking twice for the same section still moves the page.
@@ -184,9 +189,12 @@ export default function App() {
   // through the flow reopens where the reader was. `replace`, because scrolling
   // is not navigation: filling the history with a dozen entries would make the
   // back button useless for leaving.
+  // The address bar following the section on screen. It describes where the
+  // reader already is, so it must not move them: scrolling here would fight
+  // the scroll that caused it.
   const markStepInView = useCallback((id) => {
     if (!stayId || id === step) return
-    navigate(stayPath(stayId, id), { replace: true })
+    navigate(stayPath(stayId, id), { replace: true, scroll: false })
   }, [stayId, step, navigate])
 
   // What this stay is, so the home screen lists it recognisably a day later.
@@ -384,6 +392,13 @@ export default function App() {
     setResults(null)
     setJourney(null)
     setSearch(DEFAULT_SEARCH)
+    // Whether a condition predates the policy is a fact about a person, not
+    // about a stay. Left behind, the next name on this device was never asked
+    // and was quietly answered for: their estimate came back declined on
+    // somebody else's medical history. Names on one device exist precisely so
+    // that cannot happen.
+    setClaimFacts(NO_CLAIM_FACTS)
+    setWatching(null)
     setEvents([])
     setConnected(false)
     setError(null)
