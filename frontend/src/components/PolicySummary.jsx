@@ -172,21 +172,8 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
           </div>
         )}
 
-        {policy.waiting_periods?.length > 0 && (
-          <div className="border-t border-line px-5 py-4">
-            <h3 className="text-[0.8125rem] font-medium text-muted">Waiting periods</h3>
-            <ul className="mt-2 space-y-1.5">
-              {policy.waiting_periods.map((wait, index) => (
-                <li key={index} className="flex justify-between gap-4 text-[0.875rem]">
-                  <span className="text-muted">{wait.applies_to}</span>
-                  <span className="shrink-0 font-medium">
-                    {wait.months === 1 ? '30 days' : `${wait.months} months`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <WhoIsCovered policy={policy} />
+        <WaitingPeriods policy={policy} />
 
         <div className="border-t border-line px-5 py-4">
           <Button onClick={onContinue} className="w-full sm:w-auto">
@@ -199,6 +186,112 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
     </div>
   )
 }
+
+// Everyone on the schedule, with their ages.
+//
+// Not decoration. A family floater is conditioned on its eldest member, and
+// whether a pre-existing waiting period is a formality or the whole question
+// depends on who is being admitted. It is also the fastest way for someone to
+// see that we read their document correctly.
+function WhoIsCovered({ policy }) {
+  if (!policy.insured?.length) return null
+
+  return (
+    <div className="border-t border-line px-5 py-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className="text-[0.8125rem] font-medium text-muted">Who is covered</h3>
+        {policy.period?.start && (
+          <span className="text-[0.75rem] text-muted">
+            Cover from {shortDate(policy.period.start)}
+            {policy.period.end ? ` to ${shortDate(policy.period.end)}` : ''}
+          </span>
+        )}
+      </div>
+
+      <ul className="mt-2 space-y-1.5">
+        {policy.insured.map((person, index) => (
+          <li key={`${person.name}-${index}`} className="flex justify-between gap-4 text-[0.875rem]">
+            <span className="min-w-0 truncate">
+              {person.name}
+              {person.relationship && (
+                <span className="text-muted"> · {person.relationship}</span>
+              )}
+            </span>
+            {person.age != null && (
+              <span className="shrink-0 tabular-nums text-muted">{person.age}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {policy.period?.days_left != null && policy.period.days_left <= 45 && (
+        <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-warn">
+          {policy.period.days_left > 0
+            ? `This policy year ends in ${policy.period.days_left} days. Your ` +
+              `cover starts again on renewal, so an admission either side of ` +
+              `that date draws on a different year's cover.`
+            : 'This policy year has ended. Check that it was renewed before ' +
+              'relying on these figures.'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// What is not covered yet, and the date each one changes.
+//
+// These were listed and then ignored everywhere else in the app. A duration on
+// its own is not usable: "two years" from a start date nobody stated does not
+// answer "can I have this operation". The date does.
+function WaitingPeriods({ policy }) {
+  if (!policy.waiting_periods?.length) return null
+
+  const pending = policy.waiting_periods.filter((w) => w.cleared === false)
+
+  return (
+    <div className="border-t border-line px-5 py-4">
+      <h3 className="text-[0.8125rem] font-medium text-muted">Waiting periods</h3>
+      <ul className="mt-2 space-y-2">
+        {policy.waiting_periods.map((wait, index) => (
+          <li key={index} className="text-[0.875rem]">
+            <div className="flex justify-between gap-4">
+              <span className={wait.cleared ? 'text-muted line-through' : ''}>
+                {wait.applies_to === 'unspecified' ? wait.kind_label : wait.applies_to}
+              </span>
+              <span className="shrink-0 font-medium tabular-nums">{wait.duration}</span>
+            </div>
+            {wait.clears_on && (
+              <p className="mt-0.5 text-[0.75rem] text-muted">
+                {wait.cleared
+                  ? `Served. Covered since ${shortDate(wait.clears_on)}.`
+                  : `Covered from ${shortDate(wait.clears_on)}.`}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {!policy.period?.start && (
+        <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-warn">
+          We could not read when this policy started, so we cannot tell you
+          whether these still apply. You will be asked once you pick a treatment.
+        </p>
+      )}
+      {policy.period?.start && pending.length > 0 && (
+        <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-muted">
+          A claim made before the date shown would be declined. We check this
+          against the treatment you choose.
+        </p>
+      )}
+    </div>
+  )
+}
+
+const shortDate = (iso) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
 
 function ConfidenceBadge({ policy }) {
   if (policy.questions?.length) {

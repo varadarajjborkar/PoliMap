@@ -508,3 +508,122 @@ def test_a_vague_period_survives_when_nothing_else_says_that_duration():
     ])
     assert len(compiled) == 1
     assert compiled[0].months == 36
+
+
+# --- through the API -------------------------------------------------------
+
+
+@pytest.fixture
+def api():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture
+def read_policy(api):
+    """A real corpus policy read through the real pipeline."""
+    from pathlib import Path
+
+    document = Path("../data/generated/policies/clean/POL007.pdf")
+    if not document.exists():
+        pytest.skip("corpus not built")
+
+    session_id = api.post("/api/session").json()["session_id"]
+    response = api.post(
+        "/api/policy/upload-many",
+        files=[("files", (document.name, document.read_bytes(), "application/pdf"))],
+        data={"insurer_id": "", "session_id": session_id},
+    )
+    assert response.status_code == 200
+    return session_id, response.json()
+
+
+def _search(api, session_id, code, **extra):
+    return api.post(f"/api/search/{session_id}", json={
+        "procedure_code": code, "lat": 12.9716, "lon": 77.5946,
+        "city": "Bengaluru", "max_distance_km": 15,
+        "preference": "balanced", "urgency": "planned", **extra,
+    }).json()
+
+
+def _code(api, needle):
+    return next(
+        p["code"] for p in api.get("/api/reference").json()["procedures"]
+        if needle in p["name"].lower()
+    )
+
+
+def test_the_policy_carries_its_household_and_period(read_policy):
+    _, policy = read_policy
+    assert policy["period"]["start"] and policy["period"]["end"]
+    assert len(policy["insured"]) > 1
+    assert policy["oldest_age"] == max(p["age"] for p in policy["insured"])
+
+
+def test_every_waiting_period_carries_the_date_it_clears(read_policy):
+    """A duration on its own does not answer "can I have this operation"."""
+    _, policy = read_policy
+    assert policy["waiting_periods"]
+    for wait in policy["waiting_periods"]:
+        assert wait["clears_on"]
+        assert wait["duration"]
+        assert wait["kind"]
+
+
+def test_a_search_asks_before_it_assumes(api, read_policy):
+    session_id, _ = read_policy
+    found = _search(api, session_id, _code(api, "angiography"))
+    verdict = found["eligibility"]
+    assert verdict["verdict"] == "ask"
+    assert not verdict["blocks"]
+    assert any(f["question"] for f in verdict["findings"])
+
+
+def test_the_answer_changes_the_verdict(api, read_policy):
+    session_id, _ = read_policy
+    code = _code(api, "angiography")
+    assert _search(api, session_id, code, pre_existing=True)["eligibility"]["blocks"]
+    assert not _search(
+        api, session_id, code, pre_existing=False
+    )["eligibility"]["blocks"]
+
+
+def test_options_are_still_returned_when_the_claim_would_be_declined(api, read_policy):
+    """Someone paying for it themselves still needs to know what it costs."""
+    session_id, _ = read_policy
+    found = _search(api, session_id, _code(api, "angiography"), pre_existing=True)
+    assert found["eligibility"]["blocks"]
+    assert found["options"]
+
+
+def test_the_answer_survives_a_reload(api, read_policy):
+    session_id, _ = read_policy
+    _search(api, session_id, _code(api, "angiography"), pre_existing=True)
+    restored = api.get(f"/api/session/{session_id}").json()
+    assert restored["search"]["eligibility"]["blocks"]
+
+
+def test_the_answer_survives_the_server_forgetting_the_session(api, read_policy):
+    """The browser holds the durable copy, so it has to come back with it."""
+    session_id, _ = read_policy
+    _search(api, session_id, _code(api, "angiography"), pre_existing=True)
+
+    snapshot = api.get(f"/api/session/{session_id}/export").json()["snapshot"]
+    revived = api.post("/api/session/import", json={"snapshot": snapshot}).json()
+    restored = api.get(f"/api/session/{revived['session_id']}").json()
+    assert restored["search"]["eligibility"]["blocks"]
+
+
+def test_a_future_admission_date_can_clear_a_waiting_period(api, read_policy):
+    """Being told the date it clears is only useful if you can plan around it."""
+    session_id, policy = read_policy
+    longest = max(policy["waiting_periods"], key=lambda w: w["clears_on"])
+    found = _search(
+        api, session_id, _code(api, "angiography"),
+        pre_existing=True, admission_date=longest["clears_on"],
+    )
+    assert not found["eligibility"]["blocks"]

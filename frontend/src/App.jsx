@@ -5,7 +5,7 @@ import { SignIn, StayList } from './components/HomeScreen'
 import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
 import { ReadingProgress } from './components/ReadingProgress'
-import { Results, SearchPanel } from './components/Results'
+import { EligibilityNotice, Results, SearchPanel } from './components/Results'
 import { Button, ErrorNote, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
@@ -44,6 +44,12 @@ export default function App() {
   const [results, setResults] = useState(null)
   const [journey, setJourney] = useState(null)
   const [search, setSearch] = useState(DEFAULT_SEARCH)
+
+  // The two things no document holds: whether the condition was there before
+  // the policy, and whether this follows an accident. Kept beside the search
+  // rather than inside it, because they are facts about the patient rather
+  // than about what they are looking for.
+  const [claimFacts, setClaimFacts] = useState({ pre_existing: null, accident: false })
 
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -234,7 +240,7 @@ export default function App() {
     if (result) setPolicy(result)
   }
 
-  async function handleSearch() {
+  async function handleSearch(facts = claimFacts) {
     const city = reference?.cities?.find((c) => c.city === search.city)
     // Same id as the session, so this opens the stream without disturbing it
     // when the activity panel already has it open.
@@ -248,6 +254,8 @@ export default function App() {
         max_distance_km: Number(search.max_distance_km),
         preference: search.preference,
         urgency: search.urgency,
+        pre_existing: facts.pre_existing,
+        accident: facts.accident,
       })
     )
     setWatching(null)
@@ -451,7 +459,7 @@ export default function App() {
                   reference={reference}
                   value={search}
                   onChange={setSearch}
-                  onSearch={handleSearch}
+                  onSearch={() => handleSearch()}
                   busy={busy === 'search'}
                 />
                 {busy === 'search' && (
@@ -462,6 +470,15 @@ export default function App() {
                     hint="Every hospital in range is costed against your policy, one at a time."
                   />
                 )}
+                <EligibilityNotice
+                  eligibility={results?.eligibility}
+                  busy={busy === 'search'}
+                  onAnswer={(answer) => {
+                    const facts = { ...claimFacts, ...answer }
+                    setClaimFacts(facts)
+                    handleSearch(facts)
+                  }}
+                />
                 <Results
                   results={results}
                   onStartJourney={handleStartJourney}

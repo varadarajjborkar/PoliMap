@@ -81,6 +81,87 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy }) {
   )
 }
 
+// Whether the policy pays at all, which every rupee below it assumes.
+//
+// Placed above the options rather than instead of them. Someone whose waiting
+// period has not run still wants to know what the treatment costs, because
+// they are now the one paying for it. What changes is who the figure is for.
+export function EligibilityNotice({ eligibility, onAnswer, busy }) {
+  if (!eligibility || eligibility.verdict === 'covered') return null
+
+  const blocking = eligibility.blocks
+  const question = eligibility.findings.find((f) => f.question)
+
+  return (
+    <Card
+      className={`motion-safe:animate-rise ${
+        blocking ? 'border-danger/40 bg-danger-soft' : 'border-warn/40 bg-warn-soft'
+      }`}
+    >
+      <div className="space-y-3 px-5 py-4">
+        <div>
+          <p className={`text-[0.9375rem] font-semibold ${blocking ? 'text-danger' : 'text-warn'}`}>
+            {blocking
+              ? 'Your insurer would decline this claim'
+              : eligibility.headline}
+          </p>
+          <p className="mt-1 text-[0.875rem] leading-relaxed">
+            {blocking
+              ? 'The costs below are what you would pay yourself.'
+              : 'One answer settles this.'}
+          </p>
+        </div>
+
+        <ul className="space-y-2">
+          {eligibility.findings
+            .filter((finding) => finding.verdict !== 'covered')
+            .map((finding, index) => (
+              <li key={index} className="rounded-lg bg-surface/70 px-3 py-2">
+                <p className="text-[0.8125rem] font-medium">{finding.headline}</p>
+                <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
+                  {finding.detail}
+                </p>
+              </li>
+            ))}
+        </ul>
+
+        {question && (
+          <div className="rounded-lg border border-line bg-surface px-3 py-3">
+            <p className="text-[0.875rem] font-medium">{question.question}</p>
+            <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
+              Nothing in your document says this, and it changes the answer, so
+              we have to ask. Your answer stays on this device.
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => onAnswer({ pre_existing: true })}
+              >
+                Yes, I had it before
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => onAnswer({ pre_existing: false })}
+              >
+                No, it came up after
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => onAnswer({ accident: true })}
+              >
+                It was an accident
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
 export function Results({ results, onStartJourney, starting }) {
   const [query, setQuery] = useState('')
 

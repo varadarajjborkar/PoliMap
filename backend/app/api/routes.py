@@ -1314,7 +1314,7 @@ def restore_session(session_id: str) -> dict[str, Any]:
         "session_id": session.session_id,
         "created_at": session.created_at.isoformat(),
         "policy": _policy_payload(session) if session.policy else None,
-        "search": _search_payload(session.match) if session.match else None,
+        "search": _restored_search(session),
         "journey": (
             _journey_payload(session)
             if session.journey and session.policy else None
@@ -1324,6 +1324,30 @@ def restore_session(session_id: str) -> dict[str, Any]:
             if session.match and session.match.context else None
         ),
     }
+
+
+def _restored_search(session: Session) -> dict[str, Any] | None:
+    """The last search, with its eligibility verdict worked out again.
+
+    The verdict is not stored: it depends on today's date as much as on the
+    policy, and a stay reopened a fortnight later may have crossed the date a
+    waiting period clears. Recomputing costs nothing and cannot go stale.
+    """
+    if session.match is None:
+        return None
+    payload = _search_payload(session.match)
+
+    procedure = datasets.procedures.get(session.match.context.procedure_code)
+    if session.policy is not None and procedure is not None:
+        payload["eligibility"] = _eligibility_payload(
+            eligibility.assess(
+                session.policy, procedure,
+                on=date.today(),
+                pre_existing=session.pre_existing,
+                accident=session.accident,
+            )
+        )
+    return payload
 
 
 @router.get("/session/{session_id}/export")
