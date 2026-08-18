@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -35,6 +35,7 @@ from app.pipeline.s4_compile.edit import (
     edit_field,
 )
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
+from app.pipeline.s6_simulate import eligibility
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
@@ -231,9 +232,46 @@ def _policy_payload(session: Session) -> dict[str, Any]:
             for s in policy.sublimits
         ],
         "waiting_periods": [
-            {"months": w.months, "applies_to": w.applies_to}
+            {
+                "months": w.months,
+                "days": w.days,
+                "kind": w.kind.value,
+                "kind_label": w.kind.label,
+                "duration": w.describe(),
+                "applies_to": w.applies_to,
+                # The date is the part someone can act on. "Two years" from an
+                # unstated start is not an answer to "can I have this operation".
+                "clears_on": (
+                    w.clears_on(policy.meta.start_date).isoformat()
+                    if policy.meta.start_date else None
+                ),
+                "cleared": (
+                    w.clears_on(policy.meta.start_date) <= date.today()
+                    if policy.meta.start_date else None
+                ),
+            }
             for w in policy.waiting_periods
         ],
+        "period": {
+            "start": policy.meta.start_date.isoformat()
+                     if policy.meta.start_date else None,
+            "end": policy.meta.end_date.isoformat()
+                   if policy.meta.end_date else None,
+            "days_left": (
+                (policy.meta.end_date - date.today()).days
+                if policy.meta.end_date else None
+            ),
+        },
+        "insured": [
+            {
+                "name": person.name,
+                "age": person.age,
+                "relationship": person.relationship,
+                "own_cover": float(person.sum_insured) if person.sum_insured else None,
+            }
+            for person in policy.insured
+        ],
+        "oldest_age": policy.oldest_age,
         "questions": [
             {
                 "id": q.request_id,
@@ -629,6 +667,15 @@ class SearchRequest(BaseModel):
     require_cashless: bool = True
     preferred_room: RoomCategory | None = None
 
+    # Neither of these is in any document, and both change whether the policy
+    # pays at all. They arrive unanswered and are asked for only when the
+    # answer could still change something.
+    pre_existing: bool | None = None
+    accident: bool = False
+    admission_date: date | None = None
+    """Defaults to today. A planned admission a month out may clear a waiting
+    period that today's date does not."""
+
 
 def _option_payload(option, procedure_name: str) -> dict[str, Any]:
     result = option.simulation
@@ -744,9 +791,53 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
         session.policy, context, session_id=session_id,
     )
     session.match = result
+    session.pre_existing = payload.pre_existing
+    session.accident = payload.accident
     sessions.save(session)
 
-    return _search_payload(result)
+    verdict = eligibility.assess(
+        session.policy, procedure,
+        on=payload.admission_date or date.today(),
+        pre_existing=payload.pre_existing,
+        accident=payload.accident,
+    )
+    bus.publish(
+        PipelineStage.SIMULATE, "eligibility", session_id=session_id,
+        status=EventStatus.WARN if verdict.blocks else EventStatus.OK,
+        summary=verdict.headline,
+        verdict=verdict.verdict.value,
+    )
+
+    payload_out = _search_payload(result)
+    payload_out["eligibility"] = _eligibility_payload(verdict)
+    return payload_out
+
+
+def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:
+    """What stands between this policy and a claim, for the interface.
+
+    Sent alongside the options rather than instead of them. Somebody whose
+    waiting period has not run still wants to know what the treatment costs,
+    because they are now the one paying for it.
+    """
+    return {
+        "verdict": verdict.verdict.value,
+        "blocks": verdict.blocks,
+        "headline": verdict.headline,
+        "findings": [
+            {
+                "verdict": finding.verdict.value,
+                "kind": finding.kind.value,
+                "kind_label": finding.kind.label,
+                "headline": finding.headline,
+                "detail": finding.detail,
+                "clears_on": finding.clears_on.isoformat() if finding.clears_on else None,
+                "days_left": finding.days_left,
+                "question": finding.question,
+            }
+            for finding in verdict.findings
+        ],
+    }
 
 
 _MORE_OPTIONS_ADVICE: dict[str, str] = {

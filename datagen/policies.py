@@ -56,6 +56,45 @@ LAST_NAMES = [
     "Chatterjee", "Naidu", "Hegde", "Kaur", "Mishra",
 ]
 
+# Roughly how an Indian family floater is composed. The proposer is on it by
+# definition; a spouse almost always; children often; a parent sometimes, and
+# a parent is what pushes the eldest age past sixty on an otherwise young
+# policy, which is exactly the case the age-banded terms exist for.
+def _household(
+    rng: random.Random, proposer: str, last: str, proposer_age: int
+) -> list[tuple[str, int, str]]:
+    members = [(proposer, proposer_age, "Self")]
+
+    # Names are drawn without replacement. Two people on one schedule sharing a
+    # first name is not impossible, but it is rare enough that generating it
+    # would mostly serve to make the corpus argue with itself about who is who.
+    pool = [name for name in FIRST_NAMES if name != proposer.split()[0]]
+    rng.shuffle(pool)
+
+    def next_name() -> str:
+        return f"{pool.pop() if pool else rng.choice(FIRST_NAMES)} {last}"
+
+    if rng.random() < 0.9:
+        spouse_age = max(21, proposer_age + rng.randint(-6, 4))
+        members.append(
+            (next_name(), spouse_age,
+             rng.choice(["Spouse", "Spouse", "Wife", "Husband"]))
+        )
+
+    for _ in range(rng.choice([0, 1, 1, 2])):
+        child_age = max(1, min(proposer_age - 20, rng.randint(1, 24)))
+        members.append(
+            (next_name(), child_age, rng.choice(["Son", "Daughter"]))
+        )
+
+    if rng.random() < 0.3:
+        members.append(
+            (next_name(), min(92, proposer_age + rng.randint(22, 34)),
+             rng.choice(["Father", "Mother"]))
+        )
+    return members
+
+
 CITIES_FOR_ADDRESS = [
     ("Bengaluru", "Karnataka", "560"),
     ("Delhi", "Delhi", "110"),
@@ -150,6 +189,14 @@ class PolicyBlueprint:
     policy_type: str
     policyholder: str
     age: int
+    members: list[tuple[str, int, str]]
+    """(name, age, relationship) for everyone on the schedule, proposer first.
+
+    A family floater covering one person is not a family floater. It reads like
+    one on the page and then exercises none of the things that make a family
+    policy different: an eldest member the terms are conditioned on, a child
+    whose age rules out an age-banded co-payment, and a table with more than one
+    row to read."""
     address: str
     policy_number: str
     uin: str
@@ -244,6 +291,20 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
         city, state, pin_prefix = rng.choice(CITIES_FOR_ADDRESS)
         start = date(2026, 1, 1) + timedelta(days=rng.randint(0, 300))
         first, last = rng.choice(FIRST_NAMES), rng.choice(LAST_NAMES)
+        age = rng.randint(61, 74) if is_senior else rng.randint(24, 58)
+        policy_type = (
+            "Top-Up / Super Top-Up" if is_top_up
+            else "Senior Citizen Individual" if is_senior
+            else rng.choice(["Individual", "Family Floater", "Family Floater",
+                             "Group Employee Health"])
+        )
+        # Only a floater covers a household. An individual policy covering four
+        # people would be a document that does not exist.
+        members = (
+            _household(rng, f"{first} {last}", last, age)
+            if policy_type in ("Family Floater", "Group Employee Health")
+            else [(f"{first} {last}", age, "Self")]
+        )
 
         sublimits: list[tuple[ExpenseHead | None, str | None, str, int]] = []
         if rng.random() < 0.55:
@@ -289,14 +350,10 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
                 plan_name=(
                     f"{rng.choice(PLAN_NAMES)} {'Top-Up' if is_top_up else ''}".strip()
                 ),
-                policy_type=(
-                    "Top-Up / Super Top-Up" if is_top_up
-                    else "Senior Citizen Individual" if is_senior
-                    else rng.choice(["Individual", "Family Floater", "Family Floater",
-                                     "Group Employee Health"])
-                ),
+                policy_type=policy_type,
                 policyholder=f"{first} {last}",
-                age=rng.randint(61, 74) if is_senior else rng.randint(24, 58),
+                age=age,
+                members=members,
                 address=(
                     f"{rng.randint(1, 400)}, {rng.choice(['1st', '2nd', '3rd', '4th'])} Cross, "
                     f"{rng.choice(['Layout', 'Nagar', 'Colony', 'Extension'])}, "

@@ -39,6 +39,10 @@ MULTI_VALUED = {
     ClauseKind.WAITING_PERIOD,
     ClauseKind.EXCLUSION,
     ClauseKind.POLICY_META,
+    # A schedule names a household. Without this every member of it collapsed
+    # into one person, and a floater conditioned on its eldest member came out
+    # holding whichever age happened to survive.
+    ClauseKind.INSURED_PERSON,
 }
 
 
@@ -61,6 +65,8 @@ def _identity(clause: Clause) -> tuple:
             or clause.params.get("procedure_code")
             or clause.scope.get("field")
             or clause.params.get("field")
+            or clause.scope.get("person")
+            or clause.params.get("name")
             or clause.params.get("applies_to")
             or clause.verbatim[:40].lower()
         )

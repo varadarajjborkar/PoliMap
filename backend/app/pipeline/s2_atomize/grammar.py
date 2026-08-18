@@ -642,9 +642,7 @@ def extract_insured_persons(page: Page) -> list[Clause]:
         cell = line.strip(" :|-	")
         if not cell:
             continue
-        # A heading in capitals ends the table. So does anything that reads as
-        # the next section rather than another row.
-        if cell.isupper() and len(cell) > 6 and not cell.replace(" ", "").isdigit():
+        if _ends_the_table(cell):
             break
 
         lower = cell.lower()
@@ -654,8 +652,9 @@ def extract_insured_persons(page: Page) -> list[Clause]:
         elif cell.isdigit() and len(cell) <= 3 and 0 < int(cell) <= 120:
             # A bare small number in this table is either a serial number or an
             # age. The serial comes before the name and the age after it, which
-            # is what tells them apart.
-            if pending.get("name"):
+            # is what tells them apart; the first such number after a name is
+            # the age, and the next one is the following row's serial.
+            if pending.get("name") and pending.get("age") is None:
                 pending["age"] = int(cell)
                 verbatim.append(cell)
         elif P.parse_amount(cell) is not None and any(
@@ -664,21 +663,30 @@ def extract_insured_persons(page: Page) -> list[Clause]:
             pending["sum_insured"] = str(P.parse_amount(cell))
             verbatim.append(cell)
         elif _looks_like_a_person(cell):
-            if pending.get("name") and pending.get("age") is not None:
+            # A name begins a row, so it also ends the one before it. Closing
+            # the previous person only once every field arrived would end them
+            # at the relationship and hand their sum insured to the next row.
+            if pending.get("name"):
                 clauses.append(_insured_clause(pending, verbatim, page))
                 pending, verbatim = {}, []
             pending["name"] = cell
             verbatim.append(cell)
 
-        if pending.get("name") and pending.get("age") is not None and pending.get(
-            "relationship"
-        ):
-            clauses.append(_insured_clause(pending, verbatim, page))
-            pending, verbatim = {}, []
-
-    if pending.get("name") and pending.get("age") is not None:
+    if pending.get("name"):
         clauses.append(_insured_clause(pending, verbatim, page))
-    return clauses
+    return [c for c in clauses if c.params.get("age") is not None]
+
+
+def _ends_the_table(cell: str) -> bool:
+    """Whether this cell is the next section heading rather than another row.
+
+    Capitals alone are not enough. A sum insured written "INR 25,00,000" is
+    uppercase, and treating it as a heading ended the table one row in, which
+    on a family policy quietly dropped the spouse.
+    """
+    if len(cell) <= 6 or not cell.isupper():
+        return False
+    return any(ch.isalpha() for ch in cell) and not any(ch.isdigit() for ch in cell)
 
 
 def _insured_clause(
@@ -693,8 +701,13 @@ def _insured_clause(
 
 
 # A cell holding a person's name: words, initials, the occasional full stop.
-# Deliberately narrow, because a false positive here invents a person.
-_PERSON_NAME = re.compile(r"^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,3}$")
+#
+# Two words at least. A schedule writes a full name, and a single-word cell in
+# this table is a column value rather than a person. "Floater", which is what a
+# family policy puts in the sum insured column for everyone after the proposer,
+# was being read as a family member who then took the next row's serial number
+# as their age.
+_PERSON_NAME = re.compile(r"^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}$")
 _NOT_A_PERSON = frozenset(
     {
         "name", "age", "sl", "sl.", "no", "no.", "relationship", "sum",

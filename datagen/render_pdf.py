@@ -191,10 +191,16 @@ def _schedule_story(bp: PolicyBlueprint) -> list:
     ]))
 
     story.append(Paragraph("INSURED PERSONS", H2))
+    # A floater states the one sum insured against the proposer's row and leaves
+    # the rest blank, because the cover is shared rather than held per person.
     story.append(_grid_table(
         ["Sl.", "Name of Insured Person", "Age", "Relationship", "Sum Insured"],
-        [["1", bp.policyholder, str(bp.age), "Self",
-          write_amount(bp.sum_insured, bp.amount_style)]],
+        [
+            [str(index), name, str(age), relationship,
+             write_amount(bp.sum_insured, bp.amount_style) if index == 1
+             else "Floater"]
+            for index, (name, age, relationship) in enumerate(bp.members, start=1)
+        ],
         (12 * mm, 62 * mm, 14 * mm, 30 * mm, 56 * mm),
     ))
 

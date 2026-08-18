@@ -53,6 +53,14 @@ class Session:
     """How many questions this session has already put to the user. Bounded, so
     the loop cannot keep asking and keep costing."""
 
+    pre_existing: bool | None = None
+    """Whether the condition being treated existed before the policy did. Not
+    in any document; only the patient knows, and it decides whether a
+    pre-existing waiting period applies to them."""
+    accident: bool = False
+    """Whether this admission follows accidental injury, which the initial
+    waiting period does not apply to."""
+
     def touch(self) -> None:
         self.updated_at = datetime.now(UTC)
 
@@ -70,6 +78,8 @@ class Session:
                 "warnings": self.warnings,
                 "insurer_id": self.insurer_id,
                 "clarification_rounds": self.clarification_rounds,
+                "pre_existing": self.pre_existing,
+                "accident": self.accident,
                 "policy": self.policy.model_dump(mode="json") if self.policy else None,
                 "match": self.match.model_dump(mode="json") if self.match else None,
                 "journey": (
@@ -91,6 +101,8 @@ class Session:
             warnings=list(data.get("warnings", [])),
             insurer_id=data.get("insurer_id", ""),
             clarification_rounds=data.get("clarification_rounds", 0),
+            pre_existing=data.get("pre_existing"),
+            accident=data.get("accident", False),
             policy=(
                 NormalizedPolicy.model_validate(data["policy"])
                 if data.get("policy") else None

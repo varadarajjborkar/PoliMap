@@ -369,7 +369,28 @@ def _compile_waiting_periods(clauses: list[Clause]) -> list[WaitingPeriod]:
             applies_to=applies,
             source_clause_ids=[clause.clause_id],
         ))
-    return sorted(seen.values(), key=lambda w: (w.months * 31) + w.days)
+
+    # The model extractor reports a duration it found without always reporting
+    # what it applies to, so a schedule row read by both extractors arrives as
+    # "24 months, cataract and hernia" and "24 months, unspecified". They are
+    # the same clause. Keeping both would list every waiting period twice and
+    # leave half of them uncategorised, which reads as a policy with twice as
+    # many restrictions as it has.
+    specified = {
+        (w.months, w.days) for w in seen.values() if not _is_vague(w.applies_to)
+    }
+    kept = [
+        w for w in seen.values()
+        if not (_is_vague(w.applies_to) and (w.months, w.days) in specified)
+    ]
+    return sorted(kept, key=lambda w: (w.months * 31) + w.days)
+
+
+_VAGUE = frozenset({"", "unspecified", "not specified", "n/a", "na", "-"})
+
+
+def _is_vague(applies_to: str) -> bool:
+    return applies_to.strip().lower() in _VAGUE
 
 
 def _compile_insured(clauses: list[Clause]) -> list[InsuredPerson]:
@@ -379,7 +400,7 @@ def _compile_insured(clauses: list[Clause]) -> list[InsuredPerson]:
     eldest member, and whether a pre-existing waiting period is a formality or
     the whole question depends on who is being admitted.
     """
-    people: dict[str, InsuredPerson] = {}
+    people: dict[tuple[str, str], InsuredPerson] = {}
     for clause in clauses:
         if clause.kind is not ClauseKind.INSURED_PERSON or not clause.is_admissible:
             continue
@@ -388,9 +409,13 @@ def _compile_insured(clauses: list[Clause]) -> list[InsuredPerson]:
             continue
         age = clause.params.get("age")
         cover = clause.params.get("sum_insured")
-        person = people.get(name.lower())
+        # Keyed on the relationship as well as the name, because a father and a
+        # son sharing one are two people, and merging them would drop whichever
+        # age the terms are actually conditioned on.
+        key = (name.lower(), str(clause.params.get("relationship") or "").lower())
+        person = people.get(key)
         if person is None:
-            people[name.lower()] = InsuredPerson(
+            people[key] = InsuredPerson(
                 name=name,
                 age=int(age) if age is not None else None,
                 relationship=str(clause.params.get("relationship") or ""),

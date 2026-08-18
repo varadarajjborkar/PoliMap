@@ -293,3 +293,218 @@ def test_the_eldest_member_carries_the_policy():
 
 def test_a_policy_naming_nobody_has_no_age():
     assert make_policy().oldest_age is None
+
+
+# --- reading the people off a schedule -------------------------------------
+
+
+def _page(text: str):
+    from app.schemas.document import Page
+
+    return Page(page_index=0, width=595, height=842, text=text)
+
+
+INSURED_TABLE = """
+INSURED PERSONS
+Sl.
+Name of Insured Person
+Age
+Relationship
+Sum Insured
+1
+Girish Desai
+49
+Self
+Rs. 5,00,000/
+2
+Manoj Desai
+46
+Wife
+Floater
+3
+Ramesh Desai
+9
+Son
+Floater
+SCHEDULE OF BENEFITS
+"""
+
+
+def test_a_family_schedule_yields_every_member():
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    people = [c.params for c in extract_insured_persons(_page(INSURED_TABLE))]
+    assert [(p["name"], p["age"], p["relationship"]) for p in people] == [
+        ("Girish Desai", 49, "Self"),
+        ("Manoj Desai", 46, "Wife"),
+        ("Ramesh Desai", 9, "Son"),
+    ]
+
+
+def test_the_word_in_the_cover_column_is_not_a_person():
+    """"Floater" is what a family policy writes for everyone after the proposer.
+    Read as a name it became a member who took the next row's serial as an age."""
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    names = [c.params["name"] for c in extract_insured_persons(_page(INSURED_TABLE))]
+    assert "Floater" not in names
+    assert all(" " in name for name in names)
+
+
+def test_an_amount_in_capitals_does_not_end_the_table():
+    """"INR 25,00,000" is uppercase. Treated as the next section heading it
+    ended the table one row in and quietly dropped the spouse."""
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    text = INSURED_TABLE.replace("Rs. 5,00,000/", "INR 25,00,000")
+    assert len(extract_insured_persons(_page(text))) == 3
+
+
+def test_the_cover_belongs_to_the_row_it_is_written_on():
+    """A floater states it against the proposer and leaves the rest blank.
+    Closing a person at their relationship handed it to the next row."""
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    people = [c.params for c in extract_insured_persons(_page(INSURED_TABLE))]
+    assert people[0].get("sum_insured")
+    assert not people[1].get("sum_insured")
+
+
+def test_the_next_rows_serial_is_not_an_age():
+    """The first bare number after a name is the age; the next one begins the
+    following row."""
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    ages = [c.params["age"] for c in extract_insured_persons(_page(INSURED_TABLE))]
+    assert ages == [49, 46, 9]
+
+
+def test_the_column_headings_are_not_people():
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+
+    names = [c.params["name"] for c in extract_insured_persons(_page(INSURED_TABLE))]
+    assert "Sum Insured" not in names
+    assert "Name of Insured Person" not in names
+
+
+def test_two_people_sharing_a_name_stay_two_people():
+    """A father and a son can share one. Merging them would drop whichever age
+    the terms are actually conditioned on."""
+    from app.pipeline.s2_atomize.grammar import extract_insured_persons
+    from app.pipeline.s4_compile.compiler import _compile_insured
+
+    text = INSURED_TABLE.replace("Ramesh Desai\n9\nSon", "Girish Desai\n9\nSon")
+    people = _compile_insured(extract_insured_persons(_page(text)))
+    assert len(people) == 3
+    assert sorted(p.age for p in people) == [9, 46, 49]
+
+
+# --- reading the period off a schedule --------------------------------------
+
+
+def test_a_policy_period_yields_both_ends():
+    from app.pipeline.s2_atomize.grammar import extract_policy_period
+
+    text = (
+        "Policy Period\n"
+        "From 00:00 hrs on 01/02/2026 to 23:59 hrs on 31/01/2027\n"
+    )
+    fields = {c.params["field"]: c.params["value"] for c in
+              extract_policy_period(_page(text))}
+    assert fields == {"start_date": "2026-02-01", "end_date": "2027-01-31"}
+
+
+def test_a_date_is_read_day_first():
+    """01/02/2026 on an Indian schedule is February, and reading it the other
+    way would move every waiting period by eleven months."""
+    from app.pipeline.s2_atomize.patterns import parse_date
+
+    assert parse_date("Date of Issue 01/02/2026") == date(2026, 2, 1)
+
+
+def test_an_impossible_date_is_not_salvaged():
+    from app.pipeline.s2_atomize.patterns import parse_date
+
+    assert parse_date("31/02/2026") is None
+
+
+def test_a_period_running_backwards_is_a_misread():
+    from app.pipeline.s2_atomize.grammar import extract_policy_period
+    from app.pipeline.s4_compile.compiler import _compile_meta
+
+    text = "Policy Period\nFrom 01/02/2027 to 31/01/2026\n"
+    meta = _compile_meta(extract_policy_period(_page(text)))
+    assert meta.start_date == date(2027, 2, 1)
+    assert meta.end_date is None
+
+
+def test_a_date_lands_in_the_field_as_a_date():
+    """Assignment on a Pydantic model does not coerce, so an ISO string put here
+    unchecked would sit in a date field and fail on the first arithmetic."""
+    from app.pipeline.s2_atomize.grammar import extract_policy_period
+    from app.pipeline.s4_compile.compiler import _compile_meta
+
+    meta = _compile_meta(
+        extract_policy_period(_page("Policy Period\n01/02/2026 to 31/01/2027\n"))
+    )
+    assert isinstance(meta.start_date, date)
+
+
+# --- waiting periods written in days ---------------------------------------
+
+
+def test_the_initial_period_is_written_in_days_and_must_be_read():
+    """It is always "30 days" and never "1 month", so reading only months lost
+    the one period that applies to every illness there is."""
+    from app.pipeline.s2_atomize.grammar import extract_waiting_periods
+
+    text = (
+        "3. WAITING PERIODS\n"
+        "Waiting Period\nApplicable To\n"
+        "30 days\nall illnesses other than accidental injury\n"
+        "24 months\npre-existing diseases\n"
+    )
+    found = [(c.params["months"], c.params["days"], c.params["applies_to"])
+             for c in extract_waiting_periods(_page(text))]
+    assert (0, 30, "all illnesses other than accidental injury") in found
+    assert (24, 0, "pre-existing diseases") in found
+
+
+def test_a_vague_duplicate_of_a_named_period_is_dropped():
+    """Both extractors read one row: one reports what it applies to and one
+    does not. Keeping both lists every restriction twice and leaves half of
+    them uncategorised."""
+    from app.pipeline.s2_atomize.grammar import _clause
+    from app.pipeline.s4_compile.compiler import _compile_waiting_periods
+    from app.schemas.policy import ClauseKind
+
+    page = _page("24 months pre-existing diseases")
+    clauses = [
+        _clause(ClauseKind.WAITING_PERIOD, "24 months", page,
+                params={"months": 24, "days": 0, "applies_to": "unspecified"},
+                confidence=0.7),
+        _clause(ClauseKind.WAITING_PERIOD, "24 months pre-existing diseases", page,
+                params={"months": 24, "days": 0,
+                        "applies_to": "pre-existing diseases"},
+                confidence=0.8),
+    ]
+    compiled = _compile_waiting_periods(clauses)
+    assert len(compiled) == 1
+    assert compiled[0].kind is WaitingKind.PRE_EXISTING
+
+
+def test_a_vague_period_survives_when_nothing_else_says_that_duration():
+    """It is still a real restriction, and dropping it would understate the
+    policy."""
+    from app.pipeline.s2_atomize.grammar import _clause
+    from app.pipeline.s4_compile.compiler import _compile_waiting_periods
+    from app.schemas.policy import ClauseKind
+
+    page = _page("36 months")
+    compiled = _compile_waiting_periods([
+        _clause(ClauseKind.WAITING_PERIOD, "36 months", page,
+                params={"months": 36, "days": 0, "applies_to": "unspecified"},
+                confidence=0.7),
+    ])
+    assert len(compiled) == 1
+    assert compiled[0].months == 36
