@@ -165,9 +165,9 @@ export default function App() {
     navigate(stayPath(id, 'policy'), { replace: true })
   }
 
-  async function handleUpload(file, insurerId) {
+  async function handleUpload(files, insurerId) {
     const id = stayId ?? newStayId()
-    const result = await run('upload', () => api.uploadPolicy(file, insurerId))
+    const result = await run('upload', () => api.uploadPolicy(files, insurerId))
     if (!result) return
     saveStay(user, { id, createdAt: Date.now(), insurer: result.insurer_name })
     adoptPolicy(result, id)

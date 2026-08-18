@@ -310,7 +310,10 @@ def _extract_text(
                 # The qualifier attached to the figure. A sub-limit reported
                 # without its "per eye" or "per policy year" is a different,
                 # and more generous, term than the one the document states.
-                notes=candidate.condition.strip()[:200],
+                notes=(
+                    [candidate.condition.strip()[:200]]
+                    if candidate.condition.strip() else []
+                ),
                 # Capped below the grammar rules' ceiling: a model finding is a
                 # lead to be verified, not a settled fact.
                 confidence=round(0.70 * result.score, 3),

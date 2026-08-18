@@ -13,14 +13,23 @@ async function request(path, options = {}) {
   const response = await fetch(apiUrl(path), options)
   if (!response.ok) {
     let message = `Something went wrong (${response.status}).`
+    let detail = null
     try {
       const body = await response.json()
-      if (body.detail) message = typeof body.detail === 'string' ? body.detail : message
+      if (typeof body.detail === 'string') {
+        message = body.detail
+      } else if (body.detail?.message) {
+        // A structured refusal, e.g. two documents that name different
+        // policies. The reasons matter as much as the headline.
+        message = body.detail.message
+        detail = body.detail
+      }
     } catch {
       // Non-JSON error body; the generic message stands.
     }
     const error = new Error(message)
     error.status = response.status
+    error.detail = detail
     throw error
   }
   return response.json()
@@ -45,11 +54,15 @@ export const api = {
   exportSession: (sessionId) => request(`/api/session/${sessionId}/export`),
   importSession: (snapshot) => request('/api/session/import', json({ snapshot })),
 
-  uploadPolicy(file, insurerId) {
+  // One policy usually arrives in pieces: the schedule, the wording, a
+  // photograph of an endorsement. They are read together, and the server
+  // refuses to merge them if they turn out to name two different policies.
+  uploadPolicy(files, insurerId) {
+    const chosen = Array.isArray(files) ? files : [files]
     const form = new FormData()
-    form.append('file', file)
+    for (const file of chosen) form.append('files', file)
     form.append('insurer_id', insurerId || '')
-    return request('/api/policy/upload', { method: 'POST', body: form })
+    return request('/api/policy/upload-many', { method: 'POST', body: form })
   },
   manualPolicy: (payload) => request('/api/policy/manual', json(payload)),
   answer: (sessionId, questionId, answer) =>

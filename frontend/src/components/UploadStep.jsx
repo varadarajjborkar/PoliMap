@@ -10,10 +10,14 @@ import { Button, Card, Disclaimer, ErrorNote, Field, Input, Select, Spinner } fr
 // instead of after a long upload that ends in an error.
 const MAX_UPLOAD_MB = 25
 
+// Matches the server. Enough for a schedule, a wording, an endorsement and a
+// few photographed pages; beyond that the upload is likelier a mistake.
+const MAX_FILES = 6
+
 export function UploadStep({ reference, onUploaded, onManual, busy, error, onClearError }) {
   const [mode, setMode] = useState('upload')
   const [insurerId, setInsurerId] = useState('')
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
   const [dragging, setDragging] = useState(false)
   const [refused, setRefused] = useState('')
   const inputRef = useRef(null)
@@ -21,19 +25,40 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
   const insurers = (reference?.insurers ?? []).filter((i) => !i.scheme)
   const schemes = (reference?.insurers ?? []).filter((i) => i.scheme)
 
+  // Several files at once, because one policy usually arrives in pieces: the
+  // schedule, the wording, a photograph of an endorsement. They are read
+  // together unless they turn out to name two different policies, which the
+  // server checks and refuses rather than merging silently.
   function pick(selected) {
-    if (!selected) return
-    if (selected.size > MAX_UPLOAD_MB * 1024 * 1024) {
+    const chosen = [...(selected ?? [])].filter(Boolean)
+    if (chosen.length === 0) return
+
+    const combined = [...files, ...chosen]
+    if (combined.length > MAX_FILES) {
       setRefused(
-        `That file is ${(selected.size / 1024 / 1024).toFixed(0)} MB, and we ` +
-          `can read up to ${MAX_UPLOAD_MB} MB. The pages listing your cover ` +
+        `That is more than ${MAX_FILES} files. The pages listing your cover ` +
           `are usually enough on their own.`
       )
       return
     }
+
+    const total = combined.reduce((sum, f) => sum + f.size, 0)
+    if (total > MAX_UPLOAD_MB * 1024 * 1024) {
+      setRefused(
+        `Those come to ${(total / 1024 / 1024).toFixed(0)} MB, and we can read ` +
+          `up to ${MAX_UPLOAD_MB} MB. The pages listing your cover are usually ` +
+          `enough on their own.`
+      )
+      return
+    }
+
     setRefused('')
-    setFile(selected)
+    setFiles(combined)
     onClearError?.()
+  }
+
+  function drop(index) {
+    setFiles((current) => current.filter((_, i) => i !== index))
   }
 
   function dismiss() {
@@ -104,7 +129,7 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
                 onDrop={(e) => {
                   e.preventDefault()
                   setDragging(false)
-                  pick(e.dataTransfer.files?.[0])
+                  pick(e.dataTransfer.files)
                 }}
                 onClick={() => inputRef.current?.click()}
                 className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
@@ -116,39 +141,65 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff"
                   className="hidden"
-                  onChange={(e) => pick(e.target.files?.[0])}
+                  multiple
+                  onChange={(e) => { pick(e.target.files); e.target.value = '' }}
                 />
-                {file ? (
-                  <>
-                    <p className="text-[0.9375rem] font-medium">{file.name}</p>
-                    <p className="mt-1 text-[0.8125rem] text-muted">
-                      {(file.size / 1024 / 1024).toFixed(1)} MB. Click to choose a different file.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-[0.9375rem] font-medium">
-                      Drop your policy here, or click to choose
-                    </p>
-                    <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-                      A PDF or a photo both work. A photo of the printed policy
-                      taken on your phone is fine; we will read it.
-                    </p>
-                  </>
-                )}
+                <p className="text-[0.9375rem] font-medium">
+                  {files.length
+                    ? 'Add another page, or click to choose more'
+                    : 'Drop your policy here, or click to choose'}
+                </p>
+                <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+                  PDFs and photos both work, and you can add several. A photo of
+                  each page taken on your phone is fine; we will read them and
+                  put them together.
+                </p>
               </div>
+
+              {files.length > 0 && (
+                <ul className="space-y-1.5">
+                  {files.map((chosen, index) => (
+                    <li
+                      key={`${chosen.name}-${index}`}
+                      className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 motion-safe:animate-fade"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[0.875rem]">
+                        {chosen.name}
+                      </span>
+                      <span className="shrink-0 text-[0.75rem] text-muted">
+                        {(chosen.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                      <button
+                        onClick={() => drop(index)}
+                        aria-label={`Remove ${chosen.name}`}
+                        className="shrink-0 rounded px-1.5 text-[0.875rem] text-muted transition hover:text-danger"
+                      >
+                        &times;
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {busy ? (
                 <div className="rounded-lg bg-canvas px-4 py-3">
-                  <Spinner label="Reading your policy. This can take a minute for a photo." />
+                  <Spinner
+                    label={
+                      files.length > 1
+                        ? `Reading ${files.length} documents. This can take a couple of minutes.`
+                        : 'Reading your policy. This can take a minute for a photo.'
+                    }
+                  />
                 </div>
               ) : (
                 <Button
                   className="w-full"
-                  disabled={!file}
-                  onClick={() => onUploaded(file, insurerId)}
+                  disabled={files.length === 0}
+                  onClick={() => onUploaded(files, insurerId)}
                 >
-                  Read my policy
+                  {files.length > 1
+                    ? `Read these ${files.length} documents`
+                    : 'Read my policy'}
                 </Button>
               )}
             </>

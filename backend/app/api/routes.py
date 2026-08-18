@@ -26,7 +26,7 @@ from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
 from app.journey import position, tracker
-from app.pipeline.run import run_policy_pipeline_bytes
+from app.pipeline.run import run_policy_pipeline_bytes, run_policy_pipeline_many
 from app.pipeline.s4_compile.compiler import apply_answer, skip_question
 from app.pipeline.s4_compile.edit import (
     EDITABLE,
@@ -303,6 +303,92 @@ async def upload_policy(
     sessions.save(session)
 
     return _policy_payload(session)
+
+
+MAX_FILES = 6
+"""Enough for a schedule, a wording, an endorsement and a few photographed
+pages. Beyond that the upload is more likely a mistake than an intention, and
+every extra file is another minute of the user's waiting."""
+
+
+@router.post("/policy/upload-many")
+async def upload_policies(
+    files: list[UploadFile] = File(...),
+    insurer_id: str = Form(""),
+) -> dict[str, Any]:
+    """Read several files as one policy, unless they are not one policy.
+
+    Most people uploading more than one file are uploading one policy in
+    pieces: the schedule, the wording, a photograph of an endorsement. Those
+    belong in one ledger.
+
+    A family holding a corporate policy and a personal one has two of
+    everything, and merging those silently produces a policy that exists
+    nowhere. When the files name two different policies, nothing is merged and
+    the disagreement is handed back for the user to settle.
+    """
+    if not files:
+        raise HTTPException(400, "No files were sent.")
+    if len(files) > MAX_FILES:
+        raise HTTPException(
+            400, f"That is more than {MAX_FILES} files. The pages listing your "
+                 f"cover are usually enough on their own."
+        )
+
+    payloads: list[tuple[bytes, str]] = []
+    total = 0
+    for upload in files:
+        data = await upload.read()
+        if not data:
+            continue
+        total += len(data)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "Those files come to more than 25 MB together.")
+        payloads.append((data, upload.filename or "policy.pdf"))
+
+    if not payloads:
+        raise HTTPException(400, "Those files were empty.")
+
+    session = sessions.create()
+    session.insurer_id = insurer_id
+
+    try:
+        result = await asyncio.to_thread(
+            run_policy_pipeline_many, payloads, session_id=session.session_id
+        )
+    except Exception as exc:
+        log.exception("multi-document pipeline failed", files=len(payloads))
+        raise HTTPException(500, f"We could not read those documents: {exc}") from exc
+
+    if result.held_for_conflict:
+        # Nothing was merged, so there is no session state worth keeping. The
+        # user is told what disagreed and asked to upload one policy at a time.
+        sessions.delete(session.session_id)
+        raise HTTPException(409, detail={
+            "message": (
+                "These files look like different policies, so we have not "
+                "combined them. Upload one policy at a time, and add the "
+                "second one afterwards."
+            ),
+            "conflicts": [
+                {"what": c.what, "values": c.values, "detail": c.describe()}
+                for c in result.conflicts
+            ],
+            "files": [d.filename for d in result.documents],
+        })
+
+    assert result.policy is not None
+    session.policy = result.policy
+    session.document_name = ", ".join(d.filename for d in result.documents)
+    session.read_quality = min(d.quality_score for d in result.documents)
+    session.needed_ocr = any(d.needed_ocr for d in result.documents)
+    session.warnings = [w for d in result.documents for w in d.warnings]
+    _apply_scheme(session)
+    sessions.save(session)
+
+    payload = _policy_payload(session)
+    payload["documents"] = [d.filename for d in result.documents]
+    return payload
 
 
 class ManualPolicy(BaseModel):

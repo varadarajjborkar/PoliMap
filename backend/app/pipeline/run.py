@@ -17,9 +17,10 @@ from app.pipeline.s0_intake.intake import ingest, ingest_bytes
 from app.pipeline.s1_triage.triage import triage
 from app.pipeline.s2_atomize.atomize import atomize
 from app.pipeline.s3_verify.loop import VerificationResult, verify
+from app.pipeline.s4_compile import reconcile
 from app.pipeline.s4_compile.compiler import compile_policy
 from app.schemas.document import IngestedDocument
-from app.schemas.events import PipelineStage
+from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.money import format_inr
 from app.schemas.policy import NormalizedPolicy
 
@@ -109,3 +110,106 @@ def run_policy_pipeline_bytes(
     """Read an uploaded payload into a compiled policy."""
     document = ingest_bytes(data, filename, session_id=session_id)
     return _run(document, use_model=use_model, verify_clauses=verify_clauses)
+
+
+@dataclass
+class MultiDocumentResult:
+    """Several uploaded files, read together or held apart deliberately."""
+
+    documents: list[IngestedDocument]
+    identities: list[reconcile.DocumentIdentity]
+    policy: NormalizedPolicy | None
+    verification: VerificationResult | None
+    conflicts: list[reconcile.Disagreement]
+
+    @property
+    def held_for_conflict(self) -> bool:
+        """Whether the files were not merged because they disagree on identity."""
+        return self.policy is None
+
+    def summary(self) -> dict:
+        return {
+            "files": [d.filename for d in self.documents],
+            "pages": sum(d.page_count for d in self.documents),
+            "conflicts": [c.what for c in self.conflicts],
+            "merged": not self.held_for_conflict,
+        }
+
+
+def run_policy_pipeline_many(
+    payloads: list[tuple[bytes, str]],
+    *,
+    session_id: str | None = None,
+    use_model: bool = True,
+    verify_clauses: bool = True,
+) -> MultiDocumentResult:
+    """Read several uploaded files as one policy, unless they are not one.
+
+    Most multi-file uploads are one policy in pieces: the schedule, the wording,
+    a photograph of an endorsement. Those belong in one ledger, and pooling them
+    is the reason to accept more than one file.
+
+    Some are not. A family holding a corporate policy and a personal one has two
+    of everything, and merging them silently produces a policy that exists
+    nowhere: one document's room cap against the other's cover, with no clause
+    disagreeing loudly enough to notice. So identity is checked first, and when
+    the files name two different policies nothing is merged and the caller is
+    handed the disagreement to put to the user.
+    """
+    documents = [
+        ingest_bytes(data, filename, session_id=session_id)
+        for data, filename in payloads
+    ]
+    for document in documents:
+        triage(document)
+
+    identities = [reconcile.identify(document) for document in documents]
+    conflicts = reconcile.disagreements(identities)
+
+    if len(documents) > 1 and reconcile.looks_like_two_policies(identities):
+        bus.publish(
+            PipelineStage.SYSTEM, "documents_conflict", session_id=session_id,
+            status=EventStatus.WARN,
+            summary=(
+                f"These {len(documents)} files look like different policies. "
+                f"Asking before merging them."
+            ),
+            files=[d.filename for d in documents],
+            conflicts=[c.what for c in conflicts],
+        )
+        return MultiDocumentResult(
+            documents=documents, identities=identities,
+            policy=None, verification=None, conflicts=conflicts,
+        )
+
+    clauses = reconcile.merge_clauses([
+        atomize(document, use_model=use_model) for document in documents
+    ])
+
+    if len(documents) > 1:
+        bus.publish(
+            PipelineStage.ATOMIZE, "merge_documents", session_id=session_id,
+            summary=(
+                f"Read {len(documents)} files as one policy, "
+                f"{len(clauses)} terms between them"
+            ),
+            files=[d.filename for d in documents], clauses=len(clauses),
+        )
+
+    if verify_clauses:
+        verification = verify(clauses, session_id=session_id)
+    else:
+        verification = VerificationResult(clauses=clauses)
+
+    policy = compile_policy(verification.surviving, session_id=session_id)
+    policy.meta = reconcile.meta_from(identities, policy.meta)
+
+    known = {r.clause_kind for r in policy.open_clarifications}
+    policy.open_clarifications.extend(
+        r for r in verification.clarifications if r.clause_kind not in known
+    )
+
+    return MultiDocumentResult(
+        documents=documents, identities=identities,
+        policy=policy, verification=verification, conflicts=conflicts,
+    )
