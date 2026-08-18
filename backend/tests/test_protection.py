@@ -15,7 +15,7 @@ from PIL import Image
 
 from app.api.store import _new_id, is_well_formed
 from app.core.config import settings
-from app.core.limits import HEAVY, READ, Bucket, RateLimiter, client_key
+from app.core.limits import ASK, HEAVY, READ, WRITE, Bucket, RateLimiter, client_key
 from app.core.middleware import bucket_for
 from app.main import app
 
@@ -244,17 +244,43 @@ def test_an_honest_json_body_still_gets_through():
 # --- how often, and by whom ------------------------------------------------
 
 
-def test_the_expensive_routes_are_priced_as_expensive():
+def test_reading_a_document_is_priced_as_expensive():
     for path in (
         "/api/policy/upload",
         "/api/policy/upload-many",
         "/api/journey/abc/bill",
-        "/api/help/ask",
         "/api/health/providers",
         "/api/session/abc/report.pdf",
         "/api/session/import",
     ):
         assert bucket_for("POST", path) is HEAVY, path
+
+
+def test_the_help_desk_is_priced_for_a_conversation():
+    # A model call each, but somebody legitimately asks several in a row.
+    assert bucket_for("POST", "/api/help/ask") is ASK
+    assert ASK.burst >= 8
+
+
+def test_what_a_caregiver_does_repeatedly_is_not_priced_as_expensive():
+    """Entering the day's charges at a counter is several actions in a minute.
+
+    Pricing those as expensive is not a protected app, it is a broken one: the
+    limit would be met with the day half entered.
+    """
+    for path in (
+        "/api/journey/abc/cost",
+        "/api/search/abc",
+        "/api/policy/manual",
+        "/api/journey/abc/advance",
+        "/api/policy/abc/field",
+    ):
+        assert bucket_for("POST", path) is WRITE, path
+
+
+def test_a_days_charges_fit_inside_one_allowance():
+    # A long admission is a dozen or so charges, entered in one sitting.
+    assert WRITE.burst >= 25
 
 
 def test_reading_reference_data_is_not():

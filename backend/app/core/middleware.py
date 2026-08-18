@@ -23,7 +23,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.core.config import settings
-from app.core.limits import HEAVY, READ, WRITE, Bucket, client_key, limiter
+from app.core.limits import ASK, HEAVY, READ, WRITE, Bucket, client_key, limiter
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -50,18 +50,26 @@ MAX_JSON_REQUEST_BYTES = 1024 * 1024
 # because the alternative is a decorator on every handler, and a route added
 # later would then be unpriced by default, which is the wrong direction to
 # fail in.
+# Reading a document, or rebuilding a whole session from one. Everything here
+# is something a person does once and then waits on.
+#
+# Recording a charge, entering a policy by hand and searching are deliberately
+# not here, though an earlier pass had them. None of the three touches a model
+# or a page image, and all three are things somebody does several times in a
+# few minutes: a caregiver entering the day's charges at a counter would have
+# met the ceiling with the day half entered.
 _HEAVY_PATHS = re.compile(
     r"^/api/(?:"
     r"policy/upload(?:-many)?"
-    r"|policy/manual"
-    r"|journey/[^/]+/(?:bill|cost)"
-    r"|search/[^/]+"
+    r"|journey/[^/]+/bill"
     r"|session/[^/]+/report\.pdf"
     r"|session/import"
-    r"|help/ask"
     r"|health/providers"
     r")"
 )
+
+# One model call each, and a conversation rather than a single action.
+_ASK_PATHS = re.compile(r"^/api/help/ask")
 
 # The event stream is a long-lived connection, not a request, so a per-second
 # allowance is meaningless for it. It is bounded by a cap on how many can be
@@ -75,6 +83,8 @@ def bucket_for(method: str, path: str) -> Bucket | None:
         return None
     if _HEAVY_PATHS.match(path):
         return HEAVY
+    if _ASK_PATHS.match(path):
+        return ASK
     if method in ("POST", "PUT", "PATCH", "DELETE"):
         return WRITE
     return READ

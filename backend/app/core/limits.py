@@ -41,21 +41,31 @@ class Bucket:
         return max(1, int(1 / self.rate + 0.999)) if self.rate > 0 else 60
 
 
-# The three kinds of work this API does, priced by what they cost us.
+# The kinds of work this API does, priced by what each actually costs us.
 #
-# READ is metadata and reference data, served from memory. It is generous
-# because the interface makes several of these on load and a family refreshing
-# a page must never be told to slow down.
+# The pricing is set against what a real person does, not against what is easy
+# to classify. A limit a caregiver meets while entering the day's charges is a
+# broken app, not a protected one, so anything a person does repeatedly in a
+# few minutes has to sit above the rate they can do it at.
 #
-# WRITE changes session state. Cheap individually, but it is the surface that
-# fills the session store, so it is bounded.
+# READ is reference data and session state, served from memory. Generous,
+# because the interface makes several on load and a family refreshing a page
+# must never be told to slow down.
 #
-# HEAVY is anything that rasterises a page, runs OCR, or calls a model. Two a
-# second sustained is already far more than a person can produce by hand: the
-# policy upload is one action, and the next one cannot happen until the first
-# has been read and looked at.
+# WRITE changes session state: recording a charge, correcting a figure,
+# searching, moving a stay along. None of it touches a model or a page image.
+# Somebody entering a day's charges at a counter does several in a minute, so
+# the burst has to hold a whole sitting.
+#
+# ASK is the help desk: one model call each, and conversational, so it is the
+# one expensive thing somebody legitimately does several times in a row.
+#
+# HEAVY is reading a document: rasterise every page, OCR each, then several
+# model calls. One a person does once and then waits on. Even a burst of five
+# is more than anybody produces by hand.
 READ = Bucket("read", rate=10.0, burst=40)
-WRITE = Bucket("write", rate=3.0, burst=20)
+WRITE = Bucket("write", rate=3.0, burst=30)
+ASK = Bucket("ask", rate=0.5, burst=8)
 HEAVY = Bucket("heavy", rate=0.2, burst=5)
 
 
