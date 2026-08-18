@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
+import { useT } from '../hooks/useLanguage'
 import { BillCheck } from './BillCheck'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
@@ -34,6 +35,7 @@ export function Journey({
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
   onToggleChecklist, onCheckBill, onDropBill,
 }) {
+  const t = useT()
   if (!journey) return null
 
   const currentIndex = STAGES.findIndex(([value]) => value === journey.stage)
@@ -75,7 +77,7 @@ export function Journey({
                         current ? 'font-semibold text-ink' : 'text-muted'
                       }`}
                     >
-                      {label}
+                      {t(`journey.stage.${value}`, label)}
                     </span>
                   </div>
                   {index < STAGES.length - 1 && (
@@ -101,11 +103,14 @@ export function Journey({
             className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
           >
             <DownloadIcon />
-            Download this stay
+            {t('journey.download', 'Download this stay')}
           </a>
           <span className="text-[0.75rem] leading-relaxed text-muted">
-            Your cover, the estimate, what has been billed, and what is still to
-            do. One page to take to the insurance desk.
+            {t(
+              'journey.download.why',
+              'Your cover, the estimate, what has been billed, and what is ' +
+                'still to do. One page to take to the insurance desk.'
+            )}
           </span>
         </div>
       </Card>
@@ -184,7 +189,7 @@ export function Journey({
       />
 
       <Card>
-        <CardHeader title="What has happened so far" />
+        <CardHeader title={t('journey.timeline', 'What has happened so far')} />
         <ol className="divide-y divide-line">
           {[...journey.timeline].reverse().map((event) => (
             <li key={event.id} className="px-5 py-3">
@@ -225,6 +230,7 @@ export function Journey({
 // or removed. Editing happens inline, next to the row it changes, rather than
 // in a modal that hides the list you are checking it against.
 function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
+  const t = useT()
   const [editing, setEditing] = useState(null)
   const [menuFor, setMenuFor] = useState(null)
 
@@ -233,7 +239,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
   return (
     <Card>
       <CardHeader
-        title="Charges so far"
+        title={t('journey.charges', 'Charges so far')}
         subtitle={`${journey.costs.length} recorded, ${journey.accrued_display} in total`}
       />
       <ul className="divide-y divide-line">
@@ -433,6 +439,7 @@ function DownloadIcon() {
 // rather than a poster that resets on reload, and a second family member
 // opening the same stay sees what the first has already done.
 function Checklist({ checklist, stageLabel, onToggle, busy }) {
+  const t = useT()
   if (!checklist?.items?.length) return null
 
   const { done, total, items } = checklist
@@ -441,7 +448,7 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
   return (
     <Card>
       <CardHeader
-        title={`Before you leave this stage`}
+        title={t('journey.checklist', 'Before you leave this stage')}
         subtitle={stageLabel}
         aside={
           <Badge tone={complete ? 'good' : 'neutral'}>
@@ -785,6 +792,7 @@ const HEADS = [
 const MAX_RECEIPT_MB = 10
 
 function CostCard({ onRecordCost, busy }) {
+  const t = useT()
   const [head, setHead] = useState('room_rent')
   const [amount, setAmount] = useState('')
   const [advanceDay, setAdvanceDay] = useState(true)
@@ -809,7 +817,7 @@ function CostCard({ onRecordCost, busy }) {
   return (
     <Card>
       <CardHeader
-        title="Add a charge"
+        title={t('journey.add_charge', 'Add a charge')}
         subtitle="Enter bills as they arrive to keep the estimate current."
       />
       <div className="space-y-3 p-5">

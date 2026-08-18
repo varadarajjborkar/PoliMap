@@ -18,6 +18,11 @@ const KEY = 'polimap.settings'
 export const DEFAULTS = {
   // "system" follows the operating system and changes with it.
   theme: 'system',
+  // The interface's own language. English until somebody chooses otherwise,
+  // because that is the one language every one of these documents is written
+  // in, and a wrong guess from the browser's locale would put a person who
+  // reads English into a script they may not.
+  language: 'en',
   // The comfortable size is the default. "large" goes further.
   textSize: 'default',
   // Developer
@@ -80,6 +85,11 @@ export function useSettings() {
   useEffect(() => {
     document.documentElement.dataset.text = settings.textSize
   }, [settings.textSize])
+
+  // Screen readers and the browser's own font choice both key off this.
+  useEffect(() => {
+    document.documentElement.lang = settings.language
+  }, [settings.language])
 
   const set = useCallback((key, value) => {
     setSettings((current) => ({ ...current, [key]: value }))

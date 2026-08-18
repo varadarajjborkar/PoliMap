@@ -1,3 +1,5 @@
+import { useT } from '../hooks/useLanguage'
+
 // Shared building blocks. Kept plain and high-contrast: this interface is read
 // by people under stress, often on a phone in a hospital corridor, so clarity
 // beats decoration everywhere it competes with it.
@@ -116,11 +118,15 @@ export function Money({ value, className = '' }) {
 // Always present alongside any figure. The problem statement forbids binding
 // insurance advice, and an estimate shown without this reads as a quote.
 export function Disclaimer({ className = '' }) {
+  const t = useT()
   return (
     <p className={`text-[0.75rem] leading-relaxed text-muted ${className}`}>
-      Estimates are for guidance only, not a quote, not an approval, and not
-      medical advice. Confirm all amounts with your insurer and the hospital
-      insurance desk.
+      {t(
+        'disclaimer',
+        'Estimates are for guidance only, not a quote, not an approval, and ' +
+          'not medical advice. Confirm all amounts with your insurer and the ' +
+          'hospital insurance desk.'
+      )}
     </p>
   )
 }

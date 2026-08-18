@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
+import { useT } from '../hooks/useLanguage'
+import { LANGUAGES } from '../lib/i18n'
 import { Badge, Button, Toggle } from './Primitives'
 
 // Settings, in a panel over the page.
@@ -23,6 +25,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
   const [health, setHealth] = useState(null)
   const [providers, setProviders] = useState(null)
   const [confirmForget, setConfirmForget] = useState(false)
+  const t = useT()
 
   // Probed when the panel opens rather than on load, so the page does not pay
   // for diagnostics nobody asked to see.
@@ -67,7 +70,29 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-2">
-          <Section title="Appearance">
+          {/* First, because somebody who cannot read the rest of this panel
+              cannot reach it if it is at the bottom. Each language is written
+              in its own script rather than in English: a person looking for
+              Kannada is looking for the word ಕನ್ನಡ. */}
+          <Section title={t('settings.language', 'Language')}>
+            <Choice
+              label={t('settings.language', 'Language')}
+              hint={t(
+                'settings.language.hint',
+                'This changes the app\u2019s own words. Anything read out of your ' +
+                  'policy stays in the language the document is written in.'
+              )}
+              value={settings.language}
+              onChange={(v) => set('language', v)}
+              wrap
+              options={LANGUAGES.map((language) => ({
+                value: language.code,
+                label: language.endonym,
+              }))}
+            />
+          </Section>
+
+          <Section title={t('settings.theme', 'Appearance')}>
             <Choice
               label="Theme"
               hint="System follows your phone or computer."
@@ -80,7 +105,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
               ]}
             />
             <Choice
-              label="Text size"
+              label={t('settings.text_size', 'Text size')}
               hint="Larger type throughout, for reading on a phone in a hurry."
               value={settings.textSize}
               onChange={(v) => set('textSize', v)}
@@ -207,7 +232,7 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
 
 // A segmented control rather than a dropdown: the options are few, and seeing
 // all of them at once beats opening a menu to find out what they are.
-function Choice({ label, hint, value, onChange, options }) {
+function Choice({ label, hint, value, onChange, options, wrap = false }) {
   return (
     <div className="py-3">
       <span className="block text-[0.875rem] font-medium">{label}</span>
@@ -219,7 +244,9 @@ function Choice({ label, hint, value, onChange, options }) {
       <div
         role="radiogroup"
         aria-label={label}
-        className="mt-2 flex gap-1 rounded-lg bg-canvas p-1"
+        className={`mt-2 flex gap-1 rounded-lg bg-canvas p-1 ${
+          wrap ? 'flex-wrap' : ''
+        }`}
       >
         {options.map((option) => (
           <button
@@ -227,7 +254,9 @@ function Choice({ label, hint, value, onChange, options }) {
             role="radio"
             aria-checked={value === option.value}
             onClick={() => onChange(option.value)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-[0.8125rem] font-medium transition ${
+            className={`rounded-md px-3 py-1.5 text-[0.8125rem] font-medium transition ${
+              wrap ? '' : 'flex-1'
+            } ${
               value === option.value
                 ? 'bg-surface text-ink shadow-sm'
                 : 'text-muted hover:text-ink'

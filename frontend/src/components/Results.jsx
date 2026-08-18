@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
 import { TreatmentPicker } from './TreatmentPicker'
 
@@ -440,6 +441,7 @@ function Stat({ label, value, tone = 'neutral' }) {
 // The deduction chain. Every step names its cause and explains itself, so the
 // final figure is an argument the user can follow rather than an assertion.
 function Waterfall({ option }) {
+  const t = useT()
   const bill = option.estimated_bill
 
   return (
@@ -474,7 +476,7 @@ function Waterfall({ option }) {
         ))}
 
         <Row
-          label="Your insurer pays"
+          label={t('results.insurer_pays', 'Your insurer pays')}
           amount={option.insurer_pays_display}
           width={bill > 0 ? (option.insurer_pays / bill) * 100 : 0}
           tone="final"

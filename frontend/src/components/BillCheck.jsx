@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { Badge, Button, Card, CardHeader } from './Primitives'
 
 // The final bill, read and checked.
@@ -20,17 +21,22 @@ const SEVERITY = {
 }
 
 export function BillCheck({ bill, busy, onCheck, onDrop }) {
+  const t = useT()
   return (
     <Card>
       <CardHeader
-        title="Check the final bill"
-        subtitle="Against the IRDAI list of items no policy pays, and against your own cover."
+        title={t('bill.title', 'Check the final bill')}
+        subtitle={t(
+          'bill.subtitle',
+          'Against the IRDAI list of items no policy pays, and against your ' +
+            'own cover.'
+        )}
         aside={
           bill && (
             <Badge tone={bill.worth_asking > 0 ? 'warn' : 'good'}>
               {bill.worth_asking > 0
-                ? `${bill.worth_asking} to ask about`
-                : 'Nothing to raise'}
+                ? `${bill.worth_asking} ${t('bill.to_ask', 'to ask about')}`
+                : t('bill.nothing_to_raise', 'Nothing to raise')}
             </Badge>
           )
         }
@@ -45,6 +51,7 @@ export function BillCheck({ bill, busy, onCheck, onDrop }) {
 }
 
 function Upload({ busy, onCheck }) {
+  const t = useT()
   const [tooLarge, setTooLarge] = useState('')
   const fileRef = useRef(null)
 
@@ -85,7 +92,9 @@ function Upload({ busy, onCheck }) {
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        {busy ? 'Reading the bill…' : 'Photograph or upload the bill'}
+        {busy
+          ? t('bill.reading', 'Reading the bill\u2026')
+          : t('bill.upload', 'Photograph or upload the bill')}
       </Button>
 
       {tooLarge && (
@@ -99,6 +108,7 @@ function Upload({ busy, onCheck }) {
 }
 
 function Checked({ bill, busy, onDrop }) {
+  const t = useT()
   const [showLines, setShowLines] = useState(false)
 
   return (
@@ -126,7 +136,10 @@ function Checked({ bill, busy, onDrop }) {
 
       {bill.findings.length === 0 ? (
         <p className="px-5 py-6 text-center text-[0.875rem] text-muted">
-          Nothing on this bill stood out against the IRDAI list or your policy.
+          {t(
+            'bill.nothing',
+            'Nothing on this bill stood out against the IRDAI list or your policy.'
+          )}
         </p>
       ) : (
         <ul className="divide-y divide-line">
@@ -153,7 +166,9 @@ function Checked({ bill, busy, onDrop }) {
           onClick={() => setShowLines(!showLines)}
           className="text-[0.8125rem] text-brand underline"
         >
-          {showLines ? 'Hide the lines we read' : 'Show the lines we read'}
+          {showLines
+            ? t('bill.hide_lines', 'Hide the lines we read')
+            : t('bill.show_lines', 'Show the lines we read')}
         </button>
       </div>
 
@@ -161,7 +176,7 @@ function Checked({ bill, busy, onDrop }) {
 
       <div className="px-5 py-3">
         <Button variant="secondary" disabled={busy} onClick={onDrop}>
-          Check a different bill
+          {t('bill.another', 'Check a different bill')}
         </Button>
       </div>
     </div>
@@ -212,10 +227,11 @@ function Finding({ finding }) {
 }
 
 function Settlement({ settlement }) {
+  const t = useT()
   return (
     <div className="px-5 py-4">
       <h3 className="text-[0.875rem] font-semibold">
-        What this bill settles to
+        {t('bill.settles_to', 'What this bill settles to')}
       </h3>
       <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
         The same calculation as the estimate, run on the real bill.
@@ -223,13 +239,17 @@ function Settlement({ settlement }) {
 
       <dl className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-line bg-canvas px-3 py-2">
-          <dt className="text-[0.75rem] text-muted">Your insurer pays</dt>
+          <dt className="text-[0.75rem] text-muted">
+            {t('results.insurer_pays', 'Your insurer pays')}
+          </dt>
           <dd className="mt-0.5 text-[1.0625rem] font-semibold tabular-nums">
             {settlement.payable_display}
           </dd>
         </div>
         <div className="rounded-lg border border-line bg-canvas px-3 py-2">
-          <dt className="text-[0.75rem] text-muted">You pay</dt>
+          <dt className="text-[0.75rem] text-muted">
+            {t('results.you_pay', 'You pay')}
+          </dt>
           <dd className="mt-0.5 text-[1.0625rem] font-semibold tabular-nums">
             {settlement.out_of_pocket_display}
           </dd>

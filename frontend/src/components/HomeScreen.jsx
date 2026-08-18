@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { describeStay } from '../lib/stays'
+import { useT } from '../hooks/useLanguage'
 import { Button, Card, Disclaimer, Input } from './Primitives'
 
 // The screen before anything else.
@@ -63,6 +64,7 @@ export function SignIn({ onSignIn }) {
 }
 
 export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser }) {
+  const t = useT()
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 motion-safe:animate-rise">
       <div className="flex items-end justify-between gap-4">
@@ -85,13 +87,13 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
       </div>
 
       <Button className="mt-6 w-full py-3 text-[0.9375rem]" onClick={onNew}>
-        Start a new stay
+        {t('home.new', 'Start a new stay')}
       </Button>
 
       {stays.length > 0 && (
         <>
           <h2 className="mt-9 mb-2.5 text-[0.9375rem] font-semibold">
-            Your stays
+            {t('home.title', 'Your stays')}
           </h2>
           <ul className="space-y-2.5">
             {stays.map((stay, index) => (

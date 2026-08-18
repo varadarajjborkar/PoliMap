@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { SETUP_STEPS } from '../hooks/useRoute'
 
 // Setting up, as one page rather than three.
@@ -21,6 +22,7 @@ import { SETUP_STEPS } from '../hooks/useRoute'
 export function SetupFlow({
   step, onStepInView, reached, sections, rail, jump,
 }) {
+  const t = useT()
   const refs = useRef({})
   const lastScrolled = useRef(null)
   const settling = useRef(false)
@@ -103,7 +105,7 @@ export function SetupFlow({
             key={id}
             data-step={id}
             ref={(node) => { refs.current[id] = node }}
-            aria-label={label}
+            aria-label={t(`step.${id}`, label)}
             className="scroll-mt-[calc(var(--header-h)+3.5rem)] lg:scroll-mt-[calc(var(--header-h)+1.5rem)]"
           >
             {sections[id]}
@@ -129,6 +131,7 @@ export function SetupFlow({
 // to find. A step already reached stays clickable, because comparing what you
 // were shown at one against another is the reason anybody moves backwards here.
 function Thread({ step, reached, onGo }) {
+  const t = useT()
   const current = SETUP_STEPS.findIndex((s) => s.id === step)
 
   return (
@@ -178,7 +181,7 @@ function Thread({ step, reached, onGo }) {
                       : 'cursor-not-allowed text-muted/45'
                 }`}
               >
-                {label}
+                {t(`step.${id}`, label)}
               </button>
             </li>
           )
@@ -192,6 +195,7 @@ function Thread({ step, reached, onGo }) {
 // content. Sticky under the header, because on a phone the way back to a figure
 // two sections up is otherwise a long scroll with nothing to aim at.
 function ThreadBar({ step, reached, onGo }) {
+  const t = useT()
   const current = SETUP_STEPS.findIndex((s) => s.id === step)
 
   return (
@@ -229,7 +233,7 @@ function ThreadBar({ step, reached, onGo }) {
                       : reached[id] ? 'text-muted' : 'text-muted/45'
                   }`}
                 >
-                  {short}
+                  {t(`step.short.${id}`, short)}
                 </span>
               </button>
               {index < SETUP_STEPS.length - 1 && (

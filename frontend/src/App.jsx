@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { LanguageContext, useT } from './hooks/useLanguage'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
 import { SignIn, StayList } from './components/HomeScreen'
@@ -13,6 +14,7 @@ import { UploadStep } from './components/UploadStep'
 import {
   SETUP_STEPS, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
+import { translator } from './lib/i18n'
 import { READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
 import { useStay } from './hooks/useStay'
@@ -420,11 +422,15 @@ export default function App() {
 
   // --- render ---------------------------------------------------------------
 
+  // This component provides the language context, so it cannot read it: the
+  // provider sits below this point in the tree. It builds its own translator.
+  const t = translator(settings.language)
+
   if (!user) return <SignIn onSignIn={signIn} />
 
   if (view === 'home') {
     return (
-      <>
+      <LanguageContext.Provider value={settings.language}>
         <StayList
           user={user}
           stays={stays}
@@ -440,7 +446,7 @@ export default function App() {
           sessionId={null}
           onForget={forgetEverything}
         />
-      </>
+      </LanguageContext.Provider>
     )
   }
 
@@ -475,7 +481,7 @@ export default function App() {
 
 
   return (
-    <>
+    <LanguageContext.Provider value={settings.language}>
       <Shell {...shell}>
         {busy === 'restore' || restoring ? (
           <div className="mx-auto max-w-2xl px-4 py-20 text-center motion-safe:animate-fade">
@@ -609,7 +615,7 @@ export default function App() {
             {step === 'journey' && (
               <>
                 <BackLink onClick={() => navigate(stayPath(stayId, 'search'))}>
-                  Back to hospitals
+                  {t('nav.back.hospitals', 'Back to hospitals')}
                 </BackLink>
                 <Journey
                   journey={journey}
@@ -646,7 +652,7 @@ export default function App() {
         sessionId={sessionId}
         onForget={forgetEverything}
       />
-    </>
+    </LanguageContext.Provider>
   )
 }
 
@@ -790,6 +796,7 @@ function Shell({
 // application you are in, which is the only thing it was ever good at.
 function StepNav({ step, onGo, reachable }) {
   const inSetup = step !== TRACK_STEP.id
+  const t = useT()
 
   const item = (id, label, enabled, isCurrent) => (
     <li key={id} className="min-w-0 flex-1">
@@ -814,10 +821,13 @@ function StepNav({ step, onGo, reachable }) {
     <nav aria-label="Sections" className="border-t border-line">
       <ol className="mx-auto flex max-w-6xl items-stretch px-2">
         {item(
-          SETUP_STEPS[0].id, 'Setting up', true, inSetup,
+          SETUP_STEPS[0].id, t('nav.setup', 'Setting up'), true, inSetup,
         )}
         {item(
-          TRACK_STEP.id, TRACK_STEP.label, reachable[TRACK_STEP.id], !inSetup,
+          TRACK_STEP.id,
+          t('nav.stay', TRACK_STEP.label),
+          reachable[TRACK_STEP.id],
+          !inSetup,
         )}
       </ol>
     </nav>
