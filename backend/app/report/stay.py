@@ -146,6 +146,7 @@ def build(session, *, generated_at: datetime | None = None) -> bytes:
     _not_yet_covered(story, policy)
     _chosen(story, session)
     _estimate(story, session)
+    _bill(story, session)
     _spent(story, session)
     _outstanding(story, session)
 
@@ -300,6 +301,41 @@ def _estimate(story: list, session) -> None:
         story.append(Spacer(1, 4))
         for note in result.notes[:3]:
             story.append(Paragraph(rupee_safe(f"• {note}"), SMALL))
+
+
+def _bill(story: list, session) -> None:
+    """What to raise about the final bill, in the words to raise it in.
+
+    On paper rather than only on a screen because this is read out at a counter,
+    standing up, with the bill in the other hand. A phone that has to be woken
+    and scrolled while somebody waits is a phone that gets put away.
+    """
+    review = session.bill_review
+    if review is None or not review.findings:
+        return
+
+    raisable = [f for f in review.findings if f.ask]
+    if not raisable:
+        return
+
+    story.append(_heading("What to ask at the billing counter"))
+    if review.questionable > 0:
+        story.append(Paragraph(
+            rupee_safe(
+                f"{format_inr(review.questionable)} of this bill sits on lines "
+                f"worth asking about."
+            ),
+            SMALL,
+        ))
+        story.append(Spacer(1, 4))
+
+    for finding in raisable:
+        block = [
+            Paragraph(rupee_safe(f"<b>{finding.headline}</b>"), CELL),
+            Paragraph(rupee_safe(finding.ask), SMALL),
+        ]
+        story.append(KeepTogether(block))
+        story.append(Spacer(1, 4))
 
 
 def _spent(story: list, session) -> None:

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
+import { BillCheck } from './BillCheck'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // The care journey: where the paperwork stands, what has been billed, and what
@@ -29,9 +30,9 @@ const SEVERITY = {
 }
 
 export function Journey({
-  journey, sessionId, busy,
+  journey, sessionId, busy, billBusy,
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
-  onToggleChecklist,
+  onToggleChecklist, onCheckBill, onDropBill,
 }) {
   if (!journey) return null
 
@@ -117,6 +118,17 @@ export function Journey({
         onToggle={onToggleChecklist}
         busy={busy}
       />
+
+      {/* Not before admission, when there is no bill to check yet. Interim
+          bills do arrive mid-stay, so it does not wait for discharge either. */}
+      {journey.stage !== 'pre_admission' && (
+        <BillCheck
+          bill={journey.bill}
+          busy={billBusy}
+          onCheck={onCheckBill}
+          onDrop={onDropBill}
+        />
+      )}
 
       {journey.alerts.length > 0 && (
         <div className="space-y-3">

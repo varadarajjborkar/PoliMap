@@ -24,11 +24,14 @@ from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
 from app.api.session import DatasetMissing, Session, datasets, sessions
+from app.bill import check as bill_check
+from app.bill import read as bill_read
 from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
 from app.journey import checklist, position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes, run_policy_pipeline_many
+from app.pipeline.s0_intake.intake import ingest_bytes
 from app.pipeline.s4_compile.compiler import apply_answer, skip_question
 from app.pipeline.s4_compile.edit import (
     EDITABLE,
@@ -39,9 +42,10 @@ from app.pipeline.s4_compile.edit import (
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
 from app.pipeline.s6_simulate import eligibility, stack
 from app.report import stay as report
+from app.schemas.bill import BillReview
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import GeoPoint
-from app.schemas.journey import JourneyStage
+from app.schemas.journey import AlertSeverity, JourneyStage
 from app.schemas.match import CareContext, Preference
 from app.schemas.money import format_inr
 from app.schemas.policy import ExpenseHead, RoomCategory, RoomLimit, RoomLimitBasis
@@ -1155,6 +1159,7 @@ def _journey_payload(session: Session) -> dict[str, Any]:
         ],
         "next_stage": _natural_next(state.stage),
         "checklist": _checklist_payload(session),
+        "bill": _bill_payload(session),
         "burn_down": {
             "sum_insured": float(burn.sum_insured),
             "consumed": float(burn.consumed),
@@ -1393,6 +1398,194 @@ def get_receipt(session_id: str, entry_id: str) -> FileResponse:
     if not matches:
         raise HTTPException(404, "No receipt was attached to that charge.")
     return FileResponse(matches[0])
+
+
+BILL_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
+
+
+def _bill_payload(session: Session) -> dict[str, Any] | None:
+    """The checked bill, as the interface needs it."""
+    review = session.bill_review
+    if review is None:
+        return None
+
+    bill = review.bill
+    settlement = review.settlement
+    return {
+        "document_name": bill.document_name,
+        "from_text_layer": bill.from_text_layer,
+        "reconciles": bill.reconciles,
+        "line_total": float(bill.line_total),
+        "line_total_display": format_inr(bill.line_total),
+        "gross_total": float(bill.gross_total) if bill.gross_total else None,
+        "gross_total_display": (
+            format_inr(bill.gross_total) if bill.gross_total else ""
+        ),
+        "net_payable_display": (
+            format_inr(bill.net_payable) if bill.net_payable else ""
+        ),
+        "discount_display": format_inr(bill.discount) if bill.discount else "",
+        "advance_display": (
+            format_inr(bill.advance_paid) if bill.advance_paid else ""
+        ),
+        "notes": bill.notes,
+        "questionable": float(review.questionable),
+        "questionable_display": format_inr(review.questionable),
+        "worth_asking": review.worth_asking,
+        "items": [
+            {
+                "line": item.line_no,
+                "description": item.description,
+                "amount": float(item.amount),
+                "amount_display": format_inr(item.amount),
+                "qty": float(item.qty) if item.qty is not None else None,
+                "rate_display": (
+                    format_inr(item.rate) if item.rate is not None else ""
+                ),
+                "head": item.head.value if item.head else None,
+                "head_label": item.head_label,
+                "from_section": item.from_section,
+                "flagged": any(
+                    item.line_no in f.lines
+                    for f in review.findings
+                    if f.severity is not AlertSeverity.INFO
+                ),
+            }
+            for item in bill.items
+        ],
+        "findings": [
+            {
+                "kind": f.kind.value,
+                "label": f.label,
+                "severity": f.severity.value,
+                "headline": f.headline,
+                "detail": f.detail,
+                "ask": f.ask,
+                "amount": float(f.amount),
+                "amount_display": format_inr(f.amount) if f.amount else "",
+                "lines": f.lines,
+            }
+            for f in review.findings
+        ],
+        "settlement": None if settlement is None else {
+            "payable_by_insurer": float(settlement.payable_by_insurer),
+            "payable_display": format_inr(settlement.payable_by_insurer),
+            "out_of_pocket": float(settlement.out_of_pocket),
+            "out_of_pocket_display": format_inr(settlement.out_of_pocket),
+            "waterfall": [
+                {
+                    "kind": s.kind.value,
+                    "label": s.label,
+                    "deducted": float(s.deducted),
+                    "deducted_display": format_inr(s.deducted),
+                    "explanation": s.explanation,
+                }
+                for s in settlement.steps
+                if s.deducted != 0
+            ],
+        },
+    }
+
+
+def _check_bill(session: Session, data: bytes, filename: str) -> BillReview:
+    """Read a bill document and check it, reporting each step as it goes."""
+    journey = session.journey
+    policy = session.policy
+    assert policy is not None
+
+    with bus.step(
+        PipelineStage.JOURNEY, "read_bill", session_id=session.session_id,
+        summary=f"Reading {filename}",
+    ) as step:
+        document = ingest_bytes(data, filename, session_id=session.session_id)
+        bill = bill_read.read(document)
+        step.ok(
+            f"{len(bill.items)} lines, {format_inr(bill.line_total)}",
+            lines=len(bill.items), placed=len(bill.placed),
+        )
+
+    with bus.step(
+        PipelineStage.JOURNEY, "check_bill", session_id=session.session_id,
+        summary="Checking it against your policy and the IRDAI list",
+    ) as step:
+        review = bill_check.review(
+            bill, policy,
+            hospital_name=journey.hospital_name if journey else "",
+            hospital_id=journey.hospital_id or "" if journey else "",
+            procedure_code=journey.procedure_code or "" if journey else "",
+            room_category=journey.room_category if journey else None,
+            patient_age=_patient_age(session, session.patient_index),
+        )
+        step.ok(
+            f"{review.worth_asking} thing"
+            f"{'' if review.worth_asking == 1 else 's'} to ask about"
+            + (
+                f", {format_inr(review.questionable)} of it"
+                if review.questionable else ""
+            ),
+            findings=len(review.findings),
+        )
+    return review
+
+
+@router.post("/journey/{session_id}/bill")
+async def check_final_bill(
+    session_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Read the hospital's final bill and check it against the policy.
+
+    Multipart because the document is nearly always a photograph: the bill is
+    handed over on paper at a counter, and the moment to check it is while the
+    person who can correct it is still standing there.
+    """
+    session = _session(session_id)
+    if session.policy is None:
+        raise HTTPException(400, "No policy on this session yet.")
+
+    suffix = Path(file.filename or "bill.pdf").suffix.lower()
+    if suffix not in BILL_SUFFIXES:
+        raise HTTPException(
+            400, "Attach a PDF or a photo of the bill "
+                 "(PDF, JPG, PNG, WEBP, HEIC or TIFF).",
+        )
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "That file was empty.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "That file is too large. The limit is 25 MB.")
+
+    filename = file.filename or "bill.pdf"
+    try:
+        # Reading a photographed bill is OCR and possibly a vision call, both
+        # blocking, so it runs off the loop and the progress reaches the browser.
+        review = await asyncio.to_thread(_check_bill, session, data, filename)
+    except Exception as exc:
+        log.exception("bill check failed", filename=filename)
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(500, UNREADABLE) from exc
+
+    session.bill_review = review
+    sessions.save(session)
+    return _bill_payload(session) or {}
+
+
+@router.get("/journey/{session_id}/bill")
+def get_bill(session_id: str) -> dict[str, Any]:
+    payload = _bill_payload(_session(session_id))
+    if payload is None:
+        raise HTTPException(404, "No bill has been checked on this stay.")
+    return payload
+
+
+@router.delete("/journey/{session_id}/bill")
+def drop_bill(session_id: str) -> dict[str, Any]:
+    """Throw the check away, so a corrected bill can be read in its place."""
+    session = _session(session_id)
+    session.bill_review = None
+    sessions.save(session)
+    return {"ok": True}
 
 
 @router.post("/journey/{session_id}/preauth")

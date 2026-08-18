@@ -491,3 +491,121 @@ def test_nothing_is_raised_that_was_not_planted(reviewed):
 
 def test_some_of_the_corpus_carries_no_fault_at_all(reviewed):
     assert sum(1 for truth, _, _ in reviewed if not truth["planted"]) >= 3
+
+
+# --- over the API -----------------------------------------------------------
+
+
+@pytest.fixture
+def api():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture
+def stay(api) -> str:
+    """A session with a policy on it, which is all a bill check needs."""
+    return api.post("/api/policy/manual", json={
+        "sum_insured": 500000, "room_limit_type": "flat",
+        "room_limit_amount": 5000, "copay_pct": 0,
+        "insurer_name": "Test Insurer",
+    }).json()["session_id"]
+
+
+def a_bill_pdf() -> bytes:
+    document = CORPUS / "clean" / "BILL003.pdf"
+    if not document.exists():
+        pytest.skip("bill corpus not built")
+    return document.read_bytes()
+
+
+def upload(api, session_id: str, name: str = "bill.pdf", data: bytes | None = None):
+    return api.post(
+        f"/api/journey/{session_id}/bill",
+        files=[("file", (name, data if data is not None else a_bill_pdf(),
+                         "application/pdf"))],
+    )
+
+
+def test_a_bill_can_be_checked_over_the_api(api, stay):
+    response = upload(api, stay)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"]
+    assert payload["line_total"] > 0
+    assert payload["settlement"]["payable_display"]
+
+
+def test_the_check_survives_a_reload(api, stay):
+    upload(api, stay)
+    restored = api.get(f"/api/journey/{stay}/bill").json()
+    assert restored["items"]
+
+
+def test_a_stay_with_no_bill_says_so_rather_than_returning_an_empty_one(api, stay):
+    assert api.get(f"/api/journey/{stay}/bill").status_code == 404
+
+
+def test_a_corrected_bill_can_replace_the_first_one(api, stay):
+    upload(api, stay)
+    assert api.delete(f"/api/journey/{stay}/bill").status_code == 200
+    assert api.get(f"/api/journey/{stay}/bill").status_code == 404
+
+
+def test_a_file_that_is_not_a_document_is_refused_in_words(api, stay):
+    response = upload(api, stay, name="bill.txt", data=b"not a bill")
+    assert response.status_code == 400
+    assert "photo" in response.json()["detail"]
+
+
+def test_an_empty_file_is_refused(api, stay):
+    response = upload(api, stay, name="bill.pdf", data=b"")
+    assert response.status_code == 400
+
+
+def test_checking_a_bill_before_a_policy_is_refused(api):
+    session_id = api.post("/api/session").json()["session_id"]
+    assert upload(api, session_id).status_code == 400
+
+
+def test_the_activity_log_shows_the_bill_being_read(api, stay):
+    """Nothing in this system happens invisibly, and a bill check is two
+    minutes of somebody's life at a counter."""
+    upload(api, stay)
+    steps = {
+        event["step"]
+        for event in api.get(f"/api/events/{stay}/history").json()["events"]
+    }
+    assert "read_bill" in steps
+    assert "check_bill" in steps
+
+
+def test_the_check_travels_with_the_stay_when_the_browser_saves_it(api, stay):
+    """The browser holds the durable copy: sessions expire here and a restart
+    takes them. A bill checked on day five has to survive that."""
+    upload(api, stay)
+    snapshot = api.get(f"/api/session/{stay}/export").json()["snapshot"]
+
+    restored = api.post("/api/session/import", json={"snapshot": snapshot}).json()
+    reopened = api.get(f"/api/journey/{restored['session_id']}/bill").json()
+    assert reopened["items"]
+
+
+def test_the_questions_are_on_the_printed_page(api, stay):
+    """Read out at a counter, standing up, with the bill in the other hand."""
+    checked = upload(api, stay).json()
+    if not any(f["ask"] for f in checked["findings"]):
+        pytest.skip("this bill raised nothing to ask about")
+
+    import fitz
+
+    pdf = api.get(f"/api/session/{stay}/report.pdf").content
+    with fitz.open(stream=pdf, filetype="pdf") as document:
+        printed = " ".join(
+            " ".join(page.get_text().split()) for page in document
+        )
+    assert "What to ask at the billing counter" in printed

@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from app.core.logging import get_logger
+from app.schemas.bill import BillReview
 from app.schemas.journey import JourneyState
 from app.schemas.match import MatchResult
 from app.schemas.policy import NormalizedPolicy
@@ -71,6 +72,12 @@ class Session:
     into the first, because they settle in sequence against their own terms and
     a merged policy would be one that exists nowhere."""
 
+    bill_review: BillReview | None = None
+    """The final bill, read and checked. Kept on the session rather than
+    recomputed, because the document it came from is not kept: a hospital bill
+    names the patient, the treatment and the ward, and holding the page after
+    the answer has been taken off it buys nothing."""
+
     def touch(self) -> None:
         self.updated_at = datetime.now(UTC)
 
@@ -99,6 +106,10 @@ class Session:
                 "match": self.match.model_dump(mode="json") if self.match else None,
                 "journey": (
                     self.journey.model_dump(mode="json") if self.journey else None
+                ),
+                "bill_review": (
+                    self.bill_review.model_dump(mode="json")
+                    if self.bill_review else None
                 ),
             }
         )
@@ -134,6 +145,10 @@ class Session:
             journey=(
                 JourneyState.model_validate(data["journey"])
                 if data.get("journey") else None
+            ),
+            bill_review=(
+                BillReview.model_validate(data["bill_review"])
+                if data.get("bill_review") else None
             ),
         )
 

@@ -247,6 +247,19 @@ export default function App() {
     }
   }
 
+  // The final bill. Kept on the journey object rather than in its own state,
+  // because it belongs to this stay and has to travel with it when the browser
+  // saves and restores one.
+  async function handleCheckBill(file) {
+    const result = await run('bill', () => api.checkBill(sessionId, file))
+    if (result) setJourney((current) => (current ? { ...current, bill: result } : current))
+  }
+
+  async function handleDropBill() {
+    const result = await run('bill', () => api.dropBill(sessionId))
+    if (result) setJourney((current) => (current ? { ...current, bill: null } : current))
+  }
+
   // A second cover on the same admission, typed rather than uploaded: most
   // people holding two have their own document and not their employer's. The
   // results are dropped because they were costed against one policy.
@@ -601,6 +614,9 @@ export default function App() {
                 <Journey
                   journey={journey}
                   onToggleChecklist={handleToggleChecklist}
+                  onCheckBill={handleCheckBill}
+                  onDropBill={handleDropBill}
+                  billBusy={busy === 'bill'}
                   busy={busy === 'journey'}
                   sessionId={sessionId}
                   onAdvance={journeyAction((stage, opts) =>

@@ -134,6 +134,18 @@ export const api = {
 
   filePreauth: (sessionId) =>
     request(`/api/journey/${sessionId}/preauth`, { method: 'POST' }),
+
+  // The final bill, read and checked. Multipart because it is nearly always a
+  // photograph: the bill is handed over on paper at a counter, and the moment
+  // to check it is while the person who can correct it is still standing there.
+  checkBill(sessionId, file) {
+    const form = new FormData()
+    form.append('file', file)
+    return request(`/api/journey/${sessionId}/bill`, { method: 'POST', body: form })
+  },
+  bill: (sessionId) => request(`/api/journey/${sessionId}/bill`),
+  dropBill: (sessionId) =>
+    request(`/api/journey/${sessionId}/bill`, { method: 'DELETE' }),
 }
 
 // Subscribes to the pipeline's activity stream. Returns an unsubscribe function.
