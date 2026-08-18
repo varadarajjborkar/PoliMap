@@ -26,10 +26,19 @@ def api():
 
 
 def text_of(pdf: bytes) -> str:
+    """Everything printed, flattened onto one line.
+
+    Where a line breaks depends on which font the machine has. This page renders
+    in Georgia on a Mac and DejaVu on a Linux box, and DejaVu is wide enough to
+    fold "Items your policy never covers" onto a second line inside its column,
+    which put a newline through the middle of a label these tests look for. What
+    is being checked is that the page names a thing, not where it wraps, so the
+    text is read the way a person reads it rather than line by line.
+    """
     import fitz
 
     with fitz.open(stream=pdf, filetype="pdf") as document:
-        return "\n".join(page.get_text() for page in document)
+        return " ".join(" ".join(page.get_text().split()) for page in document)
 
 
 @pytest.fixture

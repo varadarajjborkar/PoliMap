@@ -20,10 +20,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 # tesseract-ocr-eng is a separate package from tesseract-ocr on Debian, and
 # without it recognition returns empty text rather than failing loudly.
+#
+# fonts-dejavu-core is for the printed report. The slim image ships no fonts at
+# all, so without it the page falls back to Helvetica, which has no rupee glyph,
+# and every figure on the document a family carries to a billing counter reads
+# "Rs." while the same figure on their screen reads a rupee sign.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         tesseract-ocr \
         tesseract-ocr-eng \
         libglib2.0-0 \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
