@@ -29,6 +29,7 @@ export const LANGUAGES = [
 export const LANGUAGE_CODES = LANGUAGES.map((language) => language.code)
 
 const hi = {
+  'nav.start_over': 'फिर से शुरू करें',
   'nav.setup': 'तैयारी',
   'nav.stay': 'अस्पताल में',
   'nav.back.hospitals': 'अस्पतालों पर वापस',
@@ -112,6 +113,7 @@ const hi = {
 }
 
 const kn = {
+  'nav.start_over': 'ಮತ್ತೆ ಶುರು ಮಾಡಿ',
   'nav.setup': 'ಸಿದ್ಧತೆ',
   'nav.stay': 'ಆಸ್ಪತ್ರೆಯಲ್ಲಿ',
   'nav.back.hospitals': 'ಆಸ್ಪತ್ರೆಗಳಿಗೆ ಹಿಂತಿರುಗಿ',
@@ -195,6 +197,7 @@ const kn = {
 }
 
 const mr = {
+  'nav.start_over': 'पुन्हा सुरू करा',
   'help.open': 'मदत',
   'help.title': 'मदत',
   'help.close': 'मदत बंद करा',
@@ -278,6 +281,7 @@ const mr = {
 }
 
 const te = {
+  'nav.start_over': 'మళ్లీ మొదలుపెట్టండి',
   'nav.setup': 'సిద్ధత',
   'nav.stay': 'ఆసుపత్రిలో',
   'nav.back.hospitals': 'ఆసుపత్రులకు తిరిగి',

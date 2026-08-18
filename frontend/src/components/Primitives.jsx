@@ -48,8 +48,12 @@ export function Field({ label, hint, children }) {
   )
 }
 
+// 16px on a phone, and smaller only once there is a pointer. Safari zooms the
+// whole page in when a field under 16px is focused, and then leaves it zoomed:
+// you fill one box and spend the next minute pinching the page back. It is the
+// single most irritating thing a form can do on a phone, and it is a font size.
 const controlClass =
-  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-[0.875rem] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15'
+  'w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 sm:py-2 sm:text-[0.875rem]'
 
 export function Select({ className = '', ...props }) {
   return <select className={`${controlClass} ${className}`} {...props} />

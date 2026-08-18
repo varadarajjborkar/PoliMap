@@ -758,6 +758,7 @@ function Shell({
   children, events, connected, settings, onOpenSettings,
   step, reachable, onGo, onHome, onStartOver, hasSession, user, onToggleText,
 }) {
+  const t = useT()
   const showActivity = settings.showActivity
 
   return (
@@ -791,8 +792,12 @@ function Shell({
             )}
             <span className="hidden text-[0.875rem] text-muted sm:inline">{user}</span>
             {hasSession && (
-              <Button variant="secondary" onClick={onStartOver} className="px-3 py-1.5">
-                Start over
+              <Button
+                variant="secondary"
+                onClick={onStartOver}
+                className="px-2.5 py-1.5 text-[0.8125rem] sm:px-3 sm:text-[0.875rem]"
+              >
+                {t('nav.start_over', 'Start over')}
               </Button>
             )}
             <button
@@ -829,7 +834,11 @@ function Shell({
       <div className="mx-auto flex max-w-6xl gap-5 px-4">
         {/* Runs once, when a stay is opened from the home screen: this mounts
             then and not between the steps inside it. */}
-        <main className="min-w-0 flex-1 motion-safe:animate-blur-in">{children}</main>
+        {/* The help desk floats over the bottom right corner. Without room
+            below, the last control on a page sits under it on a phone. */}
+        <main className="min-w-0 flex-1 pb-20 motion-safe:animate-blur-in sm:pb-0">
+          {children}
+        </main>
 
         {showActivity && (
           <aside className="sticky top-[var(--header-h)] hidden h-[calc(100vh-var(--header-h))] w-80 shrink-0 border-l border-line bg-surface lg:block">

@@ -185,6 +185,19 @@ html.theme-dark { color-scheme: dark; }
 /* Respect a user who has asked for less motion; this app is used under stress.
    The iteration count matters as much as the duration: a looping animation cut
    to 0.01ms without it does not stop, it strobes. */
+/* A phone is not a rectangle of usable screen. The home indicator sits over
+   the bottom of it, the browser's own chrome comes and goes as you scroll, and
+   `vh` is measured against the tallest the viewport ever gets, so anything
+   pinned to the bottom in `vh` spends half its life underneath something.
+   `dvh` follows the viewport as it actually is, and the inset keeps a control
+   off the indicator. */
+@utility pb-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
+@utility bottom-safe {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

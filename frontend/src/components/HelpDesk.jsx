@@ -118,7 +118,7 @@ function Launcher({ open, onToggle, t }) {
       onClick={onToggle}
       aria-expanded={open}
       aria-label={t('help.open', 'Help')}
-      className={`fixed bottom-4 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-brand text-on-brand shadow-lg transition hover:scale-105 active:scale-95 ${
+      className={`fixed bottom-safe right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-line bg-brand text-on-brand shadow-lg transition hover:scale-105 active:scale-95 sm:h-12 sm:w-12 ${
         open ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
@@ -139,8 +139,8 @@ function Panel({
       aria-label={t('help.title', 'Help')}
       style={style}
       className={`fixed z-30 flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl motion-safe:animate-rise
-        inset-x-3 bottom-3 max-h-[75vh]
-        sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[30rem] sm:max-h-[80vh] sm:w-[22rem]
+        inset-x-2 bottom-2 max-h-[72dvh]
+        sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[30rem] sm:max-h-[80dvh] sm:w-[22rem]
         ${dragging ? 'select-none' : ''}`}
     >
       {/* The handle is the header, which is where anybody would try first.
@@ -169,14 +169,14 @@ function Panel({
           )}
           <button
             onClick={onStartOver}
-            className="rounded px-2 py-1 text-[0.75rem] text-muted hover:bg-surface hover:text-ink"
+            className="rounded px-2.5 py-2 text-[0.75rem] text-muted hover:bg-surface hover:text-ink"
           >
             {t('help.new_chat', 'New chat')}
           </button>
           <button
             onClick={onClose}
             aria-label={t('help.close', 'Close help')}
-            className="rounded px-2 py-1 text-[0.875rem] text-muted hover:bg-surface hover:text-ink"
+            className="rounded px-2.5 py-2 text-[0.875rem] text-muted hover:bg-surface hover:text-ink"
           >
             ✕
           </button>
@@ -231,21 +231,21 @@ function Panel({
 
       <form
         onSubmit={(event) => { event.preventDefault(); onAsk(draft) }}
-        className="flex items-center gap-2 border-t border-line px-3 py-2.5"
+        className="flex items-center gap-2 border-t border-line px-3 py-2.5 pb-safe sm:pb-2.5"
       >
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           maxLength={2000}
           placeholder={t('help.placeholder', 'Ask about anything on this screen')}
-          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-[0.8125rem] outline-none focus:border-brand"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-[0.8125rem]"
         />
         <Button type="submit" disabled={!draft.trim() || asking} className="px-3 py-2">
           {t('help.send', 'Ask')}
         </Button>
       </form>
 
-      <p className="border-t border-line px-3 py-2 text-[0.6875rem] leading-relaxed text-muted">
+      <p className="hidden border-t border-line px-3 py-2 text-[0.6875rem] leading-relaxed text-muted sm:block">
         {t(
           'help.footer',
           'Guidance only, never medical advice, and it cannot change anything '
@@ -307,7 +307,7 @@ function TicketForm({ t, onCancel, onFile }) {
       <select
         value={kind}
         onChange={(event) => setKind(event.target.value)}
-        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[0.8125rem]"
+        className="w-full rounded-lg border border-line bg-surface px-2 py-2 text-base sm:py-1.5 sm:text-[0.8125rem]"
       >
         {KINDS.map(([value, label]) => (
           <option key={value} value={value}>{label}</option>
@@ -318,7 +318,7 @@ function TicketForm({ t, onCancel, onFile }) {
         onChange={(event) => setSubject(event.target.value)}
         maxLength={200}
         placeholder={t('help.ticket_subject', 'In one line')}
-        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[0.8125rem]"
+        className="w-full rounded-lg border border-line bg-surface px-2 py-2 text-base sm:py-1.5 sm:text-[0.8125rem]"
       />
       <textarea
         value={detail}
@@ -326,7 +326,7 @@ function TicketForm({ t, onCancel, onFile }) {
         maxLength={4000}
         rows={3}
         placeholder={t('help.ticket_detail', 'Anything else worth knowing')}
-        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[0.8125rem]"
+        className="w-full rounded-lg border border-line bg-surface px-2 py-2 text-base sm:py-1.5 sm:text-[0.8125rem]"
       />
       <div className="flex gap-2">
         <Button type="submit" disabled={!subject.trim() || busy} className="px-3 py-1.5">
