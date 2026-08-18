@@ -187,6 +187,15 @@ export default function App() {
     if (result) setPolicy(result)
   }
 
+  // Deliberately not wrapped in `run`: the field reports its own error inline,
+  // next to the value being corrected, rather than in the page-level banner
+  // where it would be far from what it refers to.
+  async function handleEditField(field, value) {
+    const result = await api.editField(sessionId, field, value)
+    setPolicy(result)
+    return result
+  }
+
   async function handleSkip(questionId) {
     const result = await run('answer', () =>
       api.skipQuestion(sessionId, questionId))
@@ -379,6 +388,7 @@ export default function App() {
                   policy={policy}
                   onAnswer={handleAnswer}
                   onSkip={handleSkip}
+                  onEditField={handleEditField}
                   onContinue={() => navigate(stayPath(stayId, 'search'))}
                   answering={busy === 'answer'}
                 />

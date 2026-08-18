@@ -58,6 +58,13 @@ export const api = {
   // still says where it is unsure. What stops is the asking.
   skipQuestion: (sessionId, questionId) =>
     request(`/api/policy/${sessionId}/skip`, json({ question_id: questionId })),
+  // Correcting a figure the system read wrong. Everything downstream is
+  // computed from these few numbers, so one misread digit poisons the lot.
+  editField: (sessionId, field, value) =>
+    request(`/api/policy/${sessionId}/field`, {
+      ...json({ field, value }),
+      method: 'PATCH',
+    }),
 
   search: (sessionId, payload) => request(`/api/search/${sessionId}`, json(payload)),
 

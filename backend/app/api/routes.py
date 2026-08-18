@@ -28,6 +28,12 @@ from app.core.logging import get_logger
 from app.journey import position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes
 from app.pipeline.s4_compile.compiler import apply_answer, skip_question
+from app.pipeline.s4_compile.edit import (
+    EDITABLE,
+    NotEditable,
+    Unreadable,
+    edit_field,
+)
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
@@ -209,6 +215,9 @@ def _policy_payload(session: Session) -> dict[str, Any]:
             scheme_rules.label if scheme_rules else ""
         ),
         "scheme_note": scheme_rules.note if scheme_rules else "",
+        # Which figures the user may correct. Sent rather than hardcoded in the
+        # interface so the two cannot disagree about what is writable.
+        "editable_fields": sorted(EDITABLE),
         "restore_benefit": policy.restore_benefit,
         "pre_hospitalisation_days": policy.pre_hospitalisation_days,
         "post_hospitalisation_days": policy.post_hospitalisation_days,
@@ -388,6 +397,44 @@ def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
         __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
         "user_answer", session_id=session_id,
         summary=f"You confirmed: {payload.answer}",
+    )
+    return _policy_payload(session)
+
+
+class FieldEdit(BaseModel):
+    field: str
+    value: Any
+
+
+@router.patch("/policy/{session_id}/field")
+def correct_field(session_id: str, payload: FieldEdit) -> dict[str, Any]:
+    """Correct a figure the system read wrong.
+
+    Machines misread documents, and when they do the user is looking straight
+    at the mistake next to the figure they know to be right. Everything
+    downstream is computed from these few numbers, so one misread digit poisons
+    every estimate after it while the user watches.
+
+    The value goes through the same interpreter the clarification answers use,
+    so "5 lakh" is as acceptable here as 500000.
+    """
+    session = _session(session_id)
+    if session.policy is None:
+        raise HTTPException(400, "No policy on this session yet.")
+
+    try:
+        session.policy = edit_field(session.policy, payload.field, payload.value)
+    except NotEditable:
+        raise HTTPException(400, "That is not a field you can change.") from None
+    except Unreadable as exc:
+        raise HTTPException(400, str(exc)) from None
+
+    sessions.save(session)
+    bus.publish(
+        __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
+        "user_correction", session_id=session_id,
+        summary=f"You corrected {payload.field.replace('_', ' ')}",
+        field=payload.field,
     )
     return _policy_payload(session)
 

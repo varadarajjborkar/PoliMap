@@ -54,7 +54,7 @@ function SchemeFacts({ policy }) {
   )
 }
 
-export function PolicySummary({ policy, onAnswer, onSkip, onContinue, answering }) {
+export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinue, answering }) {
   const question = policy.questions?.[0]
 
   return (
@@ -101,11 +101,19 @@ export function PolicySummary({ policy, onAnswer, onSkip, onContinue, answering 
             <Fact
               label="Total cover this year"
               value={policy.sum_insured_display}
+              field="sum_insured"
+              current={policy.sum_insured}
+              hint="However it appears on your policy, e.g. 5 lakh or 500000"
+              onEdit={onEditField}
               emphasis
             />
             <Fact
               label="Room you are covered for"
               value={policy.room_limit.description}
+              field="room_limit"
+              current={policy.room_limit.daily_cap ?? ''}
+              hint="A daily amount, a percentage like 1%, a room type, or 'no limit'"
+              onEdit={onEditField}
               note={
                 policy.room_limit.daily_cap
                   ? 'A costlier room also reduces what your insurer pays on surgeon, theatre and nursing charges.'
@@ -115,15 +123,29 @@ export function PolicySummary({ policy, onAnswer, onSkip, onContinue, answering 
             <Fact
               label="Your share of every claim"
               value={policy.copay_pct > 0 ? `${policy.copay_pct}%` : 'None'}
+              field="copay_pct"
+              current={policy.copay_pct}
+              hint="A percentage, e.g. 10. Enter 0 if you have none."
+              onEdit={onEditField}
             />
             <Fact label="ICU cover" value={policy.icu_limit} />
-            {policy.deductible > 0 && (
-              <Fact
-                label="You pay first"
-                value={`₹${policy.deductible.toLocaleString('en-IN')}`}
-                note="This is a top-up policy. It pays only above this amount."
-              />
-            )}
+            <Fact
+              label="You pay first"
+              value={
+                policy.deductible > 0
+                  ? `₹${policy.deductible.toLocaleString('en-IN')}`
+                  : 'Nothing'
+              }
+              field="deductible"
+              current={policy.deductible}
+              hint="Only top-up policies have this. Enter 0 if yours does not."
+              onEdit={onEditField}
+              note={
+                policy.deductible > 0
+                  ? 'This is a top-up policy. It pays only above this amount.'
+                  : null
+              }
+            />
             <Fact
               label="Consumables"
               value={policy.covers_consumables ? 'Covered' : 'Not covered'}
@@ -188,15 +210,111 @@ function ConfidenceBadge({ policy }) {
   return <Badge tone="good">Read cleanly</Badge>
 }
 
-function Fact({ label, value, note, emphasis }) {
+// One read figure, with a way to correct it.
+//
+// Machines misread documents, and when they do the user is looking straight at
+// the mistake, next to the figure they know to be right. Everything downstream
+// is computed from these few numbers, so a misread digit poisons every estimate
+// after it while the user watches and cannot do anything.
+//
+// The control sits at the right edge of the box it changes, and the box accepts
+// what the document says rather than only digits: "5 lakh" and "1% of my cover"
+// both work, through the same reader the questions use.
+function Fact({ label, value, note, emphasis, field, current, onEdit, hint }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const editable = Boolean(field && onEdit)
+
+  function open() {
+    setDraft(current != null ? String(current) : '')
+    setError('')
+    setEditing(true)
+  }
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      await onEdit(field, draft)
+      setEditing(false)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="bg-surface px-5 py-4">
-      <div className="text-[0.8125rem] text-muted">{label}</div>
-      <div className={`mt-1 font-semibold ${emphasis ? 'text-[1.375rem]' : 'text-[0.9375rem]'}`}>
-        {value}
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[0.8125rem] text-muted">{label}</div>
+        {editable && !editing && (
+          <button
+            onClick={open}
+            aria-label={`Correct ${label.toLowerCase()}`}
+            title="Correct this"
+            className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-muted transition hover:bg-canvas hover:text-brand"
+          >
+            <PencilIcon />
+          </button>
+        )}
       </div>
-      {note && <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">{note}</p>}
+
+      {editing ? (
+        <div className="mt-2 motion-safe:animate-fade">
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save()
+              if (e.key === 'Escape') setEditing(false)
+            }}
+            placeholder={hint}
+          />
+          {hint && (
+            <p className="mt-1 text-[0.75rem] leading-relaxed text-muted">{hint}</p>
+          )}
+          {error && <p className="mt-1 text-[0.75rem] text-danger">{error}</p>}
+          <div className="mt-2 flex gap-2">
+            <Button disabled={saving} onClick={save} className="px-3 py-1.5">
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={saving}
+              onClick={() => setEditing(false)}
+              className="px-3 py-1.5"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={`mt-1 font-semibold ${emphasis ? 'text-[1.375rem]' : 'text-[0.9375rem]'}`}>
+            {value}
+          </div>
+          {note && <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">{note}</p>}
+        </>
+      )}
     </div>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   )
 }
 
