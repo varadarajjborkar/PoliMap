@@ -44,8 +44,14 @@ export function parse(pathname) {
     return { view: 'stay', stayId: parts[1], step: step.id }
   }
   if (parts[0] === 'new') return { view: 'stay', stayId: null, step: 'upload' }
+  // Signing in is a screen, so it is an address. It used to be neither: it
+  // appeared whenever there was no name, whatever the address bar said, so
+  // pressing back moved the URL and left the screen alone.
+  if (parts[0] === 'signin') return { view: 'signin', stayId: null, step: null }
   return { view: 'home', stayId: null, step: null }
 }
+
+export const SIGNIN_PATH = '/signin'
 
 export function useRoute() {
   const [location, setLocation] = useState(() => parse(window.location.pathname))

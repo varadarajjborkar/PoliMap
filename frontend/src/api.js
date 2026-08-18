@@ -9,6 +9,12 @@ const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
 
 export const apiUrl = (path) => `${BASE}${path}`
 
+// Which API this build is talking to. Worth being able to see: a deployed
+// frontend pointed at the wrong origin fails in ways that look like the API
+// being down, and the value is fixed at build time so nothing on the running
+// page reveals it otherwise.
+export const apiOrigin = BASE || window.location.origin
+
 async function request(path, options = {}) {
   const response = await fetch(apiUrl(path), options)
   if (!response.ok) {

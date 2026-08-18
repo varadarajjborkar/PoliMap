@@ -12,7 +12,7 @@ import { Button, ErrorNote, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
 import {
-  SETUP_STEPS, TRACK_STEP, stayPath, useRoute,
+  SETUP_STEPS, SIGNIN_PATH, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
 import { translator } from './lib/i18n'
 import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
@@ -146,6 +146,21 @@ export default function App() {
       }))
     }
   }, [])
+
+  // The address bar and the screen cannot be allowed to disagree.
+  //
+  // Signing out from a stay used to leave that stay's address in history with
+  // the sign-in screen drawn over it, so pressing back changed the URL and
+  // nothing else: the link was there and led nowhere. Both corrections replace
+  // rather than push, because a page you are not allowed to see does not
+  // belong in the history of a device somebody else may pick up.
+  useEffect(() => {
+    if (!user && view !== 'signin') {
+      navigate(SIGNIN_PATH, { replace: true })
+    } else if (user && view === 'signin') {
+      navigate('/', { replace: true })
+    }
+  }, [user, view, navigate])
 
   // Opening a stay from a link, a reload, or the home screen all arrive here.
   useEffect(() => {
@@ -377,14 +392,14 @@ export default function App() {
     writeUser(name)
     setUser(name)
     setStays(listStays(name))
-    navigate('/')
+    navigate('/', { replace: true })
   }
 
   function switchUser() {
     clearUser()
     setUser('')
     resetWorkingState()
-    navigate('/')
+    navigate(SIGNIN_PATH, { replace: true })
   }
 
   function resetWorkingState() {
@@ -447,6 +462,9 @@ export default function App() {
   // provider sits below this point in the tree. It builds its own translator.
   const t = translator(settings.language)
 
+  // The name decides the screen and the address follows it, not the other way
+  // round: reading the route here would flash the sign-in screen for a frame
+  // whenever somebody arrives at /signin already signed in.
   if (!user) {
     return (
       <LanguageContext.Provider value={settings.language}>
@@ -493,6 +511,27 @@ export default function App() {
   const chosenTreatment = reference?.procedures
     ?.find((p) => p.code === search.procedure_code)?.name
 
+  // What has been settled so far. Built here rather than inside the rail,
+  // because the layout has to know whether there is anything to show before it
+  // decides how wide the page is.
+  const settled = [
+    policy && {
+      label: 'Your cover',
+      value: policy.sum_insured_display,
+      onChange: () => goToSection('policy'),
+      changeLabel: 'Check what we read',
+    },
+    policy && {
+      label: 'Room you are covered for',
+      value: policy.room_limit?.description,
+    },
+    chosenTreatment && { label: 'Treatment', value: chosenTreatment },
+    results?.options?.length && {
+      label: 'Cheapest for you',
+      value: `${results.options[0].hospital.name} · ${results.options[0].you_pay_display}`,
+    },
+  ].filter(Boolean)
+
   const shell = {
     events, connected, settings,
     onOpenSettings: () => setSettingsOpen(true),
@@ -528,30 +567,7 @@ export default function App() {
               reached={reached}
               jump={jump}
               onStepInView={markStepInView}
-              rail={
-                <SettledRail
-                  items={[
-                    policy && {
-                      label: 'Your cover',
-                      value: policy.sum_insured_display,
-                      onChange: () => goToSection('policy'),
-                      changeLabel: 'Check what we read',
-                    },
-                    policy && {
-                      label: 'Room you are covered for',
-                      value: policy.room_limit?.description,
-                    },
-                    chosenTreatment && {
-                      label: 'Treatment',
-                      value: chosenTreatment,
-                    },
-                    results?.options?.length && {
-                      label: 'Cheapest for you',
-                      value: `${results.options[0].hospital.name} · ${results.options[0].you_pay_display}`,
-                    },
-                  ]}
-                />
-              }
+              rail={settled.length > 0 ? <SettledRail items={settled} /> : null}
               sections={{
                 upload: (
                   <UploadStep

@@ -27,6 +27,13 @@ export function SetupFlow({
   const lastScrolled = useRef(null)
   const settling = useRef(false)
 
+  // Once there has been something to show, the column keeps its place. A rail
+  // that came and went as you scrolled would move the thing you are reading
+  // out from under you, which is worse than either position on its own.
+  const everSettled = useRef(false)
+  if (rail) everSettled.current = true
+  const showRail = Boolean(rail) || everSettled.current
+
   const scrollTo = useCallback((id, { smooth = true } = {}) => {
     const node = refs.current[id]
     if (!node) return
@@ -116,10 +123,16 @@ export function SetupFlow({
         <div aria-hidden="true" className="h-[40vh]" />
       </div>
 
-      {rail && (
+      {showRail ? (
         <aside className="sticky top-[calc(var(--header-h)+1.5rem)] hidden h-fit w-64 shrink-0 lg:block">
           {rail}
         </aside>
+      ) : (
+        /* Nothing settled yet, so nothing to put here. The thread on the left
+           is still 11rem wide, and without something matching it on the right
+           the work sits off centre. This is that something: it holds the
+           column in the middle of the page until there is a reason not to. */
+        <div aria-hidden="true" className="hidden w-44 shrink-0 lg:block" />
       )}
     </div>
   )

@@ -25,5 +25,12 @@ export function useScreenExit(ms = 240) {
     timer.current = window.setTimeout(then, ms)
   }, [ms])
 
-  return { leaving, leave }
+  // For anything that comes back: a drawer closed once is still holding
+  // `leaving`, and would open mid-way through its own exit.
+  const reset = useCallback(() => {
+    window.clearTimeout(timer.current)
+    setLeaving(false)
+  }, [])
+
+  return { leaving, leave, reset }
 }

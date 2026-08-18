@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { useCallback, useEffect, useState } from 'react'
+import { api, apiOrigin } from '../api'
 import { useDialog } from '../hooks/useDialog'
+import { useScreenExit } from '../hooks/useScreenExit'
 import { useT } from '../hooks/useLanguage'
 import { LANGUAGES } from '../lib/i18n'
 import { Badge, Button, Toggle } from './Primitives'
@@ -27,6 +28,13 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
   const [confirmForget, setConfirmForget] = useState(false)
   const t = useT()
 
+  // The drawer has to still be on screen to animate off it, so closing is held
+  // for exactly as long as the slide lasts and it unmounts after. Every way out
+  // goes through `close`: the backdrop, the header, and the escape key.
+  const { leaving, leave, reset: resetExit } = useScreenExit(200)
+  const close = useCallback(() => leave(onClose), [leave, onClose])
+  const panel = useDialog(open, close)
+
   // Probed when the panel opens rather than on load, so the page does not pay
   // for diagnostics nobody asked to see.
   useEffect(() => {
@@ -34,11 +42,12 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
       setConfirmForget(false)
       return
     }
+    // A drawer closed once is still holding the state that closed it, and
+    // would open part-way through its own exit.
+    resetExit()
     api.health().then(setHealth).catch(() => setHealth(null))
     api.providers().then(setProviders).catch(() => setProviders(null))
-  }, [open])
-
-  const panel = useDialog(open, onClose)
+  }, [open, resetExit])
 
   if (!open) return null
 
@@ -46,8 +55,10 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
     <div className="fixed inset-0 z-40">
       <button
         aria-label="Close settings"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/25"
+        onClick={close}
+        className={`absolute inset-0 bg-ink/25 ${
+          leaving ? 'motion-safe:animate-dim-out' : 'motion-safe:animate-fade'
+        }`}
       />
 
       <aside
@@ -56,12 +67,14 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
-        className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl outline-none"
+        className={`absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl outline-none ${
+          leaving ? 'motion-safe:animate-slide-out' : 'motion-safe:animate-slide-in'
+        }`}
       >
         <header className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-[0.9375rem] font-semibold tracking-tight">Settings</h2>
           <button
-            onClick={onClose}
+            onClick={close}
             aria-label="Close settings"
             className="rounded-lg px-2 py-1 text-[0.875rem] text-muted hover:bg-canvas hover:text-ink"
           >
@@ -167,6 +180,11 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
                   <Badge tone="bad">unreachable</Badge>
                 )}
               </Row>
+              <Row label="API address">
+                <span className="max-w-[60%] truncate font-mono text-[0.75rem] text-muted">
+                  {apiOrigin}
+                </span>
+              </Row>
               {health && (
                 <>
                   <Row label="Hospital data">
@@ -198,6 +216,10 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
             {providers && (
               <div className="border-t border-line pt-3">
                 <p className="text-[0.8125rem] font-medium text-muted">Models in use</p>
+                <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
+                  Resolved by probing at boot, so this is what is actually
+                  serving each role rather than what was asked for.
+                </p>
                 {providers.llm_available ? (
                   <div className="mt-1.5 space-y-1">
                     {Object.entries(providers.roles ?? {}).map(([role, model]) => (
@@ -214,6 +236,38 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
                     rule-based extractor alone, which is a supported mode and
                     not an error.
                   </p>
+                )}
+
+                {providers.providers_configured?.length > 0 && (
+                  <Row label="Providers">
+                    <span className="font-mono text-[0.75rem] text-muted">
+                      {providers.providers_configured.join(', ')}
+                    </span>
+                  </Row>
+                )}
+
+                {/* A role that had to fall down its chain still works, and
+                    saying which one did is the difference between "slower than
+                    usual" and a mystery. */}
+                {providers.degraded_roles?.length > 0 && (
+                  <Row label="Fell back">
+                    <span className="text-[0.75rem] text-warn">
+                      {providers.degraded_roles
+                        .map((role) => ROLE_LABELS[role] ?? role)
+                        .join(', ')}
+                    </span>
+                  </Row>
+                )}
+
+                {providers.cache?.enabled && (
+                  <Row label="Model cache">
+                    <span className="tabular-nums text-[0.75rem] text-muted">
+                      {providers.cache.stored} stored
+                      {providers.cache.hit_rate !== null &&
+                        providers.cache.hit_rate !== undefined &&
+                        `, ${Math.round(providers.cache.hit_rate * 100)}% hit rate`}
+                    </span>
+                  </Row>
                 )}
               </div>
             )}

@@ -111,6 +111,22 @@ html.theme-dark { color-scheme: dark; }
   to   { opacity: 1; filter: blur(0); transform: none; }
 }
 
+/* The settings drawer, and the ground it darkens. It comes from the edge it
+   lives on rather than fading in place, so where it came from and where it
+   goes back to are the same thing. */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes slide-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(100%); }
+}
+@keyframes dim-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 /* A number that has just changed, pulsed once. Used on running totals, where
    the whole point is that the figure moved. */
 @keyframes settle {
@@ -154,6 +170,16 @@ html.theme-dark { color-scheme: dark; }
 }
 @utility animate-blur-out {
   animation: blur-out 0.24s ease-in both;
+}
+
+@utility animate-slide-in {
+  animation: slide-in 0.26s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@utility animate-slide-out {
+  animation: slide-out 0.2s ease-in both;
+}
+@utility animate-dim-out {
+  animation: dim-out 0.2s ease-in both;
 }
 
 /* Respect a user who has asked for less motion; this app is used under stress.
