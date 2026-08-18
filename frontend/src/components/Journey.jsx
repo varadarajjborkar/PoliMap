@@ -9,14 +9,16 @@ import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primiti
 // Stages are administrative, never clinical. Nothing here records or reasons
 // about a diagnosis, and no prompt suggests a course of treatment.
 
+// Four, and the server agrees: `journey.stages` carries the same list. Written
+// out here so the bar renders before the first response arrives.
+//
+// It was eight. Tests, the operation and recovery are clinically distinct and
+// insurance-identical, so moving the marker three times told the system nothing
+// and told the user less, and eight chips do not fit across a phone.
 const STAGES = [
-  ['pre_admission', 'Choosing a hospital'],
-  ['admitted', 'Admitted'],
-  ['investigation', 'Tests and scans'],
-  ['pre_auth', 'Insurance approval'],
-  ['procedure', 'Treatment'],
-  ['recovery', 'Recovery'],
-  ['discharge_planning', 'Planning discharge'],
+  ['pre_admission', 'Before admission'],
+  ['admitted', 'In hospital'],
+  ['discharge_planning', 'Going home'],
   ['settled', 'Claim settled'],
 ]
 
@@ -49,25 +51,36 @@ export function Journey({
         />
 
         <div className="px-5 py-4">
-          <ol className="flex flex-wrap gap-1">
+          <ol className="flex items-start">
             {STAGES.map(([value, label], index) => {
               const done = index < currentIndex
               const current = index === currentIndex
               return (
-                <li key={value} className="flex items-center gap-1">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[0.75rem] ${
-                      current
-                        ? 'bg-brand text-on-brand font-medium'
-                        : done
-                          ? 'bg-brand-soft text-brand'
-                          : 'bg-canvas text-muted'
-                    }`}
-                  >
-                    {label}
-                  </span>
+                <li key={value} className="flex flex-1 items-start last:flex-none">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span
+                      className={`flex h-4 w-4 items-center justify-center rounded-full border text-[0.5rem] leading-none transition ${
+                        done
+                          ? 'border-brand bg-brand text-on-brand'
+                          : current
+                            ? 'border-brand bg-surface ring-4 ring-brand/15'
+                            : 'border-line bg-surface'
+                      }`}
+                    >
+                      {done ? '✓' : ''}
+                    </span>
+                    <span
+                      className={`max-w-[6.5rem] text-center text-[0.6875rem] leading-tight ${
+                        current ? 'font-semibold text-ink' : 'text-muted'
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </div>
                   {index < STAGES.length - 1 && (
-                    <span className="text-[0.6875rem] text-line">→</span>
+                    <span
+                      className={`mt-2 h-px flex-1 ${done ? 'bg-brand/40' : 'bg-line'}`}
+                    />
                   )}
                 </li>
               )

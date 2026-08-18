@@ -330,9 +330,16 @@ def _outstanding(story: list, session) -> None:
     if journey is None or policy is None:
         return
 
+    from app.api.session import datasets
     from app.journey import checklist
 
-    items = [i for i in checklist.items_for(journey, policy) if not i.done]
+    items = [
+        i for i in checklist.items_for(
+            journey, policy,
+            procedure=datasets.procedures.get(journey.procedure_code or ""),
+        )
+        if not i.done
+    ]
     if not items:
         return
 

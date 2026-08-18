@@ -1076,7 +1076,10 @@ def _checklist_payload(session: Session) -> dict[str, Any]:
         if hospital and session.insurer_id else True
     )
     settlement = position.settlement_mode(policy, is_network=is_network)
-    items = checklist.items_for(state, policy, settlement=settlement)
+    items = checklist.items_for(
+        state, policy, settlement=settlement,
+        procedure=datasets.procedures.get(state.procedure_code or ""),
+    )
     done, total = checklist.progress(items)
     return {
         "done": done,

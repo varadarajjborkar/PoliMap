@@ -26,6 +26,7 @@ from datetime import timedelta
 from app.schemas.journey import JourneyStage, JourneyState
 from app.schemas.money import format_inr
 from app.schemas.policy import ExpenseHead, NormalizedPolicy
+from app.schemas.procedure import Procedure
 from app.schemas.simulation import SettlementMode
 
 
@@ -48,10 +49,11 @@ def items_for(
     policy: NormalizedPolicy,
     *,
     settlement: SettlementMode | None = None,
+    procedure: Procedure | None = None,
 ) -> list[ChecklistItem]:
     """The list for where this admission has got to."""
     builder = _BUILDERS.get(state.stage)
-    items = builder(state, policy, settlement) if builder else []
+    items = builder(state, policy, settlement, procedure) if builder else []
 
     done = set(state.checklist_done)
     for item in items:
@@ -69,7 +71,10 @@ def progress(items: list[ChecklistItem]) -> tuple[int, int]:
 
 
 def _pre_admission(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
+    state: JourneyState,
+    policy: NormalizedPolicy,
+    settlement: SettlementMode | None,
+    procedure: Procedure | None,
 ) -> list[ChecklistItem]:
     items = [
         ChecklistItem(
@@ -120,8 +125,20 @@ def _pre_admission(
 
 
 def _admitted(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
+    state: JourneyState,
+    policy: NormalizedPolicy,
+    settlement: SettlementMode | None,
+    procedure: Procedure | None,
 ) -> list[ChecklistItem]:
+    """One list for the whole admission.
+
+    Tests, the operation and recovery used to be three stages with a list each,
+    which meant an item was hidden until somebody moved a marker, and the marker
+    told the system nothing it did not already know. Every one of these is live
+    from admission to discharge, so they are all shown, and the ones that do not
+    apply are absent on the facts rather than on the stage: an implant invoice
+    is asked for when the treatment uses an implant, not when a stage is tapped.
+    """
     items = [
         ChecklistItem(
             "check_room_rate",
@@ -133,35 +150,39 @@ def _admitted(
         ),
         ChecklistItem(
             "keep_receipts",
-            "Start keeping every receipt, including the pharmacy counter ones",
+            "Keep every receipt, including the pharmacy counter ones",
             "Reimbursement is refused for anything without an original bill.",
         ),
-    ]
-
-    cap = _room_cap(policy)
-    if cap and state.room_rate_per_day:
-        items.append(ChecklistItem(
-            "room_within_cap",
-            f"Confirm the room you are in bills at or under {cap} a day",
-            f"You were admitted at {format_inr(state.room_rate_per_day)}. "
-            f"Moving room is easiest on the first day and hardest on the last.",
+        ChecklistItem(
+            "daily_bill",
+            "Ask for an interim bill every day, and read it",
+            "A charge queried on the day it appears is corrected. The same "
+            "charge queried at discharge is defended.",
             urgent=True,
-        ))
-
-    return items
-
-
-def _investigation(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
-) -> list[ChecklistItem]:
-    items = [
+        ),
         ChecklistItem(
             "ask_cost_first",
             "Ask what each scan or test costs before agreeing to it",
             "Investigations are where a bill grows fastest and where a "
             "sub-limit is most often crossed without anybody saying so.",
         ),
+        ChecklistItem(
+            "watch_the_room",
+            "Ask before any move to a different room or to ICU",
+            "A change of room changes the daily rate, and with it the share "
+            "your insurer pays on everything room-linked.",
+        ),
     ]
+
+    cap = _room_cap(policy)
+    if cap and state.room_rate_per_day:
+        items.insert(1, ChecklistItem(
+            "room_within_cap",
+            f"Confirm the room you are in bills at or under {cap} a day",
+            f"You were admitted at {format_inr(state.room_rate_per_day)}. "
+            f"Moving room is easiest on the first day and hardest on the last.",
+            urgent=True,
+        ))
 
     limit = policy.sublimit_for(ExpenseHead.INVESTIGATIONS)
     if limit and limit.amount:
@@ -177,54 +198,15 @@ def _investigation(
             urgent=True,
         ))
 
-    return items
-
-
-def _pre_auth(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
-) -> list[ChecklistItem]:
-    return [
-        ChecklistItem(
-            "chase_preauth",
-            "Chase the approval, by name, at the hospital insurance desk",
-            "A request sitting unread is the commonest reason a cashless "
-            "admission turns into a cash one.",
-            urgent=True,
-        ),
-        ChecklistItem(
-            "read_approved_amount",
-            "Ask what amount was approved, not just whether it was approved",
-            "Insurers frequently approve less than the estimate. The gap is "
-            "yours, and it is better known now than at discharge.",
-            urgent=True,
-        ),
-        ChecklistItem(
-            "keep_approval",
-            "Keep a photograph of the approval letter",
-            "It is the document that settles an argument at the billing "
-            "counter five days from now.",
-        ),
-    ]
-
-
-def _procedure(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
-) -> list[ChecklistItem]:
-    items = [
-        ChecklistItem(
+    if procedure is not None and procedure.requires_implant:
+        items.append(ChecklistItem(
             "implant_invoice",
             "Ask for the implant or device invoice and its sticker",
             "Implants are claimed separately and are refused without the "
             "manufacturer's invoice. There is no way to obtain it later.",
             urgent=True,
-        ),
-        ChecklistItem(
-            "consent_costs",
-            "Ask whether anything on the consent form is billed separately",
-            "Surgeon, anaesthetist and theatre are often three bills, and only "
-            "the first is quoted.",
-        ),
-    ]
+        ))
+
     if not policy.covers_consumables:
         items.append(ChecklistItem(
             "consumables_running",
@@ -232,31 +214,26 @@ def _procedure(
             "You are paying for these, so an itemised list is the only way to "
             "check the count at discharge.",
         ))
+
+    if not state.pre_auth_filed:
+        items.insert(0, ChecklistItem(
+            "chase_preauth",
+            "Chase the pre-authorisation, by name, at the hospital insurance desk",
+            "A request sitting unread is the commonest reason a cashless "
+            "admission turns into a cash one. Ask what amount was approved, "
+            "not only whether it was: insurers frequently approve less than "
+            "the estimate, and the gap is yours.",
+            urgent=True,
+        ))
+
     return items
 
 
-def _recovery(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
-) -> list[ChecklistItem]:
-    return [
-        ChecklistItem(
-            "daily_bill",
-            "Ask for an interim bill every day, and read it",
-            "A charge queried on the day it appears is corrected. The same "
-            "charge queried at discharge is defended.",
-            urgent=True,
-        ),
-        ChecklistItem(
-            "watch_the_room",
-            "Ask before any move to a different room or to ICU",
-            "A change of room changes the daily rate, and with it the share "
-            "your insurer pays on everything room-linked.",
-        ),
-    ]
-
-
 def _discharge_planning(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
+    state: JourneyState,
+    policy: NormalizedPolicy,
+    settlement: SettlementMode | None,
+    procedure: Procedure | None,
 ) -> list[ChecklistItem]:
     """The list that decides whether the claim is paid.
 
@@ -345,7 +322,10 @@ def _discharge_planning(
 
 
 def _settled(
-    state: JourneyState, policy: NormalizedPolicy, settlement: SettlementMode | None
+    state: JourneyState,
+    policy: NormalizedPolicy,
+    settlement: SettlementMode | None,
+    procedure: Procedure | None,
 ) -> list[ChecklistItem]:
     return [
         ChecklistItem(
@@ -372,10 +352,6 @@ def _settled(
 _BUILDERS = {
     JourneyStage.PRE_ADMISSION: _pre_admission,
     JourneyStage.ADMITTED: _admitted,
-    JourneyStage.INVESTIGATION: _investigation,
-    JourneyStage.PRE_AUTH: _pre_auth,
-    JourneyStage.PROCEDURE: _procedure,
-    JourneyStage.RECOVERY: _recovery,
     JourneyStage.DISCHARGE_PLANNING: _discharge_planning,
     JourneyStage.SETTLED: _settled,
 }

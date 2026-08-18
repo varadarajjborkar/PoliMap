@@ -122,32 +122,31 @@ def test_a_forward_skip_is_refused_until_confirmed():
 
 def test_the_refusal_names_the_stages_being_skipped():
     state = start()
-    with pytest.raises(tracker.TransitionError, match="admitted"):
+    with pytest.raises(tracker.TransitionError, match="in hospital, going home"):
         tracker.advance(state, JourneyStage.SETTLED, make_policy())
 
 
 def test_a_confirmed_skip_goes_through():
     """Real admissions do not follow the diagram, so this must be possible."""
     state = start()
-    tracker.advance(state, JourneyStage.RECOVERY, make_policy(), force=True)
-    assert state.stage is JourneyStage.RECOVERY
+    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, make_policy(), force=True)
+    assert state.stage is JourneyStage.DISCHARGE_PLANNING
 
 
 def test_a_skip_records_what_was_passed_over():
     state = start()
-    tracker.advance(state, JourneyStage.RECOVERY, make_policy(), force=True)
+    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, make_policy(), force=True)
 
     event = state.timeline[-1]
     assert event.kind is TransitionKind.SKIP
     assert JourneyStage.ADMITTED in event.skipped
-    assert JourneyStage.PROCEDURE in event.skipped
-    assert JourneyStage.RECOVERY not in event.skipped
+    assert JourneyStage.DISCHARGE_PLANNING not in event.skipped
 
 
 def test_a_skip_reason_is_kept_when_given():
     state = start()
     tracker.advance(
-        state, JourneyStage.PROCEDURE, make_policy(),
+        state, JourneyStage.DISCHARGE_PLANNING, make_policy(),
         force=True, reason="Admitted through emergency, no time for pre-auth.",
     )
     assert "emergency" in state.timeline[-1].reason
@@ -155,7 +154,7 @@ def test_a_skip_reason_is_kept_when_given():
 
 def test_a_skip_reason_is_never_required():
     state = start()
-    tracker.advance(state, JourneyStage.PROCEDURE, make_policy(), force=True)
+    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, make_policy(), force=True)
     assert state.timeline[-1].reason == ""
 
 
@@ -164,7 +163,7 @@ def test_going_back_is_always_allowed():
     policy = make_policy()
     state = start(policy)
     tracker.advance(state, JourneyStage.ADMITTED, policy)
-    tracker.advance(state, JourneyStage.PROCEDURE, policy, force=True)
+    tracker.advance(state, JourneyStage.SETTLED, policy, force=True)
 
     tracker.advance(state, JourneyStage.ADMITTED, policy)
 
@@ -195,15 +194,16 @@ def test_the_next_stage_in_sequence_is_the_one_after_it():
     from app.api.routes import _natural_next
 
     assert _natural_next(JourneyStage.PRE_ADMISSION) == "admitted"
-    assert _natural_next(JourneyStage.ADMITTED) == "investigation"
-    assert _natural_next(JourneyStage.INVESTIGATION) == "pre_auth"
-    assert _natural_next(JourneyStage.PRE_AUTH) == "procedure"
+    assert _natural_next(JourneyStage.ADMITTED) == "discharge_planning"
+    assert _natural_next(JourneyStage.DISCHARGE_PLANNING) == "settled"
     assert _natural_next(JourneyStage.SETTLED) is None
 
 
 def test_skipped_between_is_exclusive_at_both_ends():
-    got = tracker.skipped_between(JourneyStage.ADMITTED, JourneyStage.PROCEDURE)
-    assert got == [JourneyStage.INVESTIGATION, JourneyStage.PRE_AUTH]
+    got = tracker.skipped_between(
+        JourneyStage.PRE_ADMISSION, JourneyStage.DISCHARGE_PLANNING
+    )
+    assert got == [JourneyStage.ADMITTED]
 
 
 def test_a_natural_step_is_not_classed_as_a_skip():
@@ -213,22 +213,20 @@ def test_a_natural_step_is_not_classed_as_a_skip():
 
 
 def test_an_ordinary_looking_jump_is_still_a_skip():
-    """Investigation to planning discharge is a perfectly normal thing to do,
-    and it still passes over pre-authorisation, treatment and recovery. What
-    matters for the warning is what was passed over, not whether the jump is
-    unusual."""
+    """Going straight from choosing a hospital to going home is a perfectly
+    normal thing to record after the fact, and it still passes over the whole
+    admission. What matters for the warning is what was passed over, not
+    whether the jump is unusual."""
     assert tracker.classify(
-        JourneyStage.INVESTIGATION, JourneyStage.DISCHARGE_PLANNING
+        JourneyStage.PRE_ADMISSION, JourneyStage.DISCHARGE_PLANNING
     ) is TransitionKind.SKIP
 
 
 def test_that_jump_needs_confirming_too():
     policy = make_policy()
     state = start(policy)
-    tracker.advance(state, JourneyStage.ADMITTED, policy)
-    tracker.advance(state, JourneyStage.INVESTIGATION, policy)
 
-    with pytest.raises(tracker.TransitionError, match="pre-auth|insurance approval"):
+    with pytest.raises(tracker.TransitionError, match="hospital|admitted"):
         tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, policy)
 
 
@@ -242,14 +240,14 @@ def test_each_stage_appends_to_the_timeline():
     policy = make_policy()
     state = start(policy)
     tracker.advance(state, JourneyStage.ADMITTED, policy)
-    tracker.advance(state, JourneyStage.INVESTIGATION, policy)
+    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, policy)
 
     # Starting the journey records the first entry, so the opening stage is
     # part of the history a user reads back.
     assert [e.stage for e in state.timeline] == [
         JourneyStage.PRE_ADMISSION,
         JourneyStage.ADMITTED,
-        JourneyStage.INVESTIGATION,
+        JourneyStage.DISCHARGE_PLANNING,
     ]
 
 
@@ -482,3 +480,80 @@ def test_nearing_the_cover_limit_is_flagged_urgently():
 
     alerts = tracker.evaluate(state, policy)
     assert any(a.severity is AlertSeverity.URGENT for a in alerts)
+
+
+# --- stages that no longer exist --------------------------------------------
+
+
+def test_a_stay_left_in_a_retired_stage_still_opens():
+    """The browser holds the durable copy of an admission, so somebody who left
+    a tab open across this change hands back a stay in a stage the code has
+    never heard of. Refusing it would lose five days of recorded charges to a
+    change in the shape of an enum, which is the one failure this application
+    must not have."""
+    from app.schemas.journey import JourneyState
+
+    for retired in ("investigation", "pre_auth", "procedure", "recovery"):
+        state = JourneyState.model_validate({"stage": retired})
+        assert state.stage is JourneyStage.ADMITTED
+
+
+def test_a_recorded_charge_in_a_retired_stage_still_opens():
+    from app.schemas.journey import JourneyState
+
+    state = JourneyState.model_validate({
+        "stage": "recovery",
+        "costs": [{"head": "pharmacy", "amount": "1200", "stage": "procedure"}],
+    })
+    assert state.costs[0].stage is JourneyStage.ADMITTED
+    assert state.accrued_total == Decimal(1200)
+
+
+def test_a_timeline_written_before_the_change_still_reads_back():
+    from app.schemas.journey import JourneyState
+
+    state = JourneyState.model_validate({
+        "stage": "discharge_planning",
+        "timeline": [
+            {"stage": "pre_auth", "title": "Insurance approval",
+             "skipped": ["investigation", "procedure"]},
+        ],
+    })
+    assert state.timeline[0].stage is JourneyStage.ADMITTED
+    assert all(s is JourneyStage.ADMITTED for s in state.timeline[0].skipped)
+
+
+def test_a_stage_that_never_existed_is_still_refused():
+    """Forgiving a name we retired is not the same as forgiving nonsense."""
+    from pydantic import ValidationError
+
+    from app.schemas.journey import JourneyState
+
+    with pytest.raises(ValidationError):
+        JourneyState.model_validate({"stage": "convalescing"})
+
+
+def test_a_whole_session_snapshot_survives_the_change():
+    """The path that actually matters: the browser handing back what it kept."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as api:
+        session_id = api.post("/api/policy/manual", json={
+            "sum_insured": 500000, "room_limit_type": "flat",
+            "room_limit_amount": 5000,
+        }).json()["session_id"]
+        snapshot = api.get(f"/api/session/{session_id}/export").json()["snapshot"]
+
+        # A stay recorded before the stages were reduced, as the device kept it.
+        snapshot["journey"] = {
+            "journey_id": "old12345ab", "session_id": session_id,
+            "stage": "recovery", "hospital_name": "Old General",
+            "costs": [{"entry_id": "c1", "head": "room_rent", "amount": "6000",
+                       "stage": "investigation"}],
+            "timeline": [{"event_id": "e1", "stage": "pre_auth", "title": "Filed"}],
+        }
+        revived = api.post("/api/session/import", json={"snapshot": snapshot}).json()
+        assert revived["journey"]["stage"] == "admitted"
+        assert revived["journey"]["accrued"] == 6000

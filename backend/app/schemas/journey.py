@@ -18,32 +18,43 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.schemas.money import Rupees, round_inr
 from app.schemas.policy import ExpenseHead, RoomCategory
 
 
 class JourneyStage(StrEnum):
+    """Where an admission has got to, from the cover's point of view.
+
+    Four, not eight. Tests, the operation and recovery are clinically distinct
+    and insurance-identical: the patient is admitted, the room clock is running
+    and costs are accruing, and nothing about what to do or what it costs
+    changes as one becomes the next. Making somebody move a marker three times
+    to say so was work with no answer at the end of it, and eight chips do not
+    fit across a phone.
+
+    Insurance approval was worse than redundant. It is not a period of time at
+    all: pre-authorisation is filed while the patient is admitted and being
+    investigated, so putting it in a sequence imposed an order that does not
+    exist and left people looking at a stage they had already passed through
+    sideways. It was always tracked as a fact as well, and a fact is all it is.
+
+    What is lost is nothing the system did anything with. What is kept is the
+    four points where the advice genuinely changes.
+    """
+
     PRE_ADMISSION = "pre_admission"
     ADMITTED = "admitted"
-    INVESTIGATION = "investigation"
-    PRE_AUTH = "pre_auth"
-    PROCEDURE = "procedure"
-    RECOVERY = "recovery"
     DISCHARGE_PLANNING = "discharge_planning"
     SETTLED = "settled"
 
     @property
     def label(self) -> str:
         return {
-            JourneyStage.PRE_ADMISSION: "Choosing a hospital",
-            JourneyStage.ADMITTED: "Admitted",
-            JourneyStage.INVESTIGATION: "Tests and scans",
-            JourneyStage.PRE_AUTH: "Insurance approval",
-            JourneyStage.PROCEDURE: "Treatment",
-            JourneyStage.RECOVERY: "Recovery",
-            JourneyStage.DISCHARGE_PLANNING: "Planning discharge",
+            JourneyStage.PRE_ADMISSION: "Before admission",
+            JourneyStage.ADMITTED: "In hospital",
+            JourneyStage.DISCHARGE_PLANNING: "Going home",
             JourneyStage.SETTLED: "Claim settled",
         }[self]
 
@@ -58,15 +69,32 @@ _STAGE_ORDER: dict[JourneyStage, int] = {
         [
             JourneyStage.PRE_ADMISSION,
             JourneyStage.ADMITTED,
-            JourneyStage.INVESTIGATION,
-            JourneyStage.PRE_AUTH,
-            JourneyStage.PROCEDURE,
-            JourneyStage.RECOVERY,
             JourneyStage.DISCHARGE_PLANNING,
             JourneyStage.SETTLED,
         ]
     )
 }
+
+# Stages that no longer exist, and where a stay sitting in one belongs now.
+#
+# The browser holds the durable copy of an admission, so somebody who left the
+# tab open across this change hands back a stay in a stage the code has never
+# heard of. Without this it would fail validation on the way in, which is the
+# one failure this application must not have: five days of recorded charges
+# refused because the shape of an enum moved underneath them.
+RETIRED_STAGES: dict[str, str] = {
+    "investigation": "admitted",
+    "pre_auth": "admitted",
+    "procedure": "admitted",
+    "recovery": "admitted",
+}
+
+
+def read_stage(value: object) -> object:
+    """Accept a stage that used to exist, and put it where it belongs now."""
+    if isinstance(value, str):
+        return RETIRED_STAGES.get(value, value)
+    return value
 
 
 
@@ -112,6 +140,11 @@ class Alert(BaseModel):
     clause_ids: list[str] = Field(default_factory=list)
     stage: JourneyStage | None = None
 
+    @field_validator("stage", mode="before")
+    @classmethod
+    def _accept_retired_stage(cls, value: object) -> object:
+        return read_stage(value)
+
 
 class CostEntry(BaseModel):
     """An actual charge recorded during the stay."""
@@ -128,6 +161,11 @@ class CostEntry(BaseModel):
     # claim time, is the part people actually dread.
     receipt_name: str = ""
     """Original filename, shown to the user. Empty when nothing was attached."""
+
+    @field_validator("stage", mode="before")
+    @classmethod
+    def _accept_retired_stage(cls, value: object) -> object:
+        return read_stage(value)
 
 
 class TransitionKind(StrEnum):
@@ -154,6 +192,13 @@ class JourneyEvent(BaseModel):
     """Stages passed over. Recorded so the history stays honest about it."""
     reason: str = ""
     """Why, in the user's own words. Never required."""
+
+    @field_validator("stage", "skipped", mode="before")
+    @classmethod
+    def _accept_retired_stage(cls, value: object) -> object:
+        if isinstance(value, list):
+            return [read_stage(v) for v in value]
+        return read_stage(value)
 
 
 class JourneyState(BaseModel):
@@ -185,6 +230,12 @@ class JourneyState(BaseModel):
     the browser so the list is a record of what was done rather than a poster
     that resets on reload, and so a second person opening the same stay sees
     what the first has already dealt with."""
+
+
+    @field_validator("stage", mode="before")
+    @classmethod
+    def _accept_retired_stage(cls, value: object) -> object:
+        return read_stage(value)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -48,14 +48,15 @@ SUBLIMIT_WARNING_FRACTION = 0.75
 COVER_WARNING_FRACTION = 0.70
 COVER_URGENT_FRACTION = 0.90
 
-# Stages at which a cashless pre-authorisation should already be filed. Insurers
+# Once the patient is in, pre-authorisation should already be filed. Insurers
 # require it before a planned procedure and within 24 hours of an emergency
 # admission, and a missed window turns a cashless claim into a reimbursement one.
-PRE_AUTH_DUE_AT = {
-    JourneyStage.ADMITTED,
-    JourneyStage.INVESTIGATION,
-    JourneyStage.PRE_AUTH,
-}
+#
+# It used to be a stage of its own, which imposed an order that does not exist:
+# the request is filed while the patient is admitted and being investigated, not
+# in a period between the two. It is a fact about the stay, and this is the
+# stage during which the fact matters.
+PRE_AUTH_DUE_AT = {JourneyStage.ADMITTED}
 
 
 class TransitionError(ValueError):
@@ -637,14 +638,6 @@ def _stage_description(
         )
     if stage is JourneyStage.SETTLED:
         return f"Total billed {format_inr(state.accrued_total)}."
-    if stage is JourneyStage.PRE_AUTH:
-        return "Waiting for your insurer to approve cashless treatment."
-    if stage is JourneyStage.INVESTIGATION:
-        return "Tests and scans under way."
-    if stage is JourneyStage.PROCEDURE:
-        return "Treatment under way."
-    if stage is JourneyStage.RECOVERY:
-        return "Recovering after treatment."
     if stage is JourneyStage.DISCHARGE_PLANNING:
         return "Getting the paperwork ready for discharge."
     # Nothing useful to add beyond the title the entry already carries, and

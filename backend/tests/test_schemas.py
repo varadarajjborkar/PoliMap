@@ -623,7 +623,8 @@ def test_accrued_costs_total_and_group():
 
 def test_journey_activity_flags():
     assert not JourneyState(stage=JourneyStage.PRE_ADMISSION).is_active
-    assert JourneyState(stage=JourneyStage.PROCEDURE).is_active
+    assert JourneyState(stage=JourneyStage.ADMITTED).is_active
+    assert JourneyState(stage=JourneyStage.DISCHARGE_PLANNING).is_active
     assert not JourneyState(stage=JourneyStage.SETTLED).is_active
 
 

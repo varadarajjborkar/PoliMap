@@ -80,13 +80,17 @@ def test_the_diagnostics_sublimit_becomes_the_number_to_quote():
     policy = a_policy(sublimits=[
         SubLimit(head=ExpenseHead.INVESTIGATIONS, label="Tests", amount=D(20000))
     ])
-    items = checklist.items_for(a_stay(JourneyStage.INVESTIGATION), policy)
+    items = checklist.items_for(a_stay(JourneyStage.ADMITTED), policy)
     assert "₹20,000" in texts(items)
-    assert items[0].item_id == "diagnostics_sublimit"
+    # Among the urgent few, not buried under the general advice: a sub-limit
+    # crossed is crossed, and nobody is told at the time.
+    quoted = next(i for i in items if i.item_id == "diagnostics_sublimit")
+    assert quoted.urgent
+    assert items.index(quoted) < len([i for i in items if i.urgent])
 
 
 def test_a_policy_without_that_sublimit_quotes_no_number():
-    items = checklist.items_for(a_stay(JourneyStage.INVESTIGATION), a_policy())
+    items = checklist.items_for(a_stay(JourneyStage.ADMITTED), a_policy())
     assert "diagnostics_sublimit" not in ids(items)
 
 
@@ -174,7 +178,7 @@ def test_progress_counts_what_is_ticked():
 
 
 def test_a_tick_from_another_stage_does_not_count_here():
-    stay = a_stay(JourneyStage.INVESTIGATION)
+    stay = a_stay(JourneyStage.ADMITTED)
     stay.checklist_done = ["carry_card"]
     items = checklist.items_for(stay, a_policy())
     assert all(not item.done for item in items)
