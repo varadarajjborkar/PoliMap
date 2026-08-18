@@ -179,6 +179,53 @@ are translated; anything read out of somebody's policy is not. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
 
+Call sites pass the English beside the key, so a missing translation renders
+English rather than a raw key. That fallback is invisible on screen, so a check
+runs with the linter and fails the build on any key that does not resolve in
+every language, or any translation no call site can reach.
+
+<!-- screenshot: the language picker at the top of Settings, in Kannada -->
+
+### 8. A help desk that answers and files, and can do nothing else
+
+In the corner of whatever you are already doing, because the question is nearly
+always about what is on the screen: whose name goes in this field, which of
+these rooms, what is this deduction. Sending somebody to a help page to ask
+about the page they were on is how help stops being used.
+
+It cannot change anything, and that is structural rather than a matter of
+prompting. There is no path from the help desk into a session, and the route is
+not even given a session id: not being handed somebody's policy is a stronger
+guarantee than being trusted not to read it. Everything in this app is what a
+claim gets estimated from, so it stays in the user's hands.
+
+Every answer is written in this repository. With no model reachable the
+knowledge base answers on its own by matching what was asked; with one, that
+same knowledge is the only ground the model is given, so the difference between
+the two paths is fluency rather than substance. Three things are refused before
+any model sees them:
+
+- **Anything clinical.** Sent to the treating doctor, where it belongs.
+- **Anything asking what an insurer will decide.** Only the insurer can decide a
+  claim; the app can only show what the policy says.
+- **Anything asking the desk to act.** It says so plainly and points at where
+  the user can do it themselves.
+
+Getting that filter right took two passes. The first version refused "whose name
+should I enter", which is the single question the desk most exists to answer,
+because it read the shape of the question rather than its subject.
+
+Nothing is kept. Closing it, starting a new chat or changing name loses the
+conversation, which is the honest behaviour when there is nowhere private to put
+a transcript that names a hospital and a treatment.
+
+Feedback and problems become tickets with a reference to quote, tracked under
+Settings. The tracker shows the first stage and says plainly that nothing is
+working on it, because there is no support desk behind this app and a status bar
+that crept along on its own would be the one dishonest thing in it.
+
+<!-- screenshot: the help desk open over the cover screen, with a question answered -->
+
 ---
 
 ## Running it
@@ -399,6 +446,7 @@ backend/app/
   schemas/      the domain contracts
   journey/      care journey tracking
   bill/         reading a hospital bill and checking it
+  help/         the help desk's knowledge base and its refusals
   report/       the stay as one printable page
   core/         config, telemetry bus, guardrails, artifact cleanup
   api/          HTTP surface, session store, the SSE activity stream
@@ -412,7 +460,18 @@ Models are addressed by *role*, never by name: extract, challenge, adjudicate,
 vision, narrate. Each role has a fallback chain probed at boot, so a plan change
 or a deprecated model degrades gracefully instead of breaking.
 
-It works on a phone, which is where a hospital corridor tends to put you:
+It works on a phone, which is where a hospital corridor tends to put you, and
+the phone is treated as its own screen rather than a narrow desk:
+
+- **Every control is sixteen pixels until there is a pointer.** Safari zooms the
+  whole page in when a smaller field is focused and leaves it zoomed. It is the
+  most irritating thing a form can do on a phone, and it is a font size.
+- **Nothing is pinned to the bottom in `vh`.** The home indicator sits over the
+  bottom of the screen and the browser's own chrome comes and goes as you
+  scroll, so `vh` is measured against a viewport that is often not there.
+- **The setup flow's thread lies on its side** under the header, and the rail
+  and the activity panel are desk-only rather than squeezed in.
+- **Wide content scrolls inside itself**, so no table can push the page sideways.
 
 ![On a phone](docs/images/08-mobile.png)
 
@@ -436,6 +495,13 @@ Stated rather than hidden.
 - **The four translations have not been read by a native speaker.** They are
   written carefully and the mechanism is checked, but insurance vocabulary in
   Kannada and Telugu deserves a second pair of eyes before anybody relies on it.
+- **Tickets do not go anywhere.** The help desk mints a reference and the
+  browser keeps it. There is no support desk behind this app, so a ticket stays
+  at received and the tracker says so rather than implying a queue.
+- **The help desk is only as good as its knowledge base.** It answers from what
+  is written in this repository and says it does not know the rest, which is the
+  safe failure but still a failure: a question it has no entry for gets an offer
+  to pass it on rather than an answer.
 - **Proportionate deduction rarely appears in search results**, because the
   matcher deliberately picks a room *under* your cap. It shows up in the
   counterfactual on each option and in the journey, which is where a room above
