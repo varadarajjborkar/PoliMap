@@ -3,7 +3,7 @@
        alt="PoliMap logo"
        width="28"
        align="center">
-  PoliMap
+  <span style="position: relative; top: -7px; left: 5px">PoliMap</span>
 </h1>
 
 <p style="margin-top: -10px;">
