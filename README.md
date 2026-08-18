@@ -1,5 +1,9 @@
 <h1>
-  <img src="docs/images/logo-inline.png" height="32" alt="PoliMap logo" valign="middle">
+  <img
+    src="docs/images/logo-inline.png"
+    alt="PoliMap logo"
+    style="width:40px !important; height:40px !important; object-fit:contain; vertical-align:-17px;"
+  >
   PoliMap
 </h1>
 
@@ -51,13 +55,13 @@ shown rather than asserted. This is the engine's own output for a ₹5 lakh
 policy with a ₹5,000/day room limit, where the patient takes an ₹8,000/day room
 on a ₹2,00,000 bill:
 
-| | Current rules (post-2024) | Legacy (pre-2024) |
-|---|---:|---:|
-| Hospital bill | ₹2,00,000 | ₹2,00,000 |
-| Room above your limit | −₹15,000 | −₹15,000 |
-| Proportionate deduction | −₹41,250 | −₹60,000 |
-| **Insurer pays** | **₹1,43,750** | ₹1,25,000 |
-| **You pay** | **₹56,250** | ₹75,000 |
+|                         | Current rules (post-2024) | Legacy (pre-2024) |
+| ----------------------- | ------------------------: | ----------------: |
+| Hospital bill           |                ₹2,00,000 |        ₹2,00,000 |
+| Room above your limit   |                −₹15,000 |        −₹15,000 |
+| Proportionate deduction |                −₹41,250 |        −₹60,000 |
+| **Insurer pays**  |      **₹1,43,750** |        ₹1,25,000 |
+| **You pay**       |        **₹56,250** |          ₹75,000 |
 
 ₹18,750 of difference from one boundary. Under the current rules the deduction
 touches only the surgeon's fee, theatre and nursing; under the old rules it
@@ -93,12 +97,12 @@ still yields the value reported.
 
 Measured across 158 fields, 10 policies, 6 document conditions:
 
-| Configuration | Accuracy | **Wrong values** | Missing |
-|---|---:|---:|---:|
-| Rules only | 93.4% | 2 | 10 |
-| Rules + model | 93.0% | 6 | 5 |
-| Rules + verification | 94.3% | 1 | 8 |
-| **Rules + model + verification** | **94.9%** | **3** | **5** |
+| Configuration                          |        Accuracy | **Wrong values** |     Missing |
+| -------------------------------------- | --------------: | ---------------------: | ----------: |
+| Rules only                             |           93.4% |                      2 |          10 |
+| Rules + model                          |           93.0% |                      6 |           5 |
+| Rules + verification                   |           94.3% |                      1 |           8 |
+| **Rules + model + verification** | **94.9%** |            **3** | **5** |
 
 Verification is what makes the model layer safe to use: it keeps the recall gain
 and halves the wrong values the model introduced. Whatever it cannot settle
@@ -348,13 +352,13 @@ from 81.3% before those three fixes.
 
 Synthetic, per the problem statement's mandate, but generated from real anchors.
 
-| | | |
-|---|---:|---|
-| Procedures | 126 | CGHS-anchored package rates, NABH vs non-NABH |
-| Hospitals | 580 | Bengaluru 250, Delhi NCR 120, Mumbai 120, Hyderabad 90 |
-| Insurers | 18 | 10 invented companies and 8 government schemes |
-| Policies | 40 | rendered as 104 documents, each with ground truth |
-| Hospital bills | 20 | 27 documents, every line and planted fault known |
+|                |     |                                                        |
+| -------------- | --: | ------------------------------------------------------ |
+| Procedures     | 126 | CGHS-anchored package rates, NABH vs non-NABH          |
+| Hospitals      | 580 | Bengaluru 250, Delhi NCR 120, Mumbai 120, Hyderabad 90 |
+| Insurers       |  18 | 10 invented companies and 8 government schemes         |
+| Policies       |  40 | rendered as 104 documents, each with ground truth      |
+| Hospital bills |  20 | 27 documents, every line and planted fault known       |
 
 Hospital attributes are *correlated*, not drawn independently: size drives
 accreditation odds and specialty breadth, locality drives tariffs, and both
@@ -393,10 +397,10 @@ because reading a photographed policy needs the Tesseract binary, which no
 Python wheel provides and no serverless Python runtime offers. That single fact
 decides the shape of the deployment.
 
-| | Where | Why |
-|---|---|---|
-| Frontend | Vercel, Netlify, any static host | Plain Vite build |
-| API | Render, Railway, Fly.io, any container host | Needs Tesseract, and holds SSE connections open |
+|          | Where                                       | Why                                             |
+| -------- | ------------------------------------------- | ----------------------------------------------- |
+| Frontend | Vercel, Netlify, any static host            | Plain Vite build                                |
+| API      | Render, Railway, Fly.io, any container host | Needs Tesseract, and holds SSE connections open |
 
 ```bash
 # API
