@@ -24,6 +24,7 @@ from app.schemas.hospital import Hospital, HospitalType, Insurer
 from app.schemas.money import format_inr
 from app.schemas.policy import RoomCategory
 from app.schemas.procedure import Procedure
+from datagen.build_bills import build_bill_corpus
 from datagen.build_policies import build_policy_corpus
 from datagen.geo import CITIES
 from datagen.hospitals import build_hospitals
@@ -214,6 +215,21 @@ def _policy_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _bill_report(manifest: dict[str, Any]) -> str:
+    lines: list[str] = []
+    add = lines.append
+
+    add("-- bill corpus " + "-" * 52)
+    add(f"  {manifest['bill_count']} bills, {manifest['document_count']} documents")
+    add(f"  carrying no planted fault: {manifest['clean_bills']}")
+    add("  faults planted:")
+    for fault in manifest["faults"]:
+        count = sum(1 for b in manifest["bills"] if fault in b["planted"])
+        add(f"    {fault:<18} {count:>3}")
+    add("")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -244,6 +260,11 @@ def main(argv: list[str] | None = None) -> int:
         manifest = build_policy_corpus()
         print()
         print(_policy_report(manifest))
+
+        print("building bill corpus...")
+        bills = build_bill_corpus()
+        print()
+        print(_bill_report(bills))
 
     if problems:
         print("-- VALIDATION FAILED " + "-" * 46)

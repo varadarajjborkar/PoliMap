@@ -363,3 +363,109 @@ def render_card_pdf(bp: PolicyBlueprint, path: Path) -> Path:
     ]
     doc.build(story, onFirstPage=_footer(bp), onLaterPages=_footer(bp))
     return path
+
+
+# --- hospital bills ---------------------------------------------------------
+
+
+BILL_TITLE = ParagraphStyle(
+    "billtitle", parent=BODY, fontName=FONT_BOLD, fontSize=14, leading=17,
+    alignment=1, spaceAfter=1,
+)
+BILL_HEADING = ParagraphStyle(
+    "billheading", parent=BODY, fontName=FONT_BOLD, fontSize=11, leading=14,
+    alignment=1, spaceBefore=6, spaceAfter=2,
+)
+
+
+def _bill_footer(bp):
+    def draw(canvas, doc):
+        canvas.saveState()
+        canvas.setFont(FONT, 7)
+        canvas.setFillColor(RULE)
+        canvas.drawString(
+            18 * mm, 11 * mm,
+            "Computer generated bill. Subject to verification by the billing department.",
+        )
+        canvas.drawRightString(
+            A4[0] - 18 * mm, 11 * mm, f"Bill No. {bp.bill_number}  |  Page {doc.page}"
+        )
+        canvas.restoreState()
+
+    return draw
+
+
+def _bill_story(bp) -> list:
+    """A final bill as an Indian hospital prints one: header, then a priced table."""
+    from app.schemas.money import format_inr
+
+    story: list = [
+        Paragraph(bp.hospital_name.upper(), BILL_TITLE),
+        Paragraph(f"{bp.city} · Inpatient Billing Department", CENTRE),
+        Spacer(1, 4),
+        Paragraph("FINAL BILL", BILL_HEADING),
+        Spacer(1, 4),
+    ]
+
+    story.append(_kv_table([
+        ("Patient Name", bp.patient_name),
+        ("UHID", bp.uhid),
+        ("Bill No.", bp.bill_number),
+        ("Bill Date", f"{bp.discharged:%d/%m/%Y}"),
+        ("Date of Admission", f"{bp.admitted:%d/%m/%Y}"),
+        ("Date of Discharge", f"{bp.discharged:%d/%m/%Y}"),
+        ("Treatment", bp.procedure_name),
+        ("Room Category", f"{bp.room_label} at {format_inr(bp.room_rate)} per day"),
+    ]))
+    story.append(Spacer(1, 8))
+
+    widths = (12 * mm, 82 * mm, 16 * mm, 26 * mm, 28 * mm)
+    rows: list[list[str]] = []
+    serial = 0
+    for section in bp.sections:
+        rows.append(["", section.title, "", "", ""])
+        for line in section.lines:
+            serial += 1
+            rows.append([
+                str(serial),
+                line.description,
+                f"{line.qty:g}" if line.qty is not None else "",
+                format_inr(line.rate) if line.rate is not None else "",
+                format_inr(line.amount),
+            ])
+
+    story.append(_grid_table(
+        ["Sr", "Particulars", "Qty", "Rate", "Amount"], rows, widths
+    ))
+    story.append(Spacer(1, 6))
+
+    totals = [("Gross Total", format_inr(bp.stated_gross))]
+    if bp.discount > 0:
+        totals.append(("Less: Discount", format_inr(bp.discount)))
+    if bp.advance_paid > 0:
+        totals.append(("Less: Advance Paid", format_inr(bp.advance_paid)))
+    totals.append(("Net Payable", format_inr(bp.net_payable)))
+    story.append(_kv_table(totals, widths=(58 * mm, 40 * mm)))
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(
+        "Items marked as non-payable under the IRDAI schedule are recoverable "
+        "from the patient. Original bills once issued will not be reprinted.",
+        BODY,
+    ))
+    return story
+
+
+def render_bill_pdf(bp, path: Path) -> Path:
+    """Render one bill blueprint into a printable document."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc = SimpleDocTemplate(
+        str(path), pagesize=A4,
+        leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=16 * mm, bottomMargin=18 * mm,
+        title=f"Final bill {bp.bill_number}", author=bp.hospital_name,
+    )
+    doc.build(
+        _bill_story(bp), onFirstPage=_bill_footer(bp), onLaterPages=_bill_footer(bp)
+    )
+    return path
