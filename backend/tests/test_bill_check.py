@@ -609,3 +609,32 @@ def test_the_questions_are_on_the_printed_page(api, stay):
             " ".join(page.get_text().split()) for page in document
         )
     assert "What to ask at the billing counter" in printed
+
+
+def test_reading_a_bill_reports_itself_in_the_order_it_happens(api, stay):
+    """The progress panel groups these events into phases in order. When the
+    step that finds the lines opened before the pages were read, the reading
+    phase was shown as finished before it had started."""
+    upload(api, stay)
+    steps = [
+        (event["stage"], event["step"])
+        for event in api.get(f"/api/events/{stay}/history").json()["events"]
+    ]
+    intake = max(i for i, (stage, _) in enumerate(steps) if stage == "S0_INTAKE")
+    lines = min(i for i, (_, step) in enumerate(steps) if step == "read_bill")
+    checking = min(i for i, (_, step) in enumerate(steps) if step == "check_bill")
+    assert intake < lines < checking
+
+
+def test_the_progress_names_the_file_the_user_chose(api, stay):
+    """An upload is written to a temporary file before it is read. Naming that
+    file tells somebody watching their own bill being read that we opened
+    "tmp31vjhkuu.pdf", which means nothing to them and is more of the server's
+    filesystem than they need to see."""
+    upload(api, stay, name="final-bill.pdf")
+    summaries = [
+        event["summary"]
+        for event in api.get(f"/api/events/{stay}/history").json()["events"]
+    ]
+    assert any("final-bill.pdf" in summary for summary in summaries)
+    assert not any("tmp" in summary for summary in summaries)

@@ -193,22 +193,35 @@ def ingest(
     *,
     session_id: str | None = None,
     save_page_images: bool = True,
+    display_name: str = "",
 ) -> IngestedDocument:
-    """Read a file into pages of text, choosing a strategy per page."""
+    """Read a file into pages of text, choosing a strategy per page.
+
+    `display_name` is the name to use in the events this emits. An upload is
+    written to a temporary file before it is read, so without it the progress
+    panel tells somebody watching their own bill being read that we opened
+    "tmp31vjhkuu.pdf", which is both meaningless to them and more of the
+    server's filesystem than they need to see.
+    """
     path = Path(path)
     suffix = path.suffix.lower()
+    shown = display_name or path.name
 
     if suffix in IMAGE_SUFFIXES:
-        return _ingest_image(path, session_id=session_id, save_page_images=save_page_images)
-    return _ingest_pdf(path, session_id=session_id, save_page_images=save_page_images)
+        return _ingest_image(
+            path, session_id=session_id, save_page_images=save_page_images, shown=shown
+        )
+    return _ingest_pdf(
+        path, session_id=session_id, save_page_images=save_page_images, shown=shown
+    )
 
 
 def _ingest_image(
-    path: Path, *, session_id: str | None, save_page_images: bool
+    path: Path, *, session_id: str | None, save_page_images: bool, shown: str = ""
 ) -> IngestedDocument:
     with bus.step(
         STAGE, "read_image", session_id=session_id,
-        summary=f"Reading {path.name}",
+        summary=f"Reading {shown}",
     ) as step:
         image = cv2.imread(str(path))
         if image is None:
@@ -230,7 +243,7 @@ def _ingest_image(
         )
 
     document = IngestedDocument(
-        filename=path.name, input_kind=InputKind.IMAGE,
+        filename=shown, input_kind=InputKind.IMAGE,
         pages=[page], session_id=session_id,
     )
     _warn_if_poor(document)
@@ -238,7 +251,7 @@ def _ingest_image(
 
 
 def _ingest_pdf(
-    path: Path, *, session_id: str | None, save_page_images: bool
+    path: Path, *, session_id: str | None, save_page_images: bool, shown: str = ""
 ) -> IngestedDocument:
     pages: list[Page] = []
     scanned_pages = 0
@@ -247,7 +260,7 @@ def _ingest_pdf(
         page_count = doc.page_count
         bus.publish(
             STAGE, "open_pdf", session_id=session_id,
-            summary=f"Opened {path.name}, {page_count} page"
+            summary=f"Opened {shown}, {page_count} page"
                     f"{'s' if page_count != 1 else ''}",
             pages=page_count,
         )
@@ -280,7 +293,7 @@ def _ingest_pdf(
             pages.append(page)
 
     document = IngestedDocument(
-        filename=path.name,
+        filename=shown,
         input_kind=InputKind.PDF_SCANNED if scanned_pages else InputKind.PDF_TEXT,
         pages=pages,
         session_id=session_id,
@@ -289,7 +302,7 @@ def _ingest_pdf(
     bus.publish(
         STAGE, "intake_complete", session_id=session_id,
         summary=(
-            f"{path.name}: {len(pages)} pages, {document.total_chars} characters, "
+            f"{shown}: {len(pages)} pages, {document.total_chars} characters, "
             f"quality {document.quality_score:.0%}"
         ),
         input_kind=document.input_kind.value,
@@ -336,8 +349,6 @@ def ingest_bytes(
         handle.write(data)
         temp_path = Path(handle.name)
     try:
-        document = ingest(temp_path, session_id=session_id)
-        document.filename = filename
-        return document
+        return ingest(temp_path, session_id=session_id, display_name=filename)
     finally:
         temp_path.unlink(missing_ok=True)

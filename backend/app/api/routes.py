@@ -1493,11 +1493,16 @@ def _check_bill(session: Session, data: bytes, filename: str) -> BillReview:
     policy = session.policy
     assert policy is not None
 
+    # Intake reports itself, page by page, so it runs outside the step below
+    # rather than inside it. Wrapped, it both double-reported and inverted the
+    # order the browser sees: a step that opens before the pages are read makes
+    # the reading look finished before it has started.
+    document = ingest_bytes(data, filename, session_id=session.session_id)
+
     with bus.step(
         PipelineStage.JOURNEY, "read_bill", session_id=session.session_id,
-        summary=f"Reading {filename}",
+        summary=f"Finding the lines on {filename}",
     ) as step:
-        document = ingest_bytes(data, filename, session_id=session.session_id)
         bill = bill_read.read(document)
         step.ok(
             f"{len(bill.items)} lines, {format_inr(bill.line_total)}",

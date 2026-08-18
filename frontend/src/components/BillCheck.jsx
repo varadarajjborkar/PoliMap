@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
-import { Badge, Button, Card, CardHeader } from './Primitives'
+import { Badge, Button, Card, CardHeader, Spinner } from './Primitives'
 
 // The final bill, read and checked.
 //
@@ -20,7 +20,7 @@ const SEVERITY = {
   info: { tone: 'neutral', border: 'border-line', bg: 'bg-canvas', text: 'text-ink' },
 }
 
-export function BillCheck({ bill, busy, onCheck, onDrop }) {
+export function BillCheck({ bill, busy, progress, onCheck, onDrop }) {
   const t = useT()
   return (
     <Card>
@@ -32,7 +32,7 @@ export function BillCheck({ bill, busy, onCheck, onDrop }) {
             'own cover.'
         )}
         aside={
-          bill && (
+          bill && !busy && (
             <Badge tone={bill.worth_asking > 0 ? 'warn' : 'good'}>
               {bill.worth_asking > 0
                 ? `${bill.worth_asking} ${t('bill.to_ask', 'to ask about')}`
@@ -41,16 +41,16 @@ export function BillCheck({ bill, busy, onCheck, onDrop }) {
           )
         }
       />
-      {bill ? (
+      {bill && !busy ? (
         <Checked bill={bill} busy={busy} onDrop={onDrop} />
       ) : (
-        <Upload busy={busy} onCheck={onCheck} />
+        <Upload busy={busy} progress={progress} onCheck={onCheck} />
       )}
     </Card>
   )
 }
 
-function Upload({ busy, onCheck }) {
+function Upload({ busy, progress, onCheck }) {
   const t = useT()
   const [tooLarge, setTooLarge] = useState('')
   const fileRef = useRef(null)
@@ -70,6 +70,14 @@ function Upload({ busy, onCheck }) {
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  if (busy) {
+    return (
+      <div className="p-5">
+        {progress ?? <Spinner label={t('bill.reading', 'Reading the bill\u2026')} />}
+      </div>
+    )
+  }
+
   return (
     <div className="p-5">
       <p className="text-[0.875rem] leading-relaxed text-muted">
@@ -87,14 +95,8 @@ function Upload({ busy, onCheck }) {
         className="hidden"
         onChange={(event) => choose(event.target.files?.[0])}
       />
-      <Button
-        className="mt-4 w-full"
-        disabled={busy}
-        onClick={() => fileRef.current?.click()}
-      >
-        {busy
-          ? t('bill.reading', 'Reading the bill\u2026')
-          : t('bill.upload', 'Photograph or upload the bill')}
+      <Button className="mt-4 w-full" onClick={() => fileRef.current?.click()}>
+        {t('bill.upload', 'Photograph or upload the bill')}
       </Button>
 
       {tooLarge && (

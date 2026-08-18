@@ -15,7 +15,7 @@ import {
   SETUP_STEPS, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
 import { translator } from './lib/i18n'
-import { READING_PHASES, SEARCH_PHASES } from './lib/progress'
+import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
 import { useStay } from './hooks/useStay'
 import {
@@ -253,7 +253,13 @@ export default function App() {
   // because it belongs to this stay and has to travel with it when the browser
   // saves and restores one.
   async function handleCheckBill(file) {
+    // Same id as the session, so this opens the stream without disturbing it
+    // when the activity panel already has it open. A photographed bill is OCR
+    // and then a vision pass, which is a long time to leave somebody looking
+    // at a disabled button.
+    setWatching(sessionId)
     const result = await run('bill', () => api.checkBill(sessionId, file))
+    setWatching(null)
     if (result) setJourney((current) => (current ? { ...current, bill: result } : current))
   }
 
@@ -629,6 +635,17 @@ export default function App() {
                   onCheckBill={handleCheckBill}
                   onDropBill={handleDropBill}
                   billBusy={busy === 'bill'}
+                  billProgress={
+                    busy === 'bill' && (
+                      <ReadingProgress
+                        events={events}
+                        phases={BILL_PHASES}
+                        title="Reading your bill"
+                        waiting="Sending the bill. Keep this page open."
+                        hint="A photograph takes longer than a PDF, because every line has to be recognised before it can be checked."
+                      />
+                    )
+                  }
                   busy={busy === 'journey'}
                   sessionId={sessionId}
                   onAdvance={journeyAction((stage, opts) =>

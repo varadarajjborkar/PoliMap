@@ -31,7 +31,7 @@ const SEVERITY = {
 }
 
 export function Journey({
-  journey, sessionId, busy, billBusy,
+  journey, sessionId, busy, billBusy, billProgress,
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
   onToggleChecklist, onCheckBill, onDropBill,
 }) {
@@ -130,6 +130,7 @@ export function Journey({
         <BillCheck
           bill={journey.bill}
           busy={billBusy}
+          progress={billProgress}
           onCheck={onCheckBill}
           onDrop={onDropBill}
         />
