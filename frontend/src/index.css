@@ -106,11 +106,6 @@ html.theme-dark { color-scheme: dark; }
   from { opacity: 1; filter: blur(0); transform: scale(1); }
   to   { opacity: 0; filter: blur(8px); transform: scale(0.985); }
 }
-/* Ends at `filter: none`, not `blur(0)`. They look identical and behave
-   differently: any filter value other than none makes the element the
-   containing block for every `position: fixed` descendant, and this animation
-   fills `both`, so the element kept that filter for the life of the page. A
-   fixed child then positioned itself against main instead of the viewport. */
 @keyframes blur-in {
   from { opacity: 0; filter: blur(8px); transform: scale(1.008); }
   to   { opacity: 1; filter: none; transform: none; }
@@ -170,8 +165,22 @@ html.theme-dark { color-scheme: dark; }
   animation: settle 1.1s ease-out;
 }
 
+/* `backwards`, not `both`, and the difference is not cosmetic.
+   `both` includes `forwards`, which keeps the end keyframe applied for the
+   life of the element. Writing `filter: none; transform: none` in that
+   keyframe does not help: the browser keeps the *interpolated* end value, so
+   `blur(8px) -> none` settles as `blur(0px)` and `scale(1.008) -> none` as
+   `matrix(1,0,0,1,0,0)`. Both are values, not `none`, and an element carrying
+   either becomes the containing block for every `position: fixed` descendant
+   under it. This animation is on `<main>`, so every modal inside it was being
+   positioned against main rather than the viewport, and arrived hundreds of
+   pixels out with its top cut off.
+   `backwards` still applies the from-state before the animation runs, which is
+   the only reason the fill mode was here, and lets the properties fall back to
+   none once it finishes. The end state is the element's natural state anyway,
+   so nothing is lost visually. */
 @utility animate-blur-in {
-  animation: blur-in 0.34s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation: blur-in 0.34s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
 }
 @utility animate-blur-out {
   animation: blur-out 0.24s ease-in both;
