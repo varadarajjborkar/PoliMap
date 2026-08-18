@@ -1,6 +1,6 @@
 <h1>
-  <img src="docs/images/logo-inline.png" alt="" height="40" align="middle">
-  <span>&nbsp;PoliMap</span>
+  <img src="docs/images/logo-inline.png" height="32" alt="PoliMap logo" valign="middle">
+  PoliMap
 </h1>
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
@@ -187,7 +187,7 @@ English rather than a raw key. That fallback is invisible on screen, so a check
 runs with the linter and fails the build on any key that does not resolve in
 every language, or any translation no call site can reach.
 
-<!-- screenshot: the language picker at the top of Settings, in Kannada -->
+![The language picker, with the app in Kannada](docs/images/12-language.png)
 
 ### 8. A help desk that answers and files, and can do nothing else
 
@@ -202,21 +202,41 @@ not even given a session id: not being handed somebody's policy is a stronger
 guarantee than being trusted not to read it. Everything in this app is what a
 claim gets estimated from, so it stays in the user's hands.
 
-Every answer is written in this repository. With no model reachable the
-knowledge base answers on its own by matching what was asked; with one, that
-same knowledge is the only ground the model is given, so the difference between
-the two paths is fluency rather than substance. Three things are refused before
-any model sees them:
+Every answer is written in this repository, in `help/knowledge.yaml`. With no
+model reachable the knowledge base answers on its own by matching what was
+asked; with one, that same knowledge is the only ground the model is given, so
+the difference between the two paths is fluency rather than substance.
+
+The answers and the refusals are YAML rather than Python because they are text
+and patterns, not logic. Every answer the desk can give, and every question it
+turns away, can be read end to end in two files without reading any code, and
+changing one cannot break the matching around it. Both are loaded with
+`safe_load`: YAML's full loader instantiates arbitrary objects named in a
+document, and a knowledge base is exactly the kind of file that gets edited
+casually.
+
+Four things are refused before any model sees them:
 
 - **Anything clinical.** Sent to the treating doctor, where it belongs.
 - **Anything asking what an insurer will decide.** Only the insurer can decide a
   claim; the app can only show what the policy says.
 - **Anything asking the desk to act.** It says so plainly and points at where
   the user can do it themselves.
+- **Anything after somebody's data**, the system prompt, or a key. There is
+  nothing to fetch, and saying so beats letting a model improvise about data it
+  cannot see.
 
 Getting that filter right took two passes. The first version refused "whose name
 should I enter", which is the single question the desk most exists to answer,
 because it read the shape of the question rather than its subject.
+
+A drafted answer is checked on the way out as well. The payoff of a successful
+injection is not the model being rude, it is a link or a phone number for
+somebody in a hospital to act on, so a draft carrying one is dropped, along with
+a draft that recites its instructions or claims to have changed something.
+Dropped, not edited: text that has been steered somewhere cannot be repaired by
+deleting the evidence of it, and the fallback is the written answer, so the
+worst case is a duller reply rather than a wrong one.
 
 Nothing is kept. Closing it, starting a new chat or changing name loses the
 conversation, which is the honest behaviour when there is nowhere private to put
@@ -227,7 +247,7 @@ Settings. The tracker shows the first stage and says plainly that nothing is
 working on it, because there is no support desk behind this app and a status bar
 that crept along on its own would be the one dishonest thing in it.
 
-<!-- screenshot: the help desk open over the cover screen, with a question answered -->
+![The help desk, answering over the screen it was opened from](docs/images/13-helpdesk.png)
 
 ---
 
