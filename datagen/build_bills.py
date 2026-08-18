@@ -36,10 +36,24 @@ def _load(name: str, model) -> list:
     return [model(**row) for row in json.loads(path.read_text(encoding="utf-8"))]
 
 
-def build_bill_corpus(count: int = BILL_COUNT) -> dict[str, Any]:
-    """Generate every bill artefact and return the manifest."""
-    hospitals = _load("hospitals.json", Hospital)
-    procedures = _load("procedures.json", Procedure)
+def build_bill_corpus(
+    hospitals: list[Hospital] | None = None,
+    procedures: list[Procedure] | None = None,
+    count: int = BILL_COUNT,
+) -> dict[str, Any]:
+    """Generate every bill artefact and return the manifest.
+
+    The hospitals and procedures are passed in by the full build, which is
+    holding them already and has not yet written them to disk: it validates the
+    whole corpus before committing any of it, so reading them back from
+    `data/generated` here worked only on a machine where an earlier build had
+    left a copy. On a clean checkout it failed. They are still loaded from disk
+    when this module is run on its own.
+    """
+    hospitals = hospitals if hospitals is not None else _load("hospitals.json", Hospital)
+    procedures = (
+        procedures if procedures is not None else _load("procedures.json", Procedure)
+    )
     blueprints = make_blueprints(hospitals, procedures, count=count)
 
     entries: list[dict[str, Any]] = []

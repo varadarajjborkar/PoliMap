@@ -8,7 +8,7 @@ room you are entitled to, and what you would actually pay yourself.
 Built for *Precision Care Challenge 2026: "Hospitality: Holistic Optimization
 System for Policy-Integrated Admission & Treatment Intelligence."*
 
-**Live: [paulimap.vercel.app](https://paulimap.vercel.app)** — the API runs on a
+**Live: [paulimap.vercel.app](https://paulimap.vercel.app)**. The API runs on a
 free container instance that sleeps when idle, so the very first request after a
 quiet spell takes around a minute to wake it. Everything after that is normal.
 

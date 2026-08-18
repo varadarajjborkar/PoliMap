@@ -262,7 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         print(_policy_report(manifest))
 
         print("building bill corpus...")
-        bills = build_bill_corpus()
+        bills = build_bill_corpus(hospitals, procedures)
         print()
         print(_bill_report(bills))
 
