@@ -60,6 +60,8 @@ class Session:
     accident: bool = False
     """Whether this admission follows accidental injury, which the initial
     waiting period does not apply to."""
+    patient_index: int | None = None
+    """Which of the people named on the policy is being admitted."""
 
     def touch(self) -> None:
         self.updated_at = datetime.now(UTC)
@@ -80,6 +82,7 @@ class Session:
                 "clarification_rounds": self.clarification_rounds,
                 "pre_existing": self.pre_existing,
                 "accident": self.accident,
+                "patient_index": self.patient_index,
                 "policy": self.policy.model_dump(mode="json") if self.policy else None,
                 "match": self.match.model_dump(mode="json") if self.match else None,
                 "journey": (
@@ -103,6 +106,7 @@ class Session:
             clarification_rounds=data.get("clarification_rounds", 0),
             pre_existing=data.get("pre_existing"),
             accident=data.get("accident", False),
+            patient_index=data.get("patient_index"),
             policy=(
                 NormalizedPolicy.model_validate(data["policy"])
                 if data.get("policy") else None

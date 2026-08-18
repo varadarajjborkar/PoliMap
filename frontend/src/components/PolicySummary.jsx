@@ -127,6 +127,12 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
               current={policy.copay_pct}
               hint="A percentage, e.g. 10. Enter 0 if you have none."
               onEdit={onEditField}
+              note={
+                policy.copay_pct > 0 && policy.copay_above_age
+                  ? `Only on members aged ${policy.copay_above_age} and above. ` +
+                    `A younger member's claim has no co-payment.`
+                  : null
+              }
             />
             <Fact label="ICU cover" value={policy.icu_limit} />
             <Fact

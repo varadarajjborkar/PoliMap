@@ -686,6 +686,12 @@ class NormalizedPolicy(BaseModel):
     icu_limit: RoomLimit = Field(default_factory=RoomLimit)
 
     copay_pct: Ratio = Field(default=Decimal(0))
+    copay_above_age: int | None = Field(default=None, ge=0, le=120)
+    """Where set, the co-payment falls only on members at or above this age.
+
+    Most policies carrying a co-payment write it this way. Applied to everyone
+    regardless, it takes a fifth off a child's claim on a policy where the band
+    exists precisely so that it does not."""
     deductible: Rupees = Field(default=Decimal(0))
 
     sublimits: list[SubLimit] = Field(default_factory=list)
@@ -743,6 +749,18 @@ class NormalizedPolicy(BaseModel):
         """
         ages = [person.age for person in self.insured if person.age is not None]
         return max(ages) if ages else None
+
+    def copay_for(self, age: int | None) -> Decimal:
+        """The co-payment share falling on a member of this age.
+
+        An unstated age is treated as though the band applies, because the
+        alternative is quietly promising somebody a claim without the deduction
+        their policy imposes. The interface asks who is being treated rather
+        than leaving this to a default.
+        """
+        if self.copay_above_age is None or age is None:
+            return self.copay_pct
+        return self.copay_pct if age >= self.copay_above_age else Decimal(0)
 
     def waiting_of(self, kind: WaitingKind) -> WaitingPeriod | None:
         """The longest waiting period of a kind, which is the one that binds."""

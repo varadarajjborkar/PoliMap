@@ -27,11 +27,13 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
+from app.pipeline.s4_compile.compiler import classify_waiting
 from app.schemas.money import format_inr
 from app.schemas.policy import (
     DeductionRegime,
     Exclusion,
     ExpenseHead,
+    InsuredPerson,
     NormalizedPolicy,
     PolicyMeta,
     RoomCategory,
@@ -214,10 +216,21 @@ class PolicyBlueprint:
     icu_flat: int | None
 
     copay_pct: int
+    copay_above_age: int | None
+    """Where set, the co-payment applies only to members at or above this age.
+
+    Extremely common on senior and family policies, and it changes who pays
+    what: a household of four with one elderly parent has a co-payment on that
+    parent's admission and none on anybody else's. Written unconditionally, as
+    it was, the same policy takes a fifth off a child's claim."""
     deductible: int
     sublimits: list[tuple[ExpenseHead | None, str | None, str, int]]
     """(head, procedure_code, label, amount)"""
-    waiting_periods: list[tuple[int, str]]
+    waiting_periods: list[tuple[int, int, str]]
+    """(months, days, applies_to). Held in the unit the document writes, so the
+    ground truth beside a policy says what the policy says. The initial period
+    is thirty days on every real schedule; recording it as one month and then
+    printing "30 days" made the truth disagree with the document by two days."""
     covers_consumables: bool
     restore_benefit: bool
     pre_hosp_days: int
@@ -331,16 +344,23 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
         # The initial waiting period is universally 30 days in India, not 30
         # months. It is carried as one month internally and printed as "30 days",
         # which is how every real schedule words it.
-        waiting = [(1, "all illnesses other than accidental injury")]
-        waiting.append((rng.choice([24, 36, 48]), "pre-existing diseases"))
+        waiting = [(0, 30, "all illnesses other than accidental injury")]
+        waiting.append((rng.choice([24, 36, 48]), 0, "pre-existing diseases"))
         if rng.random() < 0.6:
-            waiting.append((24, "cataract, hernia, and joint replacement"))
+            waiting.append((24, 0, "cataract, hernia, and joint replacement"))
 
         copay = 0
         if is_senior:
             copay = rng.choice([20, 25])
         elif rng.random() < 0.35:
             copay = rng.choice([10, 10, 20])
+
+        # An age band on the co-payment, which is how most policies that carry
+        # one actually write it. Always on a senior plan; on a family policy
+        # only where somebody is old enough for it to mean anything.
+        copay_above_age = None
+        if copay and (is_senior or max(age for _, age, _ in members) >= 55):
+            copay_above_age = rng.choice([60, 60, 61, 65])
 
         blueprints.append(
             PolicyBlueprint(
@@ -381,6 +401,7 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
                 icu_pct=rng.choice([2.0, 2.0, 4.0]) if icu_basis == "pct" else None,
                 icu_flat=rng.choice([8000, 10000, 15000]) if icu_basis == "flat" else None,
                 copay_pct=copay,
+                copay_above_age=copay_above_age,
                 deductible=rng.choice([300000, 500000]) if is_top_up else 0,
                 sublimits=sublimits,
                 waiting_periods=waiting,
@@ -464,14 +485,22 @@ def blueprint_to_truth(bp: PolicyBlueprint) -> NormalizedPolicy:
         room_limit=room,
         icu_limit=icu,
         copay_pct=Decimal(bp.copay_pct),
+        copay_above_age=bp.copay_above_age,
         deductible=Decimal(bp.deductible),
         sublimits=[
             SubLimit(head=head, procedure_code=code, label=label, amount=Decimal(amount))
             for head, code, label, amount in bp.sublimits
         ],
         waiting_periods=[
-            WaitingPeriod(months=months, applies_to=applies)
-            for months, applies in bp.waiting_periods
+            WaitingPeriod(
+                months=months, days=days, applies_to=applies,
+                kind=classify_waiting(applies, days=days, months=months),
+            )
+            for months, days, applies in bp.waiting_periods
+        ],
+        insured=[
+            InsuredPerson(name=name, age=age, relationship=relationship)
+            for name, age, relationship in bp.members
         ],
         exclusions=[Exclusion(text=text) for text in bp.exclusions],
         covers_consumables=bp.covers_consumables,

@@ -192,6 +192,7 @@ def _cost_option(
         # beneficiary here and everywhere else that asks the same question.
         result = estimate_for(
             policy, hospital, procedure, room, is_network=is_network,
+            patient_age=context.patient_age,
         )
     except ValueError:
         return None

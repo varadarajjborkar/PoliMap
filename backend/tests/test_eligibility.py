@@ -19,6 +19,7 @@ from app.pipeline.s6_simulate import eligibility as E
 from app.schemas.policy import (
     InsuredPerson,
     NormalizedPolicy,
+    RoomCategory,
     RoomLimit,
     RoomLimitBasis,
     WaitingKind,
@@ -40,6 +41,18 @@ def make_policy(*, waits=(), start: date | None = START, scheme=None, **kw):
     policy.meta.start_date = start
     policy.government_scheme = scheme
     return policy
+
+
+def make_bill(surgeon: D):
+    """A one-line bill, so a co-payment is the only thing that can move it."""
+    from app.schemas.simulation import BillLine, EstimatedBill
+
+    return EstimatedBill(
+        hospital_id="H1", procedure_code="CP-TEST-001",
+        room_category=RoomCategory.TWIN_SHARING,
+        los_days=2, room_rate_per_day=D(0),
+        lines=[BillLine(head=ExpenseHead.SURGEON_FEE, label="Surgeon", amount=surgeon)],
+    )
 
 
 def make_procedure(name: str, specialty=Specialty.GENERAL_SURGERY, synonyms=()):
@@ -627,3 +640,103 @@ def test_a_future_admission_date_can_clear_a_waiting_period(api, read_policy):
         pre_existing=True, admission_date=longest["clears_on"],
     )
     assert not found["eligibility"]["blocks"]
+
+
+# --- the co-payment band ---------------------------------------------------
+
+
+def test_a_banded_copayment_falls_only_on_the_older_member():
+    policy = make_policy(copay_pct=D(20), copay_above_age=61)
+    assert policy.copay_for(61) == D(20)
+    assert policy.copay_for(75) == D(20)
+    assert policy.copay_for(60) == D(0)
+    assert policy.copay_for(4) == D(0)
+
+
+def test_an_unbanded_copayment_falls_on_everyone():
+    policy = make_policy(copay_pct=D(20))
+    assert policy.copay_for(4) == D(20)
+    assert policy.copay_for(80) == D(20)
+
+
+def test_an_unknown_age_is_charged_as_written():
+    """The safe direction: the alternative quietly promises a claim without a
+    deduction the policy imposes."""
+    policy = make_policy(copay_pct=D(20), copay_above_age=61)
+    assert policy.copay_for(None) == D(20)
+
+
+def test_the_band_changes_what_the_waterfall_takes():
+    from app.pipeline.s6_simulate.waterfall import simulate
+    from app.schemas.simulation import DeductionKind
+
+    policy = make_policy(copay_pct=D(20), copay_above_age=61)
+    bill = make_bill(D(100000))
+
+    older = simulate(policy, bill, patient_age=70)
+    younger = simulate(policy, bill, patient_age=30)
+
+    assert any(s.kind is DeductionKind.COPAY for s in older.steps)
+    assert not any(s.kind is DeductionKind.COPAY for s in younger.steps)
+    assert younger.out_of_pocket < older.out_of_pocket
+
+
+def test_a_spared_member_is_told_why_rather_than_left_to_wonder():
+    """A co-payment on the schedule and none in the estimate looks like a bug
+    unless the reason is stated."""
+    from app.pipeline.s6_simulate.waterfall import simulate
+
+    policy = make_policy(copay_pct=D(20), copay_above_age=61)
+    result = simulate(policy, make_bill(D(50000)), patient_age=30)
+    assert any("aged 61 and above" in note for note in result.notes)
+
+
+@pytest.fixture
+def banded_policy(api):
+    """A corpus policy whose household straddles its co-payment age band.
+
+    Found rather than fixed, so the test exercises a document the generator
+    actually produces instead of one written to suit it.
+    """
+    import json
+    from pathlib import Path
+
+    corpus = Path("../data/generated/policies/clean")
+    if not corpus.exists():
+        pytest.skip("corpus not built")
+
+    for document in sorted(corpus.glob("*.pdf")):
+        truth = json.loads(
+            Path(f"../data/generated/policies/truth/{document.stem}.json").read_text()
+        )["blueprint"]
+        band = truth["copay_above_age"]
+        ages = [age for _, age, _ in truth["members"]]
+        if band and len(ages) > 1 and min(ages) < band <= max(ages):
+            break
+    else:
+        pytest.skip("no corpus policy straddles its own co-payment band")
+
+    session_id = api.post("/api/session").json()["session_id"]
+    response = api.post(
+        "/api/policy/upload-many",
+        files=[("files", (document.name, document.read_bytes(), "application/pdf"))],
+        data={"insurer_id": "", "session_id": session_id},
+    )
+    assert response.status_code == 200
+    return session_id, response.json()
+
+
+def test_choosing_the_patient_changes_the_bill(api, banded_policy):
+    """End to end: the same treatment at the same hospital, two members."""
+    session_id, policy = banded_policy
+    ages = [p["age"] for p in policy["insured"]]
+    band = policy["copay_above_age"]
+    assert band and min(ages) < band <= max(ages)
+
+    code = _code(api, "angiography")
+    older = ages.index(next(a for a in ages if a >= band))
+    younger = ages.index(next(a for a in ages if a < band))
+
+    high = _search(api, session_id, code, patient_index=older, pre_existing=False)
+    low = _search(api, session_id, code, patient_index=younger, pre_existing=False)
+    assert low["options"][0]["you_pay"] < high["options"][0]["you_pay"]

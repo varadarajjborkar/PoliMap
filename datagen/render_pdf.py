@@ -217,7 +217,13 @@ def _schedule_story(bp: PolicyBlueprint) -> list:
         )
     benefit_rows.append([
         "Co-payment",
-        f"{bp.copay_pct}% of each and every admissible claim"
+        (
+            f"{bp.copay_pct}% of each and every admissible claim"
+            + (
+                f" for Insured Persons aged {bp.copay_above_age} years and above"
+                if bp.copay_above_age else ""
+            )
+        )
         if bp.copay_pct else "Nil",
     ])
     benefit_rows += [
@@ -318,10 +324,8 @@ def _wording_story(bp: PolicyBlueprint) -> list:
     story.append(_grid_table(
         ["Waiting Period", "Applicable To"],
         [
-            # One month is the standard 30-day initial waiting period, and is
-            # always written that way on a real schedule.
-            ["30 days" if months == 1 else f"{months} months", applies]
-            for months, applies in bp.waiting_periods
+            [f"{days} days" if days else f"{months} months", applies]
+            for months, days, applies in bp.waiting_periods
         ],
         (40 * mm, 134 * mm),
     ))

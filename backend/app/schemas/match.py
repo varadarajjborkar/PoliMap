@@ -90,6 +90,12 @@ class CareContext(BaseModel):
     require_bed_availability: bool = True
     insurer_id: str = ""
 
+    patient_age: int | None = None
+    """Age of the person being admitted, where the policy names more than one.
+
+    A co-payment banded on age falls on one member of a household and not the
+    rest, so which of them is being treated changes the bill."""
+
 
 class ExclusionCause(StrEnum):
     TOO_FAR = "too_far"

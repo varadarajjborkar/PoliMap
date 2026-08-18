@@ -383,10 +383,16 @@ def extract_copay(page: Page) -> list[Clause]:
             pct = P.parse_percent(match.value_text)
         if pct is None or pct > 100:
             continue
+        params: dict[str, Any] = {"pct": str(pct)}
+        # A co-payment is commonly imposed only on older members. Which member
+        # is being admitted then decides whether it applies at all.
+        band = P.parse_age_band(match.verbatim)
+        if band is not None and pct > 0:
+            params["above_age"] = band
         clauses.append(
             _clause(
                 ClauseKind.COPAY, match.verbatim, page,
-                params={"pct": str(pct)},
+                params=params,
                 confidence=0.85 if match.same_line else 0.76,
             )
         )

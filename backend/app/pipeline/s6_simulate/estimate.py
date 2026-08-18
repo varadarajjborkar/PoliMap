@@ -32,6 +32,7 @@ def estimate_for(
     *,
     is_network: bool = True,
     with_band: bool = True,
+    patient_age: int | None = None,
 ) -> SimulationResult:
     """Cost one treatment at one hospital, under whichever model applies."""
     rules = rules_for(policy.government_scheme)
@@ -47,7 +48,7 @@ def estimate_for(
 
     result = simulate(
         policy, bill, hospital_name=hospital.name,
-        is_network=is_network, room_category=room,
+        is_network=is_network, room_category=room, patient_age=patient_age,
     )
     if with_band:
         result.band = _indemnity_band(

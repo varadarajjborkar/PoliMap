@@ -8,8 +8,14 @@ import { TreatmentPicker } from './TreatmentPicker'
 // charges. Everything else on the card exists to justify or qualify that one
 // number.
 
-export function SearchPanel({ reference, value, onChange, onSearch, busy }) {
+export function SearchPanel({ reference, value, onChange, onSearch, busy, policy }) {
   const set = (key) => (event) => onChange({ ...value, [key]: event.target.value })
+
+  // Only worth asking where the policy names more than one person and the
+  // answer would change something. On an individual policy it is a question
+  // with one answer, which is not a question.
+  const patients =
+    policy?.copay_above_age && policy?.insured?.length > 1 ? policy.insured : []
 
   return (
     <Card>
@@ -30,6 +36,36 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy }) {
             />
           </Field>
         </div>
+
+        {patients.length > 1 && (
+          <div className="sm:col-span-2">
+            <Field
+              label="Who is being treated?"
+              hint="Your policy charges a co-payment only on older members, so this changes the figures."
+            >
+              <Select
+                value={value.patient_index ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    patient_index: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">Not sure yet</option>
+                {patients.map((person, index) => (
+                  <option key={`${person.name}-${index}`} value={index}>
+                    {person.name}
+                    {person.relationship ? ` (${person.relationship}` : ''}
+                    {person.age != null
+                      ? `${person.relationship ? ', ' : ' ('}${person.age})`
+                      : person.relationship ? ')' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        )}
 
         <Field label="City">
           <Select value={value.city} onChange={set('city')}>

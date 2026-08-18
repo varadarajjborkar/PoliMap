@@ -95,6 +95,7 @@ def simulate(
     hospital_name: str = "",
     is_network: bool = True,
     room_category: RoomCategory | None = None,
+    patient_age: int | None = None,
 ) -> SimulationResult:
     """Adjudicate a bill against a policy, recording every deduction."""
     room = room_category or bill.room_category
@@ -248,13 +249,29 @@ def simulate(
             )
 
     # 5. The policyholder's own share, taken on what remains admissible.
-    if policy.copay_pct > 0:
-        _reduce_proportionally(ledger, apply_pct(ledger.total, policy.copay_pct))
+    #
+    # Most policies carrying a co-payment band it on age, and the band is the
+    # whole point: applied to everyone it takes a fifth off a child's claim on
+    # a policy written so that it does not.
+    copay = policy.copay_for(patient_age)
+    if copay > 0:
+        _reduce_proportionally(ledger, apply_pct(ledger.total, copay))
         record(
             DeductionKind.COPAY,
-            f"Your policy has a {policy.copay_pct:g}% co-payment, so you pay "
-            f"that share of every approved claim.",
-            pct=float(policy.copay_pct),
+            f"Your policy has a {copay:g}% co-payment"
+            + (
+                f" for members aged {policy.copay_above_age} and above, so "
+                f"you pay that share of every approved claim."
+                if policy.copay_above_age
+                else ", so you pay that share of every approved claim."
+            ),
+            pct=float(copay),
+        )
+    elif policy.copay_pct > 0 and policy.copay_above_age:
+        notes.append(
+            f"This policy's {policy.copay_pct:g}% co-payment applies only to "
+            f"members aged {policy.copay_above_age} and above, so it does not "
+            f"apply here."
         )
 
     # 6. Deductible: the band a top-up plan only starts paying above.

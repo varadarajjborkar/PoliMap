@@ -30,6 +30,7 @@ const DEFAULT_SEARCH = {
   max_distance_km: 15,
   preference: 'balanced',
   urgency: 'planned',
+  patient_index: null,
 }
 
 export default function App() {
@@ -256,6 +257,7 @@ export default function App() {
         urgency: search.urgency,
         pre_existing: facts.pre_existing,
         accident: facts.accident,
+        patient_index: search.patient_index ?? null,
       })
     )
     setWatching(null)
@@ -457,6 +459,7 @@ export default function App() {
                 </BackLink>
                 <SearchPanel
                   reference={reference}
+                  policy={policy}
                   value={search}
                   onChange={setSearch}
                   onSearch={() => handleSearch()}

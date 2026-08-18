@@ -208,6 +208,7 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         },
         "icu_limit": policy.icu_limit.describe(policy.sum_insured),
         "copay_pct": float(policy.copay_pct),
+        "copay_above_age": policy.copay_above_age,
         "deductible": float(policy.deductible),
         "covers_consumables": policy.covers_consumables,
         # A scheme settles on package rates, so the interface has to describe
@@ -672,6 +673,9 @@ class SearchRequest(BaseModel):
     # answer could still change something.
     pre_existing: bool | None = None
     accident: bool = False
+    patient_index: int | None = None
+    """Which of the people named on the policy is being admitted. Their age
+    decides whether an age-banded co-payment applies to this claim."""
     admission_date: date | None = None
     """Defaults to today. A planned admission a month out may clear a waiting
     period that today's date does not."""
@@ -784,6 +788,7 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
         preferred_room=payload.preferred_room,
         require_cashless=payload.require_cashless,
         insurer_id=session.insurer_id,
+        patient_age=_patient_age(session, payload.patient_index),
     )
 
     result = await asyncio.to_thread(
@@ -793,6 +798,7 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
     session.match = result
     session.pre_existing = payload.pre_existing
     session.accident = payload.accident
+    session.patient_index = payload.patient_index
     sessions.save(session)
 
     verdict = eligibility.assess(
@@ -811,6 +817,20 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
     payload_out = _search_payload(result)
     payload_out["eligibility"] = _eligibility_payload(verdict)
     return payload_out
+
+
+def _patient_age(session: Session, index: int | None) -> int | None:
+    """The age of the person being admitted, if the policy names them.
+
+    Nobody chosen means nobody assumed. A co-payment banded on age is then
+    applied as written, which is the safe direction to be wrong in: the
+    alternative is quietly promising a claim without a deduction the policy
+    imposes.
+    """
+    people = session.policy.insured if session.policy else []
+    if index is None or not 0 <= index < len(people):
+        return None
+    return people[index].age
 
 
 def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:

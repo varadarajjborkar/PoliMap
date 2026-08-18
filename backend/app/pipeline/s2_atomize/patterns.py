@@ -325,6 +325,40 @@ def parse_days(text: str) -> int | None:
     return int(match.group("n")) if match else None
 
 
+# "for Insured Persons aged 61 years and above", "applicable above 60 years of
+# age", "where the insured is 65 or older". A co-payment written this way falls
+# on one member of a household and not the rest, and read without the band it
+# takes a fifth off a child's claim.
+AGE_BAND_RE = re.compile(
+    r"(?:aged?|age\s+of|over|above|beyond)\s*(?P<n>\d{2})\s*(?:years?|yrs?)?"
+    r"\s*(?:of\s+age\s*)?(?:and|or)?\s*(?:above|over|older|more|\+)?"
+    r"|"
+    r"(?P<m>\d{2})\s*(?:years?|yrs?)\s*(?:of\s+age\s*)?(?:and|or)\s*(?:above|over|older)",
+    re.IGNORECASE,
+)
+
+MIN_AGE_BAND = 40
+"""Below this the number is not an age band. A co-payment row mentioning "20%"
+and "18" is not describing eighteen-year-olds."""
+
+
+def parse_age_band(text: str) -> int | None:
+    """The age at or above which something applies, if the text states one."""
+    for match in AGE_BAND_RE.finditer(text):
+        raw = match.group("n") or match.group("m")
+        if raw is None:
+            continue
+        # Only count a bare "above 60" if the sentence is talking about age at
+        # all; "above 60%" is a share, not a birthday.
+        tail = text[match.end(): match.end() + 2]
+        if tail.strip().startswith("%"):
+            continue
+        age = int(raw)
+        if MIN_AGE_BAND <= age <= 99:
+            return age
+    return None
+
+
 PER_DAY_RE = re.compile(r"per\s*day|/\s*day|daily|per\s+diem", re.IGNORECASE)
 
 

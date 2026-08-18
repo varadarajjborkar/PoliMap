@@ -208,6 +208,8 @@ def compile_policy(
         copay_clause = _winner(clauses, ClauseKind.COPAY)
         if copay_clause and (pct := _num(copay_clause.params.get("pct"))) is not None:
             policy.copay_pct = pct
+            band = copay_clause.params.get("above_age")
+            policy.copay_above_age = int(band) if band else None
             if copay_clause.confidence < CONFIRM_BELOW and pct > 0:
                 asks.append(_ask(
                     ClauseKind.COPAY,
