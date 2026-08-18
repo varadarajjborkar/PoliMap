@@ -154,6 +154,10 @@ POST_HOSP_RE = re.compile(r"\bpost[- ]?hospitali[sz]ation\b", re.IGNORECASE)
 
 WAITING_RE = re.compile(r"\bwaiting\s+period\b", re.IGNORECASE)
 
+DAYCARE_RE = re.compile(
+    r"\bday\s*[- ]?care\b(?:\s+(?:treatment|procedure|surgery)s?)?", re.IGNORECASE
+)
+
 CONSUMABLES_RE = re.compile(
     r"\b(?:non[- ]?medical\s+consumables?|consumables?)\b", re.IGNORECASE
 )
@@ -535,6 +539,18 @@ def extract_flags(page: Page) -> list[Clause]:
             _clause(
                 ClauseKind.CONSUMABLES_COVER, match.verbatim, page,
                 params={"covered": covered}, confidence=0.75,
+            )
+        )
+
+    for match in find_labelled(page.text, DAYCARE_RE):
+        covered = not re.search(
+            r"not\s+covered|not\s+payable|excluded|\bnil\b|not\s+applicable",
+            match.value_text, re.IGNORECASE,
+        )
+        clauses.append(
+            _clause(
+                ClauseKind.DAYCARE_COVER, match.verbatim, page,
+                params={"covered": covered}, confidence=0.74,
             )
         )
 

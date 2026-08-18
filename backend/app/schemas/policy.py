@@ -702,6 +702,13 @@ class NormalizedPolicy(BaseModel):
 
     covers_consumables: bool = False
     """Consumables are excluded by default in India unless a rider is bought."""
+    covers_daycare: bool | None = None
+    """Whether treatment finishing inside a day is paid for at all.
+
+    Standard hospitalisation cover in India requires twenty-four hours of
+    admission, and a policy pays for anything shorter only where it lists day
+    care procedures. `None` means the document did not say, which is different
+    from saying no."""
     cashless_available: bool = True
     pre_hospitalisation_days: int = 0
     post_hospitalisation_days: int = 0

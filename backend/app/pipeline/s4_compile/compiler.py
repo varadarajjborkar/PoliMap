@@ -238,6 +238,10 @@ def compile_policy(
         if consumables is not None:
             policy.covers_consumables = bool(consumables.params.get("covered"))
 
+        daycare = _winner(clauses, ClauseKind.DAYCARE_COVER)
+        if daycare is not None:
+            policy.covers_daycare = bool(daycare.params.get("covered"))
+
         restore = _winner(clauses, ClauseKind.RESTORE_BENEFIT)
         if restore is not None:
             policy.restore_benefit = bool(restore.params.get("available"))

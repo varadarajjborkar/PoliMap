@@ -227,6 +227,10 @@ def _schedule_story(bp: PolicyBlueprint) -> list:
         if bp.copay_pct else "Nil",
     ])
     benefit_rows += [
+        ["Day Care Treatments",
+         "Covered as per the list of day care procedures in the Policy Wording"
+         if bp.covers_daycare
+         else "Not covered. Minimum 24 hours of hospitalisation required."],
         ["Pre-hospitalisation Expenses", f"{bp.pre_hosp_days} days prior to admission"],
         ["Post-hospitalisation Expenses", f"{bp.post_hosp_days} days from discharge"],
         ["Restoration of Sum Insured",

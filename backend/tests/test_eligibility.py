@@ -740,3 +740,53 @@ def test_choosing_the_patient_changes_the_bill(api, banded_policy):
     high = _search(api, session_id, code, patient_index=older, pre_existing=False)
     low = _search(api, session_id, code, patient_index=younger, pre_existing=False)
     assert low["options"][0]["you_pay"] < high["options"][0]["you_pay"]
+
+
+# --- the twenty-four hour rule ---------------------------------------------
+
+
+DAY_CARE = make_procedure("Cataract surgery with monofocal lens",
+                          Specialty.OPHTHALMOLOGY, ["cataract"])
+DAY_CARE.is_daycare = True
+INPATIENT = make_procedure("Coronary artery bypass", Specialty.CARDIOLOGY)
+
+
+def test_a_policy_that_excludes_day_care_declines_a_day_care_treatment():
+    """Standard cover in India needs twenty-four hours of admission, and a
+    fifth of the catalogue finishes sooner."""
+    policy = make_policy(covers_daycare=False)
+    verdict = E.assess(policy, DAY_CARE, on=START + timedelta(days=900))
+    assert verdict.blocks
+    assert verdict.findings[0].label == "Day care treatment"
+
+
+def test_the_same_policy_covers_an_overnight_treatment():
+    policy = make_policy(covers_daycare=False)
+    assert E.assess(policy, INPATIENT, on=START + timedelta(days=900)).verdict is (
+        E.Verdict.COVERED
+    )
+
+
+def test_a_policy_that_lists_day_care_says_nothing():
+    policy = make_policy(covers_daycare=True)
+    assert E.assess(policy, DAY_CARE, on=START + timedelta(days=900)).verdict is (
+        E.Verdict.COVERED
+    )
+
+
+def test_a_document_silent_on_day_care_says_it_is_silent():
+    """Not stated is not the same as not covered, and guessing either way
+    would be worse than telling somebody to ask."""
+    policy = make_policy(covers_daycare=None)
+    verdict = E.assess(policy, DAY_CARE, on=START + timedelta(days=900))
+    assert verdict.verdict is E.Verdict.UNKNOWN
+    assert not verdict.blocks
+    assert "day care list" in verdict.findings[0].detail
+
+
+def test_day_care_and_a_waiting_period_are_both_reported():
+    """Two separate reasons a claim fails are two things to know about."""
+    policy = make_policy(waits=[NAMED], covers_daycare=False)
+    verdict = E.assess(policy, DAY_CARE, on=START + timedelta(days=180))
+    assert verdict.blocks
+    assert len(verdict.findings) == 2

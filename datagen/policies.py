@@ -232,6 +232,13 @@ class PolicyBlueprint:
     is thirty days on every real schedule; recording it as one month and then
     printing "30 days" made the truth disagree with the document by two days."""
     covers_consumables: bool
+    covers_daycare: bool
+    """Whether treatments finishing inside a day are paid for at all.
+
+    India's standard hospitalisation cover requires twenty-four hours of
+    admission, and a policy pays for shorter treatment only where it lists day
+    care procedures. A fifth of this catalogue finishes inside a day, so a
+    policy silent on the point leaves that fifth unanswerable."""
     restore_benefit: bool
     pre_hosp_days: int
     post_hosp_days: int
@@ -406,6 +413,7 @@ def make_blueprints(count: int = 40) -> list[PolicyBlueprint]:
                 sublimits=sublimits,
                 waiting_periods=waiting,
                 covers_consumables=rng.random() < 0.25,
+                covers_daycare=rng.random() < 0.8,
                 restore_benefit=rng.random() < 0.45,
                 pre_hosp_days=rng.choice([30, 30, 60]),
                 post_hosp_days=rng.choice([60, 90, 90, 180]),
@@ -504,6 +512,7 @@ def blueprint_to_truth(bp: PolicyBlueprint) -> NormalizedPolicy:
         ],
         exclusions=[Exclusion(text=text) for text in bp.exclusions],
         covers_consumables=bp.covers_consumables,
+        covers_daycare=bp.covers_daycare,
         restore_benefit=bp.restore_benefit,
         pre_hospitalisation_days=bp.pre_hosp_days,
         post_hospitalisation_days=bp.post_hosp_days,

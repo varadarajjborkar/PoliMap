@@ -176,6 +176,21 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
                   : 'Gloves, syringes and similar items are yours to pay.'
               }
             />
+            <Fact
+              label="Treatment under a day"
+              value={
+                policy.covers_daycare == null
+                  ? 'Not stated'
+                  : policy.covers_daycare ? 'Covered' : 'Not covered'
+              }
+              note={
+                policy.covers_daycare === false
+                  ? 'Cover needs a full day of admission. Cataract, dialysis and similar treatments would not be paid for.'
+                  : policy.covers_daycare == null
+                    ? 'Your document does not say. Worth asking, because cover normally needs 24 hours of admission.'
+                    : null
+              }
+            />
           </div>
         )}
 

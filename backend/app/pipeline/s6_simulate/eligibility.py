@@ -60,7 +60,14 @@ class Finding:
     days_left: int | None = None
     question: str | None = None
     """What the user could answer to settle an ASK."""
+    label: str = ""
+    """Shown instead of the kind's own name where the finding is not about a
+    waiting period. Set only by findings that need it."""
     clause_ids: list[str] = field(default_factory=list)
+
+    @property
+    def title(self) -> str:
+        return self.label or self.kind.label
 
 
 @dataclass
@@ -212,45 +219,97 @@ def assess(
             ],
         )
 
+    findings: list[Finding] = []
+
+    day_care = _day_care_finding(policy, procedure)
+    if day_care is not None:
+        findings.append(day_care)
+
     relevant = [
         period for period in policy.waiting_periods if _applies(period, procedure)
     ]
     if not relevant:
-        return Assessment(verdict=Verdict.COVERED)
+        return _assemble(findings)
 
     start = policy.meta.start_date
     if start is None:
         longest = max(relevant, key=lambda w: (w.months * 31) + w.days)
-        return Assessment(
-            verdict=Verdict.UNKNOWN,
-            findings=[
-                Finding(
-                    verdict=Verdict.UNKNOWN,
-                    kind=WaitingKind.OTHER,
-                    headline="We could not read when your policy started",
-                    detail=(
-                        f"This policy has waiting periods of up to "
-                        f"{longest.describe()}. Until we know the start date we "
-                        f"cannot tell you whether they still apply."
-                    ),
-                    question="When did this policy start?",
-                    clause_ids=[
-                        cid for w in relevant for cid in w.source_clause_ids
-                    ],
-                )
-            ],
+        findings.append(
+            Finding(
+                verdict=Verdict.UNKNOWN,
+                kind=WaitingKind.OTHER,
+                headline="We could not read when your policy started",
+                detail=(
+                    f"This policy has waiting periods of up to "
+                    f"{longest.describe()}. Until we know the start date we "
+                    f"cannot tell you whether they still apply."
+                ),
+                question="When did this policy start?",
+                label="Policy start date",
+                clause_ids=[cid for w in relevant for cid in w.source_clause_ids],
+            )
         )
+        return _assemble(findings)
 
-    findings = [
+    findings.extend(
         finding
         for period in relevant
         if (finding := _judge(period, procedure, start, on, pre_existing, accident))
-    ]
+    )
+    return _assemble(findings)
+
+
+def _assemble(findings: list[Finding]) -> Assessment:
+    """Worst finding first, and it decides the verdict."""
     if not findings:
         return Assessment(verdict=Verdict.COVERED)
-
     findings.sort(key=lambda f: -_SEVERITY[f.verdict])
     return Assessment(verdict=findings[0].verdict, findings=findings)
+
+
+def _day_care_finding(
+    policy: NormalizedPolicy, procedure: Procedure
+) -> Finding | None:
+    """The twenty-four hour rule, which catches a fifth of this catalogue.
+
+    Standard hospitalisation cover in India pays only where the patient was
+    admitted for a full day. Treatment that finishes sooner is paid for only
+    where the policy lists day care procedures, and a policy that says it does
+    not cover them declines the claim outright, whatever the waiting periods
+    say.
+    """
+    if not procedure.is_daycare:
+        return None
+
+    if policy.covers_daycare is True:
+        return None
+
+    if policy.covers_daycare is False:
+        return Finding(
+            verdict=Verdict.NOT_YET,
+            kind=WaitingKind.OTHER,
+            headline="Not covered: this finishes in under a day",
+            detail=(
+                f"{procedure.name} usually finishes inside twenty-four hours. "
+                f"This policy requires a full day of admission and does not "
+                f"cover day care procedures, so the claim would be declined "
+                f"however long you have held it."
+            ),
+            label="Day care treatment",
+        )
+
+    return Finding(
+        verdict=Verdict.UNKNOWN,
+        kind=WaitingKind.OTHER,
+        headline="Check that day care treatment is covered",
+        detail=(
+            f"{procedure.name} usually finishes inside twenty-four hours, and "
+            f"standard cover in India requires a full day of admission. We could "
+            f"not find anything in your document either way. Ask your insurer "
+            f"whether it is on their day care list before you are admitted."
+        ),
+        label="Day care treatment",
+    )
 
 
 def _applies(period: WaitingPeriod, procedure: Procedure) -> bool:

@@ -211,6 +211,7 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         "copay_above_age": policy.copay_above_age,
         "deductible": float(policy.deductible),
         "covers_consumables": policy.covers_consumables,
+        "covers_daycare": policy.covers_daycare,
         # A scheme settles on package rates, so the interface has to describe
         # it in those terms rather than as a cover with caps and a co-payment.
         "government_scheme": policy.government_scheme,
@@ -854,7 +855,7 @@ def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:
             {
                 "verdict": finding.verdict.value,
                 "kind": finding.kind.value,
-                "kind_label": finding.kind.label,
+                "kind_label": finding.title,
                 "headline": finding.headline,
                 "detail": finding.detail,
                 "clears_on": finding.clears_on.isoformat() if finding.clears_on else None,
