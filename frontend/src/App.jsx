@@ -801,7 +801,9 @@ function Shell({
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-5 px-4">
-        <main className="min-w-0 flex-1">{children}</main>
+        {/* Runs once, when a stay is opened from the home screen: this mounts
+            then and not between the steps inside it. */}
+        <main className="min-w-0 flex-1 motion-safe:animate-blur-in">{children}</main>
 
         {showActivity && (
           <aside className="sticky top-[var(--header-h)] hidden h-[calc(100vh-var(--header-h))] w-80 shrink-0 border-l border-line bg-surface lg:block">

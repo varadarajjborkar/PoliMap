@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { describeStay } from '../lib/stays'
 import { useT } from '../hooks/useLanguage'
+import { useScreenExit } from '../hooks/useScreenExit'
 import { Button, Card, Disclaimer, Input } from './Primitives'
 
 // The screen before anything else.
@@ -12,11 +13,16 @@ import { Button, Card, Disclaimer, Input } from './Primitives'
 
 export function SignIn({ onSignIn }) {
   const t = useT()
+  const { leaving, leave } = useScreenExit()
   const [name, setName] = useState('')
   const clean = name.trim()
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16 motion-safe:animate-rise">
+    <div
+      className={`mx-auto flex max-w-md flex-col justify-center px-4 py-16 ${
+        leaving ? 'motion-safe:animate-blur-out' : 'motion-safe:animate-blur-in'
+      }`}
+    >
       <div className="text-center">
         <img
           src="/logo-64.png" alt="" width="52" height="52"
@@ -35,7 +41,10 @@ export function SignIn({ onSignIn }) {
 
       <Card className="mt-7 p-5">
         <form
-          onSubmit={(e) => { e.preventDefault(); if (clean) onSignIn(clean) }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (clean) leave(() => onSignIn(clean))
+          }}
           className="space-y-3.5"
         >
           <label className="block">
@@ -50,7 +59,7 @@ export function SignIn({ onSignIn }) {
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <Button type="submit" className="w-full" disabled={!clean}>
+          <Button type="submit" className="w-full" disabled={!clean || leaving}>
             {t('signin.continue', 'Continue')}
           </Button>
         </form>
@@ -72,8 +81,13 @@ export function SignIn({ onSignIn }) {
 
 export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser }) {
   const t = useT()
+  const { leaving, leave } = useScreenExit()
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 motion-safe:animate-rise">
+    <div
+      className={`mx-auto max-w-2xl px-4 py-10 ${
+        leaving ? 'motion-safe:animate-blur-out' : 'motion-safe:animate-blur-in'
+      }`}
+    >
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -93,7 +107,11 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
         </button>
       </div>
 
-      <Button className="mt-6 w-full py-3 text-[0.9375rem]" onClick={onNew}>
+      <Button
+        className="mt-6 w-full py-3 text-[0.9375rem]"
+        disabled={leaving}
+        onClick={() => leave(onNew)}
+      >
         {t('home.new', 'Start a new stay')}
       </Button>
 
@@ -111,7 +129,7 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
               >
                 <Card className="flex items-center gap-3 p-3.5 transition hover:border-brand/40 hover:shadow-sm">
                   <button
-                    onClick={() => onOpen(stay)}
+                    onClick={() => leave(() => onOpen(stay))}
                     className="min-w-0 flex-1 text-left"
                   >
                     <span className="block truncate text-[0.9375rem] font-medium">

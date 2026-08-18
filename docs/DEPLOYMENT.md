@@ -121,7 +121,37 @@ reachable.
 
 ---
 
-## 4. What to expect on a free tier
+## 4. What a push actually does
+
+Worth being clear about, because it surprises people: **the tests on GitHub and
+the deploy are two separate things happening at the same time, and neither waits
+for the other.**
+
+Push to `main` and Vercel starts building the frontend immediately. GitHub
+Actions starts the test run immediately. Whichever finishes first finishes
+first. A red test run does not stop the deploy, does not roll it back, and does
+not stop the live site updating: by the time the tests report, the new frontend
+is usually already serving. The same is true of the API if the host is set to
+deploy on push.
+
+So a broken commit reaches the live site. The tests tell you afterwards.
+
+If that is not what you want, the gate belongs on the deploy rather than in this
+repository:
+
+- **Vercel**: project settings, Git, "Ignored Build Step", or protect `main` so
+  work lands through pull requests that cannot merge until checks pass.
+- **The API host**: turn auto-deploy off and deploy manually, or point it at a
+  tag rather than a branch.
+
+The pull request route is the one worth having. Branch protection with the
+Backend, Frontend and API image checks required means nothing reaches `main`
+that has not passed, and then "deploys on push to `main`" is safe by
+construction.
+
+---
+
+## 5. What to expect on a free tier
 
 - **Cold starts.** Free container hosts sleep after inactivity. The first
   request wakes the container, which takes 30 seconds or so. The health check
@@ -133,7 +163,7 @@ reachable.
 
 ---
 
-## 5. Running it without a model
+## 6. Running it without a model
 
 Leave `OLLAMA_API_KEY` unset and the app runs its deterministic path: rule-based
 extraction, no verification loop, no vision escalation. Accuracy drops from
