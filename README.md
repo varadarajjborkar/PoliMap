@@ -1,4 +1,7 @@
-# ![](docs/images/logo-inline.png) PoliMap
+<h1>
+  <img src="docs/images/logo-inline.png" alt="" height="40" align="middle">
+  <span>&nbsp;PoliMap</span>
+</h1>
 
 **Insurance-aware hospital decision support for patients and caregivers in India.**
 
