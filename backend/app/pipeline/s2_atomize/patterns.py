@@ -18,6 +18,7 @@ Lakh and crore are handled natively rather than converted at the edges, because
 from __future__ import annotations
 
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 LAKH = Decimal(100000)
@@ -236,6 +237,87 @@ def parse_months(text: str) -> int | None:
 
 
 DAYS_RE = re.compile(r"(?P<n>\d{1,4})\s*days?", re.IGNORECASE)
+
+_MONTH_NAMES = {
+    name: number
+    for number, names in enumerate(
+        [
+            ("jan", "january"), ("feb", "february"), ("mar", "march"),
+            ("apr", "april"), ("may",), ("jun", "june"),
+            ("jul", "july"), ("aug", "august"), ("sep", "sept", "september"),
+            ("oct", "october"), ("nov", "november"), ("dec", "december"),
+        ],
+        start=1,
+    )
+    for name in names
+}
+
+# Day first, because that is how a policy schedule in India writes a date.
+# `01/02/2026` on one of these is the first of February, and reading it the
+# other way would move a policy's start by eleven months.
+_NUMERIC_DATE = re.compile(
+    r"\b(?P<d>\d{1,2})[/.-](?P<m>\d{1,2})[/.-](?P<y>\d{4}|\d{2})\b"
+)
+_ISO_DATE = re.compile(r"\b(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})\b")
+_WRITTEN_DATE = re.compile(
+    r"\b(?P<d>\d{1,2})(?:st|nd|rd|th)?\s+(?P<mon>[A-Za-z]{3,9})\.?,?\s+(?P<y>\d{4})\b"
+)
+
+
+def parse_date(text: str) -> date | None:
+    """Read the first date in a line, tolerating the several ways one is written.
+
+    A wrong date here is worse than none: policy start decides whether a
+    waiting period has expired, and a year read as `26` instead of `2026` would
+    make every waiting period look long since served. So the year is taken as
+    written where it is four digits, and only a two-digit year is assumed to be
+    this century.
+    """
+    iso = _ISO_DATE.search(text)
+    if iso:
+        return _safe_date(int(iso["y"]), int(iso["m"]), int(iso["d"]))
+
+    written = _WRITTEN_DATE.search(text)
+    if written:
+        month = _MONTH_NAMES.get(written["mon"].lower())
+        if month:
+            return _safe_date(int(written["y"]), month, int(written["d"]))
+
+    numeric = _NUMERIC_DATE.search(text)
+    if numeric:
+        year = int(numeric["y"])
+        if year < 100:
+            year += 2000
+        return _safe_date(year, int(numeric["m"]), int(numeric["d"]))
+    return None
+
+
+def all_dates(text: str) -> list[date]:
+    """Every date in a line, left to right.
+
+    A policy period is one line holding two of them: "From 00:00 hrs on
+    01/02/2026 to 23:59 hrs on 31/01/2027". Reading only the first would give a
+    start with no end.
+    """
+    found: list[tuple[int, date]] = []
+    seen: set[date] = set()
+    for pattern in (_ISO_DATE, _WRITTEN_DATE, _NUMERIC_DATE):
+        for match in pattern.finditer(text):
+            parsed = parse_date(match.group(0))
+            if parsed is not None and parsed not in seen:
+                seen.add(parsed)
+                found.append((match.start(), parsed))
+    return [parsed for _, parsed in sorted(found)]
+
+
+def _safe_date(year: int, month: int, day: int) -> date | None:
+    """A date, or nothing. `31/02` is a misread, not a date to be salvaged."""
+    if not 1900 <= year <= 2100:
+        return None
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
 
 
 def parse_days(text: str) -> int | None:

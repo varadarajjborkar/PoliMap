@@ -17,7 +17,8 @@ without the simulator ever seeing a half-verified number.
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Self
@@ -198,6 +199,7 @@ SELECTABLE_ROOMS: tuple[RoomCategory, ...] = (
 
 class ClauseKind(StrEnum):
     POLICY_META = "policy_meta"
+    INSURED_PERSON = "insured_person"
     SUM_INSURED = "sum_insured"
     ROOM_RENT_CAP = "room_rent_cap"
     ICU_CAP = "icu_cap"
@@ -543,10 +545,107 @@ class SubLimit(BaseModel):
         return base * days if self.per_day else base
 
 
+class WaitingKind(StrEnum):
+    """What a waiting period is for, which decides whether it bites here.
+
+    The categories are not cosmetic. Only one of them applies to everybody, one
+    of them cannot be judged without asking the patient a question, and the
+    rest apply only to particular treatments. Treating them alike would either
+    frighten someone whose cover is fine or reassure someone whose is not.
+    """
+
+    INITIAL = "initial"
+    """The first 30 days, in which nothing but accidental injury is covered."""
+    PRE_EXISTING = "pre_existing"
+    """Conditions the patient already had when the policy began."""
+    SPECIFIC_AILMENT = "specific_ailment"
+    """A named list: cataract, hernia, piles, joint replacement, and so on."""
+    MATERNITY = "maternity"
+    OTHER = "other"
+
+    @property
+    def label(self) -> str:
+        return _WAITING_LABELS[self]
+
+
+_WAITING_LABELS: dict[WaitingKind, str] = {
+    WaitingKind.INITIAL: "Initial waiting period",
+    WaitingKind.PRE_EXISTING: "Pre-existing conditions",
+    WaitingKind.SPECIFIC_AILMENT: "Named treatments",
+    WaitingKind.MATERNITY: "Maternity",
+    WaitingKind.OTHER: "Waiting period",
+}
+
+
 class WaitingPeriod(BaseModel):
-    months: int = Field(ge=0)
+    """A period after the policy starts during which something is not covered.
+
+    Held in the unit the document wrote it in rather than converted to one.
+    The initial period is thirty days, not one month, and the difference is a
+    day or two on the date it clears; a pre-existing waiting period is
+    twenty-four months, not seven hundred and twenty days, and the difference
+    there is five days. Both are exact when kept as written and approximate the
+    moment they are normalised.
+    """
+
+    months: int = Field(default=0, ge=0)
+    days: int = Field(default=0, ge=0)
+    kind: WaitingKind = WaitingKind.OTHER
     applies_to: str
-    """Free text, e.g. "pre-existing diseases" or "cataract"."""
+    """Free text as the document wrote it, e.g. "pre-existing diseases"."""
+    source_clause_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _has_a_duration(self) -> Self:
+        if self.months == 0 and self.days == 0:
+            raise ValueError("a waiting period needs a duration")
+        return self
+
+    def clears_on(self, start: date) -> date:
+        """The first day this no longer applies, counting from the policy start."""
+        return add_months(start, self.months) + timedelta(days=self.days)
+
+    def describe(self) -> str:
+        if self.months and self.days:
+            return f"{self.months} months and {self.days} days"
+        if self.months:
+            years, months = divmod(self.months, 12)
+            if years and not months:
+                return f"{years} year{'s' if years != 1 else ''}"
+            return f"{self.months} month{'s' if self.months != 1 else ''}"
+        return f"{self.days} day{'s' if self.days != 1 else ''}"
+
+
+def add_months(start: date, months: int) -> date:
+    """Calendar month arithmetic, clamped to the end of a short month.
+
+    Two years from 29 February is 28 February, not the 1st of March. Written
+    out rather than pulled in, since this is the only place the project needs
+    it and the rule it has to get right is one line long.
+    """
+    if not months:
+        return start
+    month_index = start.month - 1 + months
+    year = start.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(start.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+class InsuredPerson(BaseModel):
+    """One person named on the policy.
+
+    Age is here because it changes the money. Co-payment is commonly imposed on
+    entrants above sixty, some plans cap a senior's room entitlement, and a
+    pre-existing waiting period matters far more at seventy than at thirty.
+    """
+
+    name: str = ""
+    age: int | None = Field(default=None, ge=0, le=120)
+    relationship: str = ""
+    sum_insured: Rupees | None = None
+    """Set only where a person carries their own cover rather than sharing the
+    family floater."""
     source_clause_ids: list[str] = Field(default_factory=list)
 
 
@@ -592,6 +691,8 @@ class NormalizedPolicy(BaseModel):
     sublimits: list[SubLimit] = Field(default_factory=list)
     waiting_periods: list[WaitingPeriod] = Field(default_factory=list)
     exclusions: list[Exclusion] = Field(default_factory=list)
+    insured: list[InsuredPerson] = Field(default_factory=list)
+    """Everyone named on the policy. Ages here change the money."""
 
     covers_consumables: bool = False
     """Consumables are excluded by default in India unless a rider is bought."""
@@ -630,3 +731,22 @@ class NormalizedPolicy(BaseModel):
 
     def clauses_of(self, kind: ClauseKind) -> list[Clause]:
         return [c for c in self.clauses if c.kind is kind and c.is_admissible]
+
+    @property
+    def oldest_age(self) -> int | None:
+        """The age that decides the terms.
+
+        A family floater is priced and conditioned on its eldest member, and it
+        is the eldest who carries the age-banded co-payment and the shorter
+        odds on a pre-existing condition. Where the policy names one person,
+        this is simply their age.
+        """
+        ages = [person.age for person in self.insured if person.age is not None]
+        return max(ages) if ages else None
+
+    def waiting_of(self, kind: WaitingKind) -> WaitingPeriod | None:
+        """The longest waiting period of a kind, which is the one that binds."""
+        matching = [w for w in self.waiting_periods if w.kind is kind]
+        if not matching:
+            return None
+        return max(matching, key=lambda w: (w.months * 31) + w.days)

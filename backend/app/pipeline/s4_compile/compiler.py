@@ -17,6 +17,8 @@ that is too good and a user who discovers the truth at the billing counter.
 
 from __future__ import annotations
 
+import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from app.core.events import bus
@@ -31,12 +33,14 @@ from app.schemas.policy import (
     ClauseStatus,
     Exclusion,
     ExpenseHead,
+    InsuredPerson,
     NormalizedPolicy,
     PolicyMeta,
     RoomCategory,
     RoomLimit,
     RoomLimitBasis,
     SubLimit,
+    WaitingKind,
     WaitingPeriod,
 )
 
@@ -245,6 +249,7 @@ def compile_policy(
             if c.kind is ClauseKind.EXCLUSION and c.is_admissible
         ]
         policy.meta = _compile_meta(clauses)
+        policy.insured = _compile_insured(clauses)
 
         policy.clauses = clauses
         policy.open_clarifications = asks
@@ -314,21 +319,91 @@ def _compile_sublimits(clauses: list[Clause]) -> list[SubLimit]:
     return limits
 
 
+# What a waiting period is for, read off the words the document used. The
+# order matters: "pre-existing" wins over a list that happens to mention it,
+# and the initial period is recognised by what it excludes rather than by its
+# length, because a policy is free to write it as 15 or 45 days.
+_WAITING_KINDS: list[tuple[re.Pattern[str], WaitingKind]] = [
+    (re.compile(r"pre[- ]?exist|\bPED\b", re.IGNORECASE), WaitingKind.PRE_EXISTING),
+    (re.compile(r"matern|pregnan|childbirth|delivery", re.IGNORECASE),
+     WaitingKind.MATERNITY),
+    (re.compile(r"all\s+(?:illness|disease|ailment)|any\s+(?:illness|disease)|"
+                r"other\s+than\s+accident|except\s+accident|initial",
+                re.IGNORECASE), WaitingKind.INITIAL),
+    (re.compile(r"cataract|hernia|joint\s+replace|piles|fistula|fissure|sinus|"
+                r"tonsil|hysterec|calcul|stone|varicose|gall\s*bladder|"
+                r"specified\s+(?:disease|ailment|illness)|listed\s+(?:disease|ailment)",
+                re.IGNORECASE), WaitingKind.SPECIFIC_AILMENT),
+]
+
+
+def classify_waiting(applies_to: str, *, days: int, months: int) -> WaitingKind:
+    """Which sort of waiting period this is.
+
+    Falls back on the duration only when the words say nothing: a period
+    written in days and applying to something unnamed is the initial one, since
+    no other kind is ever that short.
+    """
+    for pattern, kind in _WAITING_KINDS:
+        if pattern.search(applies_to):
+            return kind
+    if days and not months:
+        return WaitingKind.INITIAL
+    return WaitingKind.OTHER
+
+
 def _compile_waiting_periods(clauses: list[Clause]) -> list[WaitingPeriod]:
     seen: dict[tuple, WaitingPeriod] = {}
     for clause in clauses:
         if clause.kind is not ClauseKind.WAITING_PERIOD or not clause.is_admissible:
             continue
-        months = clause.params.get("months")
-        if not months:
+        months = int(clause.params.get("months") or 0)
+        days = int(clause.params.get("days") or 0)
+        if not months and not days:
             continue
         applies = str(clause.params.get("applies_to") or "unspecified")
-        key = (int(months), applies.lower()[:40])
+        key = (months, days, applies.lower()[:40])
         seen.setdefault(key, WaitingPeriod(
-            months=int(months), applies_to=applies,
+            months=months, days=days,
+            kind=classify_waiting(applies, days=days, months=months),
+            applies_to=applies,
             source_clause_ids=[clause.clause_id],
         ))
-    return sorted(seen.values(), key=lambda w: w.months)
+    return sorted(seen.values(), key=lambda w: (w.months * 31) + w.days)
+
+
+def _compile_insured(clauses: list[Clause]) -> list[InsuredPerson]:
+    """Everyone the schedule names, in the order it named them.
+
+    Ages are the reason this exists. A family floater is conditioned on its
+    eldest member, and whether a pre-existing waiting period is a formality or
+    the whole question depends on who is being admitted.
+    """
+    people: dict[str, InsuredPerson] = {}
+    for clause in clauses:
+        if clause.kind is not ClauseKind.INSURED_PERSON or not clause.is_admissible:
+            continue
+        name = str(clause.params.get("name") or "").strip()
+        if not name:
+            continue
+        age = clause.params.get("age")
+        cover = clause.params.get("sum_insured")
+        person = people.get(name.lower())
+        if person is None:
+            people[name.lower()] = InsuredPerson(
+                name=name,
+                age=int(age) if age is not None else None,
+                relationship=str(clause.params.get("relationship") or ""),
+                sum_insured=Decimal(str(cover)) if cover else None,
+                source_clause_ids=[clause.clause_id],
+            )
+        elif person.age is None and age is not None:
+            person.age = int(age)
+            person.source_clause_ids.append(clause.clause_id)
+    return list(people.values())
+
+
+_DATE_FIELDS = frozenset({"start_date", "end_date"})
 
 
 def _compile_meta(clauses: list[Clause]) -> PolicyMeta:
@@ -338,8 +413,25 @@ def _compile_meta(clauses: list[Clause]) -> PolicyMeta:
             continue
         field = clause.scope.get("field") or clause.params.get("field")
         value = str(clause.params.get("value", "")).strip()
-        if field and value and hasattr(meta, field) and not getattr(meta, field):
-            setattr(meta, field, value)
+        if not field or not value or not hasattr(meta, field):
+            continue
+        if getattr(meta, field):
+            continue
+        if field in _DATE_FIELDS:
+            # These are dates, not strings. Assignment on a Pydantic model does
+            # not coerce by default, so an ISO string put here unchecked would
+            # sit in a date field and fail the first time anything did
+            # arithmetic on it, several stages away from the cause.
+            try:
+                setattr(meta, field, date.fromisoformat(value))
+            except ValueError:
+                log.warning("unreadable policy date", field=field, value=value[:40])
+            continue
+        setattr(meta, field, value)
+
+    # A period that runs backwards is a misread, not a policy.
+    if meta.start_date and meta.end_date and meta.end_date <= meta.start_date:
+        meta.end_date = None
     return meta
 
 

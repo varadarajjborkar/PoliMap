@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -167,6 +168,34 @@ POLICYHOLDER_RE = re.compile(
     re.IGNORECASE,
 )
 UIN_RE = re.compile(r"\bUIN\b", re.IGNORECASE)
+
+# The line that says when cover began. Everything about waiting periods hangs
+# off this one date, and until now nothing read it.
+POLICY_PERIOD_RE = re.compile(
+    r"\b(?:policy\s*period|period\s+of\s+insurance|policy\s+term|"
+    r"cover\s+period|from\s+and\s+to)\b",
+    re.IGNORECASE,
+)
+INCEPTION_RE = re.compile(
+    r"\b(?:date\s+of\s+(?:issue|inception|commencement)|inception\s+date|"
+    r"commencement\s+date|policy\s+start\s+date)\b",
+    re.IGNORECASE,
+)
+
+# The table of who is covered. A schedule flattens to one value per line, so
+# the header row is found first and the rows read beneath it.
+INSURED_TABLE_RE = re.compile(
+    r"\b(?:insured\s+persons?|details\s+of\s+insured|persons?\s+insured|"
+    r"list\s+of\s+insured)\b",
+    re.IGNORECASE,
+)
+RELATIONSHIP_WORDS = frozenset(
+    {
+        "self", "spouse", "wife", "husband", "son", "daughter", "child",
+        "father", "mother", "father-in-law", "mother-in-law", "brother",
+        "sister", "dependent", "dependant", "proposer",
+    }
+)
 
 # Sub-limit rows, keyed by the expense head they cap.
 SUBLIMIT_HEADS: list[tuple[re.Pattern[str], ExpenseHead, str]] = [
@@ -408,8 +437,12 @@ def extract_waiting_periods(page: Page) -> list[Clause]:
     lines = _lines(page.text)
 
     for i, line in enumerate(lines):
-        months = P.parse_months(line)
-        if months is None or months == 0 or months > 120:
+        # The initial waiting period is written as "30 days", never as a month,
+        # and reading only months dropped the one period that applies to every
+        # illness there is. It was invisible on every policy in the corpus.
+        months = P.parse_months(line) or 0
+        days = 0 if months else (P.parse_days(line) or 0)
+        if months > 120 or days > 400 or (not months and not days):
             continue
 
         # A duration counts as a waiting period if the row says so, or if the
@@ -442,7 +475,11 @@ def extract_waiting_periods(page: Page) -> list[Clause]:
         clauses.append(
             _clause(
                 ClauseKind.WAITING_PERIOD, verbatim, page,
-                params={"months": months, "applies_to": applies or "unspecified"},
+                params={
+                    "months": months,
+                    "days": days,
+                    "applies_to": applies or "unspecified",
+                },
                 confidence=0.74,
             )
         )
@@ -533,6 +570,148 @@ def extract_meta(page: Page) -> list[Clause]:
     return clauses
 
 
+def extract_policy_period(page: Page) -> list[Clause]:
+    """When cover began and when it ends.
+
+    Every waiting period is counted from the start date, so without it the
+    system can list what is not yet covered but cannot say whether any of it
+    still applies. The end date matters on its own: a policy that renews next
+    week resets the sum insured, and someone deciding when to be admitted
+    should know that.
+    """
+    clauses: list[Clause] = []
+    lines = _lines(page.text)
+
+    for i, line in enumerate(lines):
+        if not POLICY_PERIOD_RE.search(line) and not INCEPTION_RE.search(line):
+            continue
+
+        # A schedule table flattens to label on one line, value on the next.
+        found: list[date] = []
+        for offset in range(0, 3):
+            if i + offset >= len(lines):
+                break
+            found = P.all_dates(lines[i + offset])
+            if found:
+                line = lines[i] if offset == 0 else f"{lines[i]} {lines[i + offset]}"
+                break
+        if not found:
+            continue
+
+        fields = [("start_date", found[0])]
+        if len(found) > 1 and found[-1] > found[0]:
+            fields.append(("end_date", found[-1]))
+
+        for field, value in fields:
+            clauses.append(
+                _clause(
+                    ClauseKind.POLICY_META, line, page,
+                    params={"field": field, "value": value.isoformat()},
+                    scope={"field": field},
+                    confidence=0.82,
+                )
+            )
+        break
+    return clauses
+
+
+def extract_insured_persons(page: Page) -> list[Clause]:
+    """Who is covered, and how old they are.
+
+    Age is not decoration. Co-payment is commonly imposed on entrants above
+    sixty, a pre-existing waiting period is far likelier to bite at seventy
+    than at thirty, and a family floater is conditioned on its eldest member.
+    The schedule states it plainly and nothing was reading it.
+
+    The table flattens to one cell per line, so this reads forward from the
+    heading and takes a name, an age and a relationship as they arrive rather
+    than trying to reconstruct columns.
+    """
+    lines = _lines(page.text)
+    start = next(
+        (i for i, line in enumerate(lines) if INSURED_TABLE_RE.search(line)), None
+    )
+    if start is None:
+        return []
+
+    clauses: list[Clause] = []
+    pending: dict[str, object] = {}
+    verbatim: list[str] = []
+
+    for line in lines[start + 1: start + 60]:
+        cell = line.strip(" :|-	")
+        if not cell:
+            continue
+        # A heading in capitals ends the table. So does anything that reads as
+        # the next section rather than another row.
+        if cell.isupper() and len(cell) > 6 and not cell.replace(" ", "").isdigit():
+            break
+
+        lower = cell.lower()
+        if lower in RELATIONSHIP_WORDS:
+            pending["relationship"] = cell
+            verbatim.append(cell)
+        elif cell.isdigit() and len(cell) <= 3 and 0 < int(cell) <= 120:
+            # A bare small number in this table is either a serial number or an
+            # age. The serial comes before the name and the age after it, which
+            # is what tells them apart.
+            if pending.get("name"):
+                pending["age"] = int(cell)
+                verbatim.append(cell)
+        elif P.parse_amount(cell) is not None and any(
+            token in lower for token in ("rs", "₹", "inr", "lakh", "crore")
+        ):
+            pending["sum_insured"] = str(P.parse_amount(cell))
+            verbatim.append(cell)
+        elif _looks_like_a_person(cell):
+            if pending.get("name") and pending.get("age") is not None:
+                clauses.append(_insured_clause(pending, verbatim, page))
+                pending, verbatim = {}, []
+            pending["name"] = cell
+            verbatim.append(cell)
+
+        if pending.get("name") and pending.get("age") is not None and pending.get(
+            "relationship"
+        ):
+            clauses.append(_insured_clause(pending, verbatim, page))
+            pending, verbatim = {}, []
+
+    if pending.get("name") and pending.get("age") is not None:
+        clauses.append(_insured_clause(pending, verbatim, page))
+    return clauses
+
+
+def _insured_clause(
+    pending: dict[str, object], verbatim: list[str], page: Page
+) -> Clause:
+    return _clause(
+        ClauseKind.INSURED_PERSON, " ".join(verbatim)[:180], page,
+        params=dict(pending),
+        scope={"person": str(pending.get("name", ""))},
+        confidence=0.78,
+    )
+
+
+# A cell holding a person's name: words, initials, the occasional full stop.
+# Deliberately narrow, because a false positive here invents a person.
+_PERSON_NAME = re.compile(r"^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,3}$")
+_NOT_A_PERSON = frozenset(
+    {
+        "name", "age", "sl", "sl.", "no", "no.", "relationship", "sum",
+        "insured", "sum insured", "name of insured person", "policy",
+        "gender", "date of birth", "dob", "member", "s.no",
+    }
+)
+
+
+def _looks_like_a_person(cell: str) -> bool:
+    if cell.lower().strip(". ") in _NOT_A_PERSON:
+        return False
+    if len(cell) < 3 or len(cell) > 60:
+        return False
+    return bool(_PERSON_NAME.match(cell))
+
+
 EXTRACTORS: list[Callable[[Page], list[Clause]]] = [
     extract_sum_insured,
     extract_room_limit,
@@ -544,6 +723,8 @@ EXTRACTORS: list[Callable[[Page], list[Clause]]] = [
     extract_sublimits,
     extract_flags,
     extract_meta,
+    extract_policy_period,
+    extract_insured_persons,
 ]
 
 
