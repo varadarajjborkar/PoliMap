@@ -138,6 +138,47 @@ for weeks later at claim time.
 
 ![Correcting a charge](docs/images/10-charges.png)
 
+### 6. The final bill, checked line by line
+
+Discharge is the worst moment to read a bill for the first time, and it is the
+only moment most people get. A fair number of lines on one are negotiable, and
+the ones that are follow rules anybody can check. Photograph the itemised bill
+and it comes back read:
+
+* **Items billed twice for one thing.** The IRDAI schedule places gowns, blades,
+  dressings and admission kits *inside* the room or procedure charge. Billed
+  separately, they are the same charge twice, and the billing desk will correct
+  it. This is the part almost nobody knows.
+* **Items no policy pays**, separated from the above, because one is money to
+  ask for back and the other was always yours.
+* **Lines that do not multiply out**, and lines that do not add up to the total.
+* **The deduction that is not on the bill at all**: the room cap and its
+  knock-on across room-linked heads, which the insurer takes at settlement and
+  the hospital never mentions.
+
+Each finding carries the rupees, the lines, and one sentence to say out loud.
+Nothing accuses anybody: billing is done at speed by people with several hundred
+lines to enter, and "could you check this line" gets a bill corrected where an
+accusation gets a supervisor.
+
+Arithmetic findings are gated on whether the document read cleanly. The printed
+total is a checksum over the lines, so a photograph that reproduces it was read
+correctly whatever the recognition score says, and one that does not is told so
+rather than handed a fifty thousand rupee discrepancy that exists only in our
+reading.
+
+The settlement underneath is the same waterfall the estimate used, so a family
+quoted one figure before admission and handed another at discharge can see which
+line moved.
+
+### 7. It speaks the language it is read in
+
+The interface is available in English, Kannada, Hindi, Marathi and Telugu.
+Deliberately scoped: navigation, stage names, the bill check and the disclaimer
+are translated; anything read out of somebody's policy is not. A clause
+paraphrased into another language and shown as what the document says is a claim
+about their cover that nobody has checked.
+
 ---
 
 ## Running it
@@ -243,12 +284,24 @@ Synthetic, per the problem statement's mandate, but generated from real anchors.
 | Hospitals | 580 | Bengaluru 250, Delhi NCR 120, Mumbai 120, Hyderabad 90 |
 | Insurers | 18 | 10 invented companies and 8 government schemes |
 | Policies | 40 | rendered as 104 documents, each with ground truth |
+| Hospital bills | 20 | 27 documents, every line and planted fault known |
 
 Hospital attributes are *correlated*, not drawn independently: size drives
 accreditation odds and specialty breadth, locality drives tariffs, and both
 drive how many insurers sign a cashless tie-up. That is what gives matching real
 trade-offs. The cheap hospital genuinely tends to be the one outside your
 network without an ICU, which is the decision a family actually faces.
+
+The bill corpus exists so the checker can be reported as a number rather than
+demonstrated on a screenshot. Bills are generated from the same tariffs the
+estimator uses, and carry planted faults drawn from what billing desks actually
+do: an item billed separately that belongs inside another charge, a line entered
+twice, a quantity against the wrong rate, a printed total that does not match
+the lines. A quarter of them carry no fault at all, because precision matters as
+much as recall here: a checker that finds something wrong with every bill is one
+nobody believes the second time. On the clean documents it reads every line,
+places every head, gets every total exact, finds all 27 planted faults, and
+raises nothing that was not planted.
 
 The policy corpus is adversarial by design. The same room limit appears as a
 flat amount, a percentage of cover, a percentage capped by a maximum, a room
@@ -345,6 +398,8 @@ backend/app/
   agents/       provider-agnostic model layer with role-based fallback chains
   schemas/      the domain contracts
   journey/      care journey tracking
+  bill/         reading a hospital bill and checking it
+  report/       the stay as one printable page
   core/         config, telemetry bus, guardrails, artifact cleanup
   api/          HTTP surface, session store, the SSE activity stream
 datagen/        corpus builders
@@ -367,11 +422,20 @@ It works on a phone, which is where a hospital corridor tends to put you:
 
 Stated rather than hidden.
 
-- **A 30-day initial waiting period is not extracted.** The extractor requires a
-  month-denominated duration, and that row reads "30 days". Waiting periods
-  quoted in months are read correctly.
-- **Some waiting periods report their subject as "unspecified"** when a
-  two-column table puts the label far enough from the figure.
+- **A photographed bill in bad conditions reads poorly.** A dense priced table
+  is far harder than a policy schedule: on the corpus's degraded profiles, dark
+  photographs and photocopies, most lines are lost or misread. The checker
+  refuses to argue arithmetic from a read that does not reconcile against the
+  bill's own total, so it says so instead of inventing a discrepancy, but a
+  photograph taken in a dark corridor still gets you less than the PDF the
+  billing desk can email.
+- **Localisation covers the interface, not the guidance the server composes.**
+  Navigation, stage names, the bill check and the disclaimer are translated. The
+  checklist's reasons, the alerts and the waterfall's explanations are English,
+  and fall back to it silently.
+- **The four translations have not been read by a native speaker.** They are
+  written carefully and the mechanism is checked, but insurance vocabulary in
+  Kannada and Telugu deserves a second pair of eyes before anybody relies on it.
 - **Proportionate deduction rarely appears in search results**, because the
   matcher deliberately picks a room *under* your cap. It shows up in the
   counterfactual on each option and in the journey, which is where a room above
