@@ -88,6 +88,13 @@ class DeductionKind(StrEnum):
     SCHEME_NOT_EMPANELLED = "scheme_not_empanelled"
     """This hospital cannot accept the scheme, so it pays nothing here."""
 
+    # The one entry in this list that gives money back. A second policy
+    # settling the balance is not a deduction at all, but it belongs in the
+    # same sequence, because the whole point of the sequence is to account for
+    # every rupee between the hospital's price and what the family finds.
+    SECOND_POLICY = "second_policy"
+    """A second policy paying what the first one left."""
+
     @property
     def label(self) -> str:
         return {
@@ -103,6 +110,7 @@ class DeductionKind(StrEnum):
             DeductionKind.SUM_INSURED_EXHAUSTED: "Beyond your remaining cover",
             DeductionKind.SCHEME_PACKAGE_RATE: "Covered by the scheme package",
             DeductionKind.SCHEME_NOT_EMPANELLED: "This hospital does not accept your scheme",
+            DeductionKind.SECOND_POLICY: "Paid by your second policy",
         }[self]
 
 
@@ -185,6 +193,12 @@ class SimulationResult(BaseModel):
     family can use a hospital at all."""
 
     settlement_mode: SettlementMode
+    unpaid: dict[ExpenseHead, Rupees] = Field(default_factory=dict)
+    """What the patient is left with, head by head.
+
+    The total of this is `out_of_pocket`, but the split matters when a second
+    policy is asked to settle the balance: it adjudicates against its own room
+    cap and its own sub-limits, and a single figure cannot be adjudicated."""
     band: CostBand | None = None
     warnings: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

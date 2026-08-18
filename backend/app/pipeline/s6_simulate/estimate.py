@@ -16,12 +16,66 @@ from __future__ import annotations
 
 from app.pipeline.s6_simulate.bill import adverse_bill, estimate_bill, stay_range
 from app.pipeline.s6_simulate.scheme_settle import settle_under_scheme
+from app.pipeline.s6_simulate.stack import settle_across
 from app.pipeline.s6_simulate.waterfall import simulate
 from app.schemas.hospital import Hospital
+from app.schemas.money import format_inr
 from app.schemas.policy import NormalizedPolicy, RoomCategory
 from app.schemas.procedure import Procedure
 from app.schemas.scheme import rules_for
-from app.schemas.simulation import CostBand, SimulationResult
+from app.schemas.simulation import (
+    CostBand,
+    DeductionKind,
+    SimulationResult,
+    WaterfallStep,
+)
+
+
+def estimate_across(
+    policies: list[NormalizedPolicy],
+    hospital: Hospital,
+    procedure: Procedure,
+    room: RoomCategory,
+    *,
+    is_network: bool = True,
+    patient_age: int | None = None,
+) -> SimulationResult:
+    """Cost one treatment against two policies settling in sequence.
+
+    Returned as a single `SimulationResult` so everything downstream, ranking,
+    the journey, the interface, keeps working on one shape. The leading
+    policy's own waterfall is what the result carries, since that is the
+    adjudication somebody actually watches happen at the counter; the second
+    policy's contribution arrives as one further step, and the totals are the
+    stack's.
+    """
+    bill = estimate_bill(hospital, procedure, room)
+    settled = settle_across(
+        policies, bill, hospital_name=hospital.name,
+        is_network=is_network, patient_age=patient_age,
+    )
+
+    result = settled.legs[0].result
+    for leg in settled.legs[1:]:
+        if leg.pays <= 0:
+            continue
+        result.steps.append(WaterfallStep(
+            kind=DeductionKind.SECOND_POLICY,
+            label=f"{leg.label} settles the balance",
+            deducted=-leg.pays,
+            payable_after=settled.payable,
+            explanation=(
+                f"{leg.label} pays {format_inr(leg.pays)} of what "
+                f"{settled.legs[0].label} left."
+            ),
+        ))
+
+    result.payable_by_insurer = settled.payable
+    result.out_of_pocket = settled.out_of_pocket
+    result.cash_to_arrange_upfront = settled.cash_to_arrange_upfront
+    result.warnings = settled.warnings
+    result.notes = [settled.order_note, *settled.notes]
+    return result
 
 
 def estimate_for(

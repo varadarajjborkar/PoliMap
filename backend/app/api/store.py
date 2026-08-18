@@ -63,6 +63,14 @@ class Session:
     patient_index: int | None = None
     """Which of the people named on the policy is being admitted."""
 
+    second_policy: NormalizedPolicy | None = None
+    """A second policy covering the same admission.
+
+    Very common in India: an employer's group cover beside a personal policy,
+    or a base policy with a top-up above it. Held separately rather than merged
+    into the first, because they settle in sequence against their own terms and
+    a merged policy would be one that exists nowhere."""
+
     def touch(self) -> None:
         self.updated_at = datetime.now(UTC)
 
@@ -83,6 +91,10 @@ class Session:
                 "pre_existing": self.pre_existing,
                 "accident": self.accident,
                 "patient_index": self.patient_index,
+                "second_policy": (
+                    self.second_policy.model_dump(mode="json")
+                    if self.second_policy else None
+                ),
                 "policy": self.policy.model_dump(mode="json") if self.policy else None,
                 "match": self.match.model_dump(mode="json") if self.match else None,
                 "journey": (
@@ -107,6 +119,10 @@ class Session:
             pre_existing=data.get("pre_existing"),
             accident=data.get("accident", False),
             patient_index=data.get("patient_index"),
+            second_policy=(
+                NormalizedPolicy.model_validate(data["second_policy"])
+                if data.get("second_policy") else None
+            ),
             policy=(
                 NormalizedPolicy.model_validate(data["policy"])
                 if data.get("policy") else None

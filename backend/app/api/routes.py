@@ -13,6 +13,7 @@ import asyncio
 import json
 from datetime import date, datetime
 from decimal import Decimal
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,7 @@ from app.pipeline.s4_compile.edit import (
     edit_field,
 )
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
-from app.pipeline.s6_simulate import eligibility
+from app.pipeline.s6_simulate import eligibility, stack
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
@@ -222,6 +223,21 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         # Which figures the user may correct. Sent rather than hardcoded in the
         # interface so the two cannot disagree about what is writable.
         "editable_fields": sorted(EDITABLE),
+        "second_policy": (
+            {
+                "label": stack.label_for(session.second_policy),
+                "sum_insured": float(session.second_policy.sum_insured),
+                "sum_insured_display": format_inr(session.second_policy.sum_insured),
+                "room_limit": session.second_policy.room_limit.describe(
+                    session.second_policy.sum_insured
+                ),
+                "copay_pct": float(session.second_policy.copay_pct),
+                "deductible": float(session.second_policy.deductible),
+                "deductible_display": format_inr(session.second_policy.deductible),
+                "is_top_up": stack.is_top_up(session.second_policy),
+            }
+            if session.second_policy else None
+        ),
         "restore_benefit": policy.restore_benefit,
         "sum_insured_remaining": (
             float(policy.sum_insured_remaining)
@@ -417,6 +433,7 @@ async def upload_policies(
     files: list[UploadFile] = File(...),
     insurer_id: str = Form(""),
     session_id: str = Form(""),
+    attach: bool = Form(False),
 ) -> dict[str, Any]:
     """Read several files as one policy, unless they are not one policy.
 
@@ -451,8 +468,9 @@ async def upload_policies(
     if not payloads:
         raise HTTPException(400, "Those files were empty.")
 
-    session = _session_for(session_id)
-    session.insurer_id = insurer_id
+    session = _session_for(session_id, attach=attach)
+    if not session.insurer_id or not attach:
+        session.insurer_id = insurer_id
 
     _announce_upload(
         session.session_id, [name for _, name in payloads], total
@@ -485,6 +503,20 @@ async def upload_policies(
         })
 
     assert result.policy is not None
+
+    # A second upload on a session that already holds a policy is somebody
+    # adding their other cover, not correcting the first. They settle in
+    # sequence against their own terms, so they are held apart: merged, they
+    # would be one policy that exists nowhere.
+    if attach and session.policy is not None and session.policy.is_usable:
+        session.second_policy = result.policy
+        session.document_name = ", ".join(
+            filter(None, [session.document_name,
+                          *(d.filename for d in result.documents)])
+        )
+        sessions.save(session)
+        return _policy_payload(session)
+
     session.policy = result.policy
     session.document_name = ", ".join(d.filename for d in result.documents)
     session.read_quality = min(d.quality_score for d in result.documents)
@@ -511,6 +543,12 @@ class ManualPolicy(BaseModel):
     deductible: float = 0
     covers_consumables: bool = False
 
+    session_id: str = ""
+    attach: bool = False
+    """Add this as a second policy on an existing stay rather than starting a
+    new one. Most people holding two do not have the employer's document, so
+    the second one is far likelier to be typed than uploaded."""
+
 
 @router.post("/policy/manual")
 def manual_policy(payload: ManualPolicy) -> dict[str, Any]:
@@ -531,10 +569,7 @@ def manual_policy(payload: ManualPolicy) -> dict[str, Any]:
     else:
         room = RoomLimit(basis=RoomLimitBasis.NO_LIMIT)
 
-    session = sessions.create()
-    session.insurer_id = payload.insurer_id
-    session.document_name = "Entered by hand"
-    session.policy = NormalizedPolicy(
+    entered = NormalizedPolicy(
         meta=PolicyMeta(insurer_name=payload.insurer_name),
         sum_insured=Decimal(str(payload.sum_insured)),
         room_limit=room,
@@ -543,6 +578,17 @@ def manual_policy(payload: ManualPolicy) -> dict[str, Any]:
         covers_consumables=payload.covers_consumables,
         confidence=1.0,
     )
+
+    session = _session_for(payload.session_id, attach=payload.attach)
+    if payload.attach and session.policy is not None and session.policy.is_usable:
+        session.second_policy = entered
+        session.match = None
+        sessions.save(session)
+        return _policy_payload(session)
+
+    session.insurer_id = payload.insurer_id
+    session.document_name = "Entered by hand"
+    session.policy = entered
     _apply_scheme(session)
     sessions.save(session)
     return _policy_payload(session)
@@ -634,6 +680,20 @@ def correct_field(session_id: str, payload: FieldEdit) -> dict[str, Any]:
 
 class Skip(BaseModel):
     question_id: str
+
+
+@router.delete("/policy/{session_id}/second")
+def drop_second_policy(session_id: str) -> dict[str, Any]:
+    """Detach the second policy.
+
+    Somebody who attached the wrong document, or whose other cover turns out
+    not to apply here, should not have to start the stay again to say so.
+    """
+    session = _session(session_id)
+    session.second_policy = None
+    session.match = None
+    sessions.save(session)
+    return _policy_payload(session)
 
 
 @router.post("/policy/{session_id}/skip")
@@ -799,8 +859,11 @@ async def search(session_id: str, payload: SearchRequest) -> dict[str, Any]:
     )
 
     result = await asyncio.to_thread(
-        find_options, datasets.hospitals, datasets.procedures,
-        session.policy, context, session_id=session_id,
+        partial(
+            find_options, datasets.hospitals, datasets.procedures,
+            session.policy, context, session_id=session_id,
+            second_policy=session.second_policy,
+        )
     )
     session.match = result
     session.pre_existing = payload.pre_existing
@@ -1371,7 +1434,7 @@ def open_session() -> dict[str, Any]:
     return {"session_id": session.session_id}
 
 
-def _session_for(session_id: str) -> Session:
+def _session_for(session_id: str, *, attach: bool = False) -> Session:
     """The session an upload belongs to.
 
     Reuses the one the browser has already opened a stream on, so the steps it
@@ -1379,10 +1442,15 @@ def _session_for(session_id: str) -> Session:
     already holds a policy is ignored rather than overwritten: a stale id left
     in an old tab must not be able to replace the policy someone is working
     from.
+
+    `attach` is how somebody says the opposite: this is my other cover, keep
+    the first. It has to be asked for rather than inferred, because the two
+    cases arrive looking identical and guessing wrong either loses a policy or
+    invents one.
     """
     if session_id:
         existing = sessions.get(session_id)
-        if existing is not None and existing.policy is None:
+        if existing is not None and (attach or existing.policy is None):
             return existing
     return sessions.create()
 

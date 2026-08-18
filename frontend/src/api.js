@@ -62,15 +62,21 @@ export const api = {
   // One policy usually arrives in pieces: the schedule, the wording, a
   // photograph of an endorsement. They are read together, and the server
   // refuses to merge them if they turn out to name two different policies.
-  uploadPolicy(files, insurerId, sessionId = '') {
+  uploadPolicy(files, insurerId, sessionId = '', attach = false) {
     const chosen = Array.isArray(files) ? files : [files]
     const form = new FormData()
     for (const file of chosen) form.append('files', file)
     form.append('insurer_id', insurerId || '')
     form.append('session_id', sessionId || '')
+    // Adding a second cover rather than correcting the first. Asked for rather
+    // than inferred: the two cases arrive looking identical, and guessing wrong
+    // either loses a policy or invents one.
+    form.append('attach', String(attach))
     return request('/api/policy/upload-many', { method: 'POST', body: form })
   },
   manualPolicy: (payload) => request('/api/policy/manual', json(payload)),
+  dropSecondPolicy: (sessionId) =>
+    request(`/api/policy/${sessionId}/second`, { method: 'DELETE' }),
   answer: (sessionId, questionId, answer) =>
     request(`/api/policy/${sessionId}/answer`, json({ question_id: questionId, answer })),
   // Skipping is not answering: the clause stays unconfirmed and the estimate

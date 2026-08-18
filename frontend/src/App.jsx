@@ -230,6 +230,26 @@ export default function App() {
     }
   }
 
+  // A second cover on the same admission, typed rather than uploaded: most
+  // people holding two have their own document and not their employer's. The
+  // results are dropped because they were costed against one policy.
+  async function handleAddSecondPolicy(entered) {
+    const result = await run('answer', () =>
+      api.manualPolicy({ ...entered, session_id: sessionId, attach: true }))
+    if (result) {
+      setPolicy(result)
+      setResults(null)
+    }
+  }
+
+  async function handleDropSecondPolicy() {
+    const result = await run('answer', () => api.dropSecondPolicy(sessionId))
+    if (result) {
+      setPolicy(result)
+      setResults(null)
+    }
+  }
+
   async function handleAnswer(questionId, answer) {
     const result = await run('answer', () =>
       api.answer(sessionId, questionId, answer))
@@ -453,6 +473,8 @@ export default function App() {
                 <BackLink onClick={goHome}>All your stays</BackLink>
                 <PolicySummary
                   policy={policy}
+                  onAddSecondPolicy={handleAddSecondPolicy}
+                  onDropSecondPolicy={handleDropSecondPolicy}
                   onAnswer={handleAnswer}
                   onSkip={handleSkip}
                   onEditField={handleEditField}

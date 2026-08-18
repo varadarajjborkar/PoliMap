@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Badge, Button, Card, CardHeader, Input } from './Primitives'
+import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // What we read from the policy, and the things we could not settle.
 //
@@ -54,7 +54,10 @@ function SchemeFacts({ policy }) {
   )
 }
 
-export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinue, answering }) {
+export function PolicySummary({
+  policy, onAnswer, onSkip, onEditField, onContinue, answering,
+  onAddSecondPolicy, onDropSecondPolicy,
+}) {
   const question = policy.questions?.[0]
 
   return (
@@ -208,6 +211,12 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
           </div>
         )}
 
+        <SecondPolicy
+          policy={policy}
+          onAdd={onAddSecondPolicy}
+          onDrop={onDropSecondPolicy}
+          busy={answering}
+        />
         <WhoIsCovered policy={policy} />
         <WaitingPeriods policy={policy} />
 
@@ -219,6 +228,162 @@ export function PolicySummary({ policy, onAnswer, onSkip, onEditField, onContinu
       </Card>
 
       <EvidenceTable clauses={policy.clauses} />
+    </div>
+  )
+}
+
+// A second cover on the same admission.
+//
+// Very common in India and almost never used: an employer's group policy
+// beside a personal one, or a base policy with a top-up above it. Every tool
+// that reads a policy reads one policy, so the second sits in a drawer while
+// the family pays a bill it would have covered.
+//
+// Held apart rather than merged, because they settle in sequence against their
+// own terms; merged, they would be one policy that exists nowhere.
+function SecondPolicy({ policy, onAdd, onDrop, busy }) {
+  const [adding, setAdding] = useState(false)
+  const second = policy.second_policy
+
+  if (second) {
+    return (
+      <div className="border-t border-line px-5 py-4 motion-safe:animate-fade">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-[0.8125rem] font-medium text-muted">
+            Your second policy
+          </h3>
+          <button
+            onClick={onDrop}
+            disabled={busy}
+            className="text-[0.75rem] text-muted underline-offset-2 transition hover:text-danger hover:underline disabled:opacity-50"
+          >
+            Remove
+          </button>
+        </div>
+
+        <p className="mt-1.5 text-[0.9375rem] font-medium">{second.label}</p>
+        <dl className="mt-1.5 space-y-1 text-[0.8125rem] text-muted">
+          <div className="flex justify-between gap-4">
+            <dt>Cover</dt>
+            <dd className="tabular-nums">{second.sum_insured_display}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>Room</dt>
+            <dd>{second.room_limit}</dd>
+          </div>
+          {second.is_top_up && (
+            <div className="flex justify-between gap-4">
+              <dt>Pays only above</dt>
+              <dd className="tabular-nums">{second.deductible_display}</dd>
+            </div>
+          )}
+        </dl>
+        <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
+          {second.is_top_up
+            ? 'A top-up pays what is left once the band above has been covered. We settle your first policy, then this one against the balance.'
+            : 'We settle one policy, then put the balance to the other, and tell you which order costs you less.'}
+        </p>
+      </div>
+    )
+  }
+
+  if (!adding) {
+    return (
+      <div className="border-t border-line px-5 py-4">
+        <button
+          onClick={() => setAdding(true)}
+          className="text-[0.875rem] font-medium text-brand transition hover:underline"
+        >
+          + I have another policy
+        </button>
+        <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
+          An employer's cover, or a top-up. A second policy pays what the first
+          one leaves, and most people never claim from it.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-t border-line px-5 py-4 motion-safe:animate-fade">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[0.8125rem] font-medium text-muted">
+          Your other policy
+        </h3>
+        <button
+          onClick={() => setAdding(false)}
+          className="text-[0.75rem] text-muted transition hover:text-ink"
+        >
+          Cancel
+        </button>
+      </div>
+      <SecondPolicyForm onSubmit={onAdd} busy={busy} />
+    </div>
+  )
+}
+
+// Typed rather than uploaded, because most people holding two policies have the
+// personal document and not the employer's.
+function SecondPolicyForm({ onSubmit, busy }) {
+  const [values, setValues] = useState({
+    insurer_name: '',
+    sum_insured: '500000',
+    room_limit_type: 'none',
+    room_limit_amount: '5000',
+    copay_pct: '0',
+    deductible: '0',
+  })
+  const set = (key) => (e) => setValues((v) => ({ ...v, [key]: e.target.value }))
+
+  return (
+    <div className="mt-3 space-y-3">
+      <Field label="Who is it with?" hint="The insurer's name, or your employer's.">
+        <Input
+          value={values.insurer_name}
+          onChange={set('insurer_name')}
+          placeholder="e.g. my employer's group cover"
+        />
+      </Field>
+      <Field label="How much cover?">
+        <Input type="number" value={values.sum_insured} onChange={set('sum_insured')} />
+      </Field>
+      <Field label="Room rent limit">
+        <Select value={values.room_limit_type} onChange={set('room_limit_type')}>
+          <option value="none">No limit</option>
+          <option value="flat">A fixed amount per day</option>
+        </Select>
+      </Field>
+      {values.room_limit_type === 'flat' && (
+        <Field label="Amount per day">
+          <Input
+            type="number"
+            value={values.room_limit_amount}
+            onChange={set('room_limit_amount')}
+          />
+        </Field>
+      )}
+      <Field
+        label="Does it only pay above an amount?"
+        hint="Top-up policies do. Leave it at 0 if yours does not."
+      >
+        <Input type="number" value={values.deductible} onChange={set('deductible')} />
+      </Field>
+
+      <Button
+        disabled={busy || !values.sum_insured}
+        onClick={() =>
+          onSubmit({
+            insurer_name: values.insurer_name.trim(),
+            sum_insured: Number(values.sum_insured),
+            room_limit_type: values.room_limit_type,
+            room_limit_amount: Number(values.room_limit_amount) || null,
+            copay_pct: Number(values.copay_pct) || 0,
+            deductible: Number(values.deductible) || 0,
+          })
+        }
+      >
+        {busy ? 'Adding…' : 'Add this policy'}
+      </Button>
     </div>
   )
 }

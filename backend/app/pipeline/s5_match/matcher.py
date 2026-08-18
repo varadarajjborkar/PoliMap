@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 from app.core.events import bus
 from app.core.logging import get_logger
-from app.pipeline.s6_simulate.estimate import estimate_for
+from app.pipeline.s6_simulate.estimate import estimate_across, estimate_for
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import Hospital
 from app.schemas.match import (
@@ -171,6 +171,35 @@ def _choose_room(
     return min(available, key=lambda r: r.per_day).category
 
 
+def _estimate(
+    policy: NormalizedPolicy,
+    hospital: Hospital,
+    procedure: Procedure,
+    room: RoomCategory,
+    context: CareContext,
+    *,
+    is_network: bool,
+    with_band: bool = True,
+):
+    """One entry point, so a second policy cannot be honoured in the headline
+    figure and forgotten in the counterfactual beside it."""
+    second = _second_policy.get(policy.policy_id)
+    if second is not None:
+        return estimate_across(
+            [policy, second], hospital, procedure, room,
+            is_network=is_network, patient_age=context.patient_age,
+        )
+    return estimate_for(
+        policy, hospital, procedure, room, is_network=is_network,
+        with_band=with_band, patient_age=context.patient_age,
+    )
+
+
+# Keyed on the leading policy for the duration of one search. Passing it down
+# through six signatures that do not otherwise care about it would be worse.
+_second_policy: dict[str, NormalizedPolicy] = {}
+
+
 def _cost_option(
     hospital: Hospital,
     distance: float,
@@ -190,9 +219,8 @@ def _cost_option(
     try:
         # One entry point, so a scheme beneficiary is costed as a scheme
         # beneficiary here and everywhere else that asks the same question.
-        result = estimate_for(
-            policy, hospital, procedure, room, is_network=is_network,
-            patient_age=context.patient_age,
+        result = _estimate(
+            policy, hospital, procedure, room, context, is_network=is_network,
         )
     except ValueError:
         return None
@@ -291,7 +319,12 @@ def pareto_frontier(options: list[RankedOption]) -> list[RankedOption]:
     ]
 
 
-def _explain(option: RankedOption, options: list[RankedOption], policy: NormalizedPolicy) -> None:
+def _explain(
+    option: RankedOption,
+    options: list[RankedOption],
+    policy: NormalizedPolicy,
+    context: CareContext,
+) -> None:
     """Attach the reasoning a user needs to disagree with the ranking."""
     result = option.simulation
     cheapest = min(options, key=lambda o: o.simulation.out_of_pocket)
@@ -332,10 +365,12 @@ def _explain(option: RankedOption, options: list[RankedOption], policy: Normaliz
 
     option.reasons = reasons[:3]
     option.tradeoffs = tradeoffs[:2]
-    option.counterfactual = _counterfactual(option, policy)
+    option.counterfactual = _counterfactual(option, policy, context)
 
 
-def _counterfactual(option: RankedOption, policy: NormalizedPolicy) -> str:
+def _counterfactual(
+    option: RankedOption, policy: NormalizedPolicy, context: CareContext
+) -> str:
     """A concrete, costed alternative at this same hospital.
 
     Room choice is the one lever a family actually controls at admission, and
@@ -358,10 +393,10 @@ def _counterfactual(option: RankedOption, policy: NormalizedPolicy) -> str:
         try:
             # No band here: this is a comparison between two rooms, and costing
             # both ends of both of them triples the work to change nothing.
-            alternative = estimate_for(
+            alternative = _estimate(
                 policy, hospital,
                 _procedure_cache[option.simulation.procedure_code],
-                tariff.category,
+                tariff.category, context,
                 is_network=(
                     option.simulation.settlement_mode is SettlementMode.CASHLESS
                 ),
@@ -499,9 +534,14 @@ def find_options(
     *,
     session_id: str | None = None,
     limit: int = TARGET_OPTIONS,
+    second_policy: NormalizedPolicy | None = None,
 ) -> MatchResult:
     """Find, cost, rank and explain hospital options, relaxing only as needed."""
     _procedure_cache.update(procedures)
+    if second_policy is not None:
+        _second_policy[policy.policy_id] = second_policy
+    else:
+        _second_policy.pop(policy.policy_id, None)
 
     procedure = procedures.get(context.procedure_code or "")
     if procedure is None:
@@ -598,7 +638,7 @@ def find_options(
         chosen = options[:limit]
         for position, option in enumerate(chosen, start=1):
             option.rank = position
-            _explain(option, chosen, policy)
+            _explain(option, chosen, policy, context)
         step.ok(
             f"{len(chosen)} option{'s' if len(chosen) != 1 else ''} shortlisted, "
             f"{sum(o.on_pareto_frontier for o in options)} genuinely non-dominated",

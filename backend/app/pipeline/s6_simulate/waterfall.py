@@ -315,6 +315,15 @@ def simulate(
     payable = ledger.total
     out_of_pocket = round_inr(bill.total - payable)
 
+    # What is left on the patient, head by head. A second policy settling the
+    # balance adjudicates it against its own room cap and sub-limits, and one
+    # combined figure cannot be adjudicated.
+    unpaid = {
+        head: round_inr(original - ledger.amounts.get(head, ZERO))
+        for head, original in ledger.original.items()
+        if original - ledger.amounts.get(head, ZERO) > 0
+    }
+
     if policy.government_scheme:
         mode = SettlementMode.SCHEME_PACKAGE
     elif is_network and policy.cashless_available:
@@ -341,6 +350,7 @@ def simulate(
         steps=steps,
         payable_by_insurer=payable,
         out_of_pocket=out_of_pocket,
+        unpaid=unpaid,
         cash_to_arrange_upfront=cash_upfront,
         settlement_mode=mode,
         warnings=warnings,
