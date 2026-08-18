@@ -11,6 +11,7 @@ import { Button, Card, Disclaimer, Input } from './Primitives'
 // register during an admission will simply close the tab.
 
 export function SignIn({ onSignIn }) {
+  const t = useT()
   const [name, setName] = useState('')
   const clean = name.trim()
 
@@ -22,10 +23,13 @@ export function SignIn({ onSignIn }) {
           className="mx-auto h-13 w-13"
         />
         <h1 className="mt-4 text-2xl font-semibold tracking-tight">
-          Know what your hospital stay will cost
+          {t('signin.title', 'Know what your hospital stay will cost')}
         </h1>
         <p className="mx-auto mt-2.5 max-w-sm text-[0.9375rem] leading-relaxed text-muted">
-          Choose a name to keep your admissions under. It stays on this device.
+          {t(
+            'signin.subtitle',
+            'Choose a name to keep your admissions under. It stays on this device.'
+          )}
         </p>
       </div>
 
@@ -36,7 +40,7 @@ export function SignIn({ onSignIn }) {
         >
           <label className="block">
             <span className="mb-1.5 block text-[0.9375rem] font-medium">
-              What should we call you?
+              {t('signin.name', 'What should we call you?')}
             </span>
             <Input
               autoFocus
@@ -47,14 +51,17 @@ export function SignIn({ onSignIn }) {
             />
           </label>
           <Button type="submit" className="w-full" disabled={!clean}>
-            Continue
+            {t('signin.continue', 'Continue')}
           </Button>
         </form>
 
         <p className="mt-4 border-t border-line pt-3.5 text-[0.875rem] leading-relaxed text-muted">
-          There is no password and no account. Nothing you enter is sent
-          anywhere to identify you, and a different name on this device opens a
-          different, separate set of stays.
+          {t(
+            'signin.no_account',
+            'There is no password and no account. Nothing you enter is sent ' +
+              'anywhere to identify you, and a different name on this device ' +
+              'opens a different, separate set of stays.'
+          )}
         </p>
       </Card>
 

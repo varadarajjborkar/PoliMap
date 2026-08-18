@@ -426,7 +426,13 @@ export default function App() {
   // provider sits below this point in the tree. It builds its own translator.
   const t = translator(settings.language)
 
-  if (!user) return <SignIn onSignIn={signIn} />
+  if (!user) {
+    return (
+      <LanguageContext.Provider value={settings.language}>
+        <SignIn onSignIn={signIn} />
+      </LanguageContext.Provider>
+    )
+  }
 
   if (view === 'home') {
     return (
