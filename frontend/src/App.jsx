@@ -3,6 +3,7 @@ import { LanguageContext, useT } from './hooks/useLanguage'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
 import { SignIn, StayList } from './components/HomeScreen'
+import { HelpDesk } from './components/HelpDesk'
 import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
 import { ReadingProgress } from './components/ReadingProgress'
@@ -15,6 +16,7 @@ import {
   SETUP_STEPS, SIGNIN_PATH, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
 import { translator } from './lib/i18n'
+import { deleteAllTickets } from './lib/tickets'
 import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
 import { useStay } from './hooks/useStay'
@@ -453,6 +455,7 @@ export default function App() {
   function forgetEverything() {
     if (sessionId) api.clear(sessionId).catch(() => {})
     deleteAllStays(user)
+    deleteAllTickets(user)
     goHome()
   }
 
@@ -490,7 +493,11 @@ export default function App() {
           settings={settings} set={set} reset={reset}
           sessionId={null}
           onForget={forgetEverything}
+          user={user}
         />
+        {/* Keyed on the name: another name is another person, and a
+            conversation is not theirs to inherit. */}
+        <HelpDesk key={user} screen="home" user={user} />
       </LanguageContext.Provider>
     )
   }
@@ -705,7 +712,10 @@ export default function App() {
         settings={settings} set={set} reset={reset}
         sessionId={sessionId}
         onForget={forgetEverything}
+        user={user}
       />
+
+      <HelpDesk key={user} screen={step} user={user} />
     </LanguageContext.Provider>
   )
 }

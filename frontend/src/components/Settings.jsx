@@ -4,6 +4,7 @@ import { useDialog } from '../hooks/useDialog'
 import { useScreenExit } from '../hooks/useScreenExit'
 import { useT } from '../hooks/useLanguage'
 import { LANGUAGES } from '../lib/i18n'
+import { listTickets } from '../lib/tickets'
 import { Badge, Button, Toggle } from './Primitives'
 
 // Settings, in a panel over the page.
@@ -22,10 +23,13 @@ const ROLE_LABELS = {
   narrate: 'Narrate',
 }
 
-export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, onForget }) {
+export function SettingsPanel({
+  open, onClose, settings, set, reset, sessionId, onForget, user,
+}) {
   const [health, setHealth] = useState(null)
   const [providers, setProviders] = useState(null)
   const [confirmForget, setConfirmForget] = useState(false)
+  const [tickets, setTickets] = useState([])
   const t = useT()
 
   // The drawer has to still be on screen to animate off it, so closing is held
@@ -45,9 +49,10 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
     // A drawer closed once is still holding the state that closed it, and
     // would open part-way through its own exit.
     resetExit()
+    setTickets(listTickets(user))
     api.health().then(setHealth).catch(() => setHealth(null))
     api.providers().then(setProviders).catch(() => setProviders(null))
-  }, [open, resetExit])
+  }, [open, resetExit, user])
 
   if (!open) return null
 
@@ -127,6 +132,24 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
                 { value: 'large', label: 'Large' },
               ]}
             />
+          </Section>
+
+          <Section title={t('settings.tickets', 'Your tickets')}>
+            {tickets.length === 0 ? (
+              <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
+                {t(
+                  'settings.tickets.none',
+                  'Nothing raised yet. Anything you send from the help desk '
+                    + 'appears here with its reference.'
+                )}
+              </p>
+            ) : (
+              <ul className="space-y-2 pt-1">
+                {tickets.map((ticket) => (
+                  <TicketRow key={ticket.ticket_id} ticket={ticket} t={t} />
+                ))}
+              </ul>
+            )}
           </Section>
 
           {sessionId && (
@@ -281,6 +304,54 @@ export function SettingsPanel({ open, onClose, settings, set, reset, sessionId, 
         </div>
       </aside>
     </div>
+  )
+}
+
+// One ticket, and how far it has got, which is never far.
+//
+// The stages after the first are drawn as what they are: not started. There is
+// no support desk behind this app, and a tracker that crept along on its own
+// would be the one dishonest thing in it.
+const STAGES = ['received', 'triaged', 'in_progress', 'resolved']
+
+function TicketRow({ ticket, t }) {
+  const reached = STAGES.indexOf(ticket.stage)
+  return (
+    <li className="rounded-lg border border-line bg-canvas px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-[0.8125rem] font-medium">
+          {ticket.subject}
+        </span>
+        <span className="shrink-0 font-mono text-[0.6875rem] text-muted">
+          {ticket.ticket_id}
+        </span>
+      </div>
+
+      <div className="mt-2 flex items-center gap-1">
+        {STAGES.map((stage, index) => (
+          <span
+            key={stage}
+            title={stage.replace(/_/g, ' ')}
+            className={`h-1 flex-1 rounded-full ${
+              index <= reached ? 'bg-brand' : 'bg-line'
+            }`}
+          />
+        ))}
+      </div>
+
+      <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-muted">
+        {t('settings.tickets.stage', 'Received')}
+        {' · '}
+        {new Date(ticket.raised_at).toLocaleDateString('en-IN', {
+          day: 'numeric', month: 'short',
+        })}
+        {' · '}
+        {t(
+          'settings.tickets.note',
+          'nothing is working on it yet, and saying so beats a status that pretends otherwise'
+        )}
+      </p>
+    </li>
   )
 }
 

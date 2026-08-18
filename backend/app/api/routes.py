@@ -29,6 +29,7 @@ from app.bill import read as bill_read
 from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
+from app.help import assistant
 from app.journey import checklist, position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes, run_policy_pipeline_many
 from app.pipeline.s0_intake.intake import ingest_bytes
@@ -44,6 +45,7 @@ from app.pipeline.s6_simulate import eligibility, stack
 from app.report import stay as report
 from app.schemas.bill import BillReview
 from app.schemas.events import EventStatus, PipelineStage
+from app.schemas.help import HelpReply, Ticket, TicketKind
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import AlertSeverity, JourneyStage
 from app.schemas.match import CareContext, Preference
@@ -1801,6 +1803,68 @@ def clear_session(session_id: str) -> dict[str, Any]:
 
 
 # --- activity stream ------------------------------------------------------
+
+
+class HelpAsk(BaseModel):
+    """A question, and where in the app it was asked from."""
+
+    message: str = Field(default="", max_length=2000)
+    screen: str = Field(default="", max_length=40)
+
+
+@router.post("/help/ask")
+async def help_ask(payload: HelpAsk) -> dict[str, Any]:
+    """Answer a question about the app. Reads nothing and writes nothing.
+
+    Deliberately takes no session id. The help desk explains how things work
+    and where they are done; it has no business reading somebody's policy to do
+    that, and not being given it is a stronger guarantee than being trusted not
+    to look.
+    """
+    reply: HelpReply = await asyncio.to_thread(
+        assistant.answer, payload.message, screen=payload.screen
+    )
+    return reply.model_dump(mode="json")
+
+
+@router.get("/help/opening")
+def help_opening(screen: str = "") -> dict[str, Any]:
+    """What the help desk offers before anything has been asked."""
+    return assistant.opening(screen).model_dump(mode="json")
+
+
+class RaiseTicket(BaseModel):
+    kind: TicketKind
+    subject: str = Field(min_length=1, max_length=200)
+    detail: str = Field(default="", max_length=4000)
+    screen: str = Field(default="", max_length=40)
+
+
+@router.post("/help/ticket")
+def raise_ticket(payload: RaiseTicket) -> dict[str, Any]:
+    """Mint a reference for something the user wants on the record.
+
+    The ticket is returned and kept by the browser, in the same place a stay is
+    kept. Nothing is stored here: there is no desk behind this to store it for,
+    and a reference somebody can quote is a reference either way. The tracker
+    says exactly that rather than implying a queue that does not exist.
+    """
+    ticket = Ticket(
+        kind=payload.kind,
+        subject=payload.subject.strip(),
+        detail=payload.detail.strip(),
+        screen=payload.screen,
+        note=(
+            "Logged with a reference you can quote. There is no support desk "
+            "behind this app yet, so it will not move past received, and "
+            "saying so is better than a status that pretends otherwise."
+        ),
+    )
+    log.info(
+        "ticket raised",
+        ticket_id=ticket.ticket_id, kind=ticket.kind.value, screen=ticket.screen,
+    )
+    return ticket.model_dump(mode="json")
 
 
 @router.get("/events/{session_id}")

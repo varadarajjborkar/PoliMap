@@ -152,6 +152,16 @@ export const api = {
   bill: (sessionId) => request(`/api/journey/${sessionId}/bill`),
   dropBill: (sessionId) =>
     request(`/api/journey/${sessionId}/bill`, { method: 'DELETE' }),
+
+  // The help desk. Deliberately session-less: it explains how things work and
+  // where they are done, and has no business reading somebody's policy to do
+  // that. Not being given the session is a stronger guarantee than being
+  // trusted not to look at it.
+  helpOpening: (screen) =>
+    request(`/api/help/opening?screen=${encodeURIComponent(screen || '')}`),
+  helpAsk: (message, screen) =>
+    request('/api/help/ask', json({ message, screen })),
+  raiseTicket: (payload) => request('/api/help/ticket', json(payload)),
 }
 
 // Subscribes to the pipeline's activity stream. Returns an unsubscribe function.

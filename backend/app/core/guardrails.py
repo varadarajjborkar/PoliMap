@@ -38,7 +38,19 @@ _PROMISE_PATTERNS = [
 _CLINICAL_PATTERNS = [
     re.compile(r"\byou should (?:take|have|undergo|get) (?:the|a|an|this)\b", re.I),
     re.compile(r"\bwe recommend (?:the|a|an|this) (?:treatment|procedure|surgery|drug|medication)\b", re.I),
-    re.compile(r"\byou (?:have|are suffering from|are diagnosed with)\b", re.I),
+    # Asserting a condition, not merely using the word "have". The bare form
+    # caught "you have a co-payment of 10%" and "if you have both", which are
+    # the ordinary sentences of this app, and a caught sentence is dropped
+    # rather than trimmed: the guardrail was deleting correct answers. The
+    # conditional is excluded because supposing a condition is not diagnosing
+    # one, which is the difference between asking somebody and telling them.
+    re.compile(
+        r"(?<!if )\byou (?:have|are suffering from|are diagnosed with)\s+"
+        r"(?:a |an |the )?(?:\w+\s+)?"
+        r"(?:condition|disease|disorder|infection|cancer|diabetes|"
+        r"hypertension|tumou?r)\b",
+        re.I,
+    ),
     re.compile(r"\bdiagnos(?:is|ed|e) (?:is|as|with)\b", re.I),
     re.compile(r"\b(?:best|better|preferred) treatment (?:option|for you)\b", re.I),
     re.compile(r"\bdo not (?:take|have|undergo)\b", re.I),
