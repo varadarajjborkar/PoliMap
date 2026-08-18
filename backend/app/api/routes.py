@@ -24,15 +24,17 @@ from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
 from app.api.session import DatasetMissing, Session, datasets, sessions
+from app.api.store import is_well_formed
 from app.bill import check as bill_check
 from app.bill import read as bill_read
 from app.core import artifacts
+from app.core.config import settings
 from app.core.events import bus
 from app.core.logging import get_logger
 from app.help import assistant
 from app.journey import checklist, position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes, run_policy_pipeline_many
-from app.pipeline.s0_intake.intake import ingest_bytes
+from app.pipeline.s0_intake.intake import DocumentTooLarge, ingest_bytes
 from app.pipeline.s4_compile.compiler import apply_answer, skip_question
 from app.pipeline.s4_compile.edit import (
     EDITABLE,
@@ -61,6 +63,13 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 def _session(session_id: str) -> Session:
+    # Shape first. A session id names a directory of page images, so an id that
+    # could never have been issued is turned away on what it looks like rather
+    # than on the accident of no such session existing. Both answers are the
+    # same 404: telling a caller that their id was merely the wrong shape is
+    # telling them how to make a better guess.
+    if not is_well_formed(session_id):
+        raise HTTPException(404, "Session not found. Upload a policy first.")
     try:
         return sessions.require(session_id)
     except KeyError:
@@ -378,6 +387,13 @@ def _announce_failure(session_id: str, exc: Exception) -> None:
     begun, so nothing would otherwise mark the end. The user sees the error
     either way; this is so the log of what happened has one.
     """
+    # The exception's own text does not travel. Every event published here is
+    # streamed to the browser, and an exception message is written for whoever
+    # is reading the server log: it carries temporary file paths, library
+    # internals, and whatever a third party put in an error body. The type name
+    # is enough to tell one failure from another in the activity panel, and the
+    # rest is kept where it is useful and not visible.
+    log.warning("read failed", session=session_id, error=str(exc)[:500])
     bus.publish(
         PipelineStage.INTAKE,
         "read_failed",
@@ -385,7 +401,6 @@ def _announce_failure(session_id: str, exc: Exception) -> None:
         session_id=session_id,
         summary=UNREADABLE,
         error=type(exc).__name__,
-        detail_for_logs=str(exc)[:200],
     )
 
 
@@ -414,6 +429,9 @@ async def upload_policy(
         result = await asyncio.to_thread(
             run_policy_pipeline_bytes, data, filename, session_id=session.session_id
         )
+    except DocumentTooLarge as exc:
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.exception("policy pipeline failed", filename=filename)
         _announce_failure(session.session_id, exc)
@@ -488,6 +506,9 @@ async def upload_policies(
         result = await asyncio.to_thread(
             run_policy_pipeline_many, payloads, session_id=session.session_id
         )
+    except DocumentTooLarge as exc:
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.exception("multi-document pipeline failed", files=len(payloads))
         _announce_failure(session.session_id, exc)
@@ -1392,14 +1413,39 @@ def delete_cost(session_id: str, entry_id: str) -> dict[str, Any]:
     return _journey_payload(session)
 
 
+# Entry ids are minted here, so anything that is not one of ours is a probe.
+# The check matters because the id was being interpolated straight into a glob
+# pattern, where `*` matches every receipt on the stay and `?` matches most of
+# them, which is a way to read a file without knowing its name.
+_ENTRY_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
 @router.get("/journey/{session_id}/cost/{entry_id}/receipt")
 def get_receipt(session_id: str, entry_id: str) -> FileResponse:
     """Serve back the attached bill so the user can check what they filed."""
     _session(session_id)
-    matches = sorted(artifacts.receipt_dir(session_id).glob(f"{entry_id}.*"))
+    if not _ENTRY_ID.match(entry_id):
+        raise HTTPException(404, "No receipt was attached to that charge.")
+
+    directory = artifacts.receipt_dir(session_id)
+    matches = sorted(
+        p for p in directory.iterdir()
+        if p.is_file() and p.stem == entry_id and p.suffix.lower() in RECEIPT_SUFFIXES
+    )
     if not matches:
         raise HTTPException(404, "No receipt was attached to that charge.")
-    return FileResponse(matches[0])
+
+    # This is a file somebody else uploaded, handed back over the API's own
+    # origin. Served as an attachment with sniffing off, so that whatever is
+    # actually inside it is saved rather than rendered: an HTML page wearing a
+    # .png suffix must not become a page running on this origin.
+    return FileResponse(
+        matches[0],
+        headers={
+            "Content-Disposition": f'attachment; filename="receipt{matches[0].suffix}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 BILL_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
@@ -1568,6 +1614,9 @@ async def check_final_bill(
         # Reading a photographed bill is OCR and possibly a vision call, both
         # blocking, so it runs off the loop and the progress reaches the browser.
         review = await asyncio.to_thread(_check_bill, session, data, filename)
+    except DocumentTooLarge as exc:
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.exception("bill check failed", filename=filename)
         _announce_failure(session.session_id, exc)
@@ -1653,7 +1702,7 @@ def _session_for(session_id: str, *, attach: bool = False) -> Session:
     cases arrive looking identical and guessing wrong either loses a policy or
     invents one.
     """
-    if session_id:
+    if session_id and is_well_formed(session_id):
         existing = sessions.get(session_id)
         if existing is not None and (attach or existing.policy is None):
             return existing
@@ -1873,7 +1922,17 @@ async def stream_events(session_id: str, request: Request) -> StreamingResponse:
 
     Carries the same `PipelineEvent` objects written to the server log, so what
     the user sees cannot drift from what actually happened.
+
+    The session has to exist. This used to accept any string at all, which made
+    it the one route where an unbounded number of connections could be opened
+    against ids that were never issued, each holding a queue for the lifetime
+    of the socket.
     """
+    _session(session_id)
+    if bus.subscriber_count >= settings.max_event_streams:
+        raise HTTPException(
+            503, "Too many activity streams are open. Try again in a moment."
+        )
     queue, backlog = bus.subscribe(replay=True, session_id=session_id)
 
     async def generate():
@@ -1923,6 +1982,7 @@ def _sse(event) -> str:
 @router.get("/events/{session_id}/history")
 def event_history(session_id: str) -> dict[str, Any]:
     """Non-streaming fallback for clients that cannot hold a connection open."""
+    _session(session_id)
     return {
         "events": [
             {

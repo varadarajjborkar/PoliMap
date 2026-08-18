@@ -93,9 +93,16 @@ class Settings(BaseSettings):
 
     # --- provider ---
     polimap_provider: Provider = Provider.AUTO
-    ollama_api_key: str = ""
+
+    # `repr=False` keeps the keys out of every rendering of this object. A
+    # settings object is repr'd in more places than it looks: a pytest
+    # assertion that mentions `settings` prints the whole thing, and so does an
+    # unhandled exception whose frame holds one. Both end up in CI logs, which
+    # are public on a public repository. The value is still read normally; it
+    # just stops travelling attached to every traceback.
+    ollama_api_key: str = Field(default="", repr=False)
+    anthropic_api_key: str = Field(default="", repr=False)
     ollama_host: str = "https://ollama.com"
-    anthropic_api_key: str = ""
 
     # --- model role chains (blank -> DEFAULT_MODEL_CHAINS) ---
     model_extract: str = ""
@@ -129,6 +136,44 @@ class Settings(BaseSettings):
     # Origins allowed to call the API. The dev server and preview server are
     # always permitted; a deployed frontend adds its own origin here.
     cors_origins: str = ""
+
+    # --- protection ---
+    # Set only where a reverse proxy really is in front. The forwarded address
+    # is the caller's true one there, and is a free spoof anywhere else, so
+    # trusting it unconditionally would hand anyone a fresh rate-limit
+    # allowance per request.
+    trust_proxy: bool = False
+
+    # The rate limit itself. On everywhere it matters; the test suite turns it
+    # off because a suite is one caller making thousands of requests, which is
+    # the exact shape the limiter exists to refuse. The limiter's own tests
+    # turn it back on.
+    rate_limit_enabled: bool = True
+
+    # Whether TLS terminates at the edge. Turns on HSTS, which is a promise a
+    # plain-HTTP deployment cannot keep and a development server must not make.
+    behind_tls: bool = False
+
+    # The generated API reference. Useful while building, and a map of every
+    # route and every field for anybody else, so it is off unless asked for.
+    enable_docs: bool = False
+
+    # A document is read page by page, and every page that is not already text
+    # is rasterised and put through OCR. Both bound the work one upload can
+    # ask for: a small file can declare thousands of pages, or one page the
+    # size of a wall, and neither is a policy anybody is holding.
+    max_document_pages: int = Field(default=60, ge=1, le=500)
+    max_page_megapixels: float = Field(default=40.0, gt=0)
+
+    # A photograph is decoded in full before anything can be done with it, and
+    # an image file's dimensions are declared in its header rather than implied
+    # by its size, so a small file can claim to be enormous. The ceiling is set
+    # above what any phone camera produces so that a real photo never meets it.
+    max_image_megapixels: float = Field(default=60.0, gt=0)
+
+    # Live event streams held open at once. Each is a queue and a socket, and
+    # nothing stops one caller opening them by the thousand.
+    max_event_streams: int = Field(default=200, ge=1)
 
     @field_validator("ollama_api_key", "anthropic_api_key", mode="after")
     @classmethod

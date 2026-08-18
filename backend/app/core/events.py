@@ -156,11 +156,19 @@ class EventBus:
         try:
             yield handle
         except Exception as exc:
+            # The message is logged, not published. Everything published here
+            # is streamed to a browser, and an exception's text is written for
+            # whoever reads the log: it carries file paths, library internals
+            # and third-party error bodies. The type names the failure without
+            # describing the inside of the program to whoever caused it.
+            log.warning(
+                "step failed", step=step, stage=stage.value, error=str(exc)[:500]
+            )
             self.publish(
                 stage,
                 step,
                 status=EventStatus.FAILED,
-                summary=f"{type(exc).__name__}: {exc}",
+                summary=f"{type(exc).__name__} while {step.replace('_', ' ')}",
                 session_id=session_id,
                 duration_ms=(time.perf_counter() - started) * 1000,
                 **handle.detail,

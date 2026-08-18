@@ -20,9 +20,10 @@ are later summed in a claim waterfall.
 from __future__ import annotations
 
 import json
+import re
+import secrets
 import sqlite3
 import threading
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -165,8 +166,30 @@ class SessionStore(Protocol):
     def count(self) -> int: ...
 
 
+# The id is the only thing standing between a stay and anybody else, because
+# there is no account and no password by design. That makes it a secret, and it
+# was being cut to twelve hex characters: 48 bits, which is short enough to be
+# worth attacking and short enough for two to collide once traffic is real.
+# 32 URL-safe characters is 192 bits, still fits in a path segment, and costs
+# nothing. `secrets` rather than `uuid4` because the point is unguessability
+# rather than uniqueness, and only one of the two says so.
+ID_BYTES = 24
+_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
 def _new_id() -> str:
-    return uuid.uuid4().hex[:12]
+    return secrets.token_urlsafe(ID_BYTES)
+
+
+def is_well_formed(session_id: str) -> bool:
+    """Whether a string could be one of our ids at all.
+
+    Session ids name directories holding page images, so a lookup miss is not
+    the only thing that must stop a hostile one: this is checked before the id
+    reaches any store or any path, so a traversal attempt is refused on its
+    shape rather than on the accident of finding no such session.
+    """
+    return bool(_ID_PATTERN.match(session_id))
 
 
 class MemorySessionStore:

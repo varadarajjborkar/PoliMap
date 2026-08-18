@@ -63,8 +63,14 @@ def test_step_records_failure_and_reraises():
     with pytest.raises(ValueError), b.step(PipelineStage.ATOMIZE, "parse"):
         raise ValueError("bad clause")
 
-    assert b.history()[-1].status is EventStatus.FAILED
-    assert "bad clause" in b.history()[-1].summary
+    failed = b.history()[-1]
+    assert failed.status is EventStatus.FAILED
+    # The type and the step, so the activity panel can tell one failure from
+    # another. Not the exception's own text: every event is streamed to a
+    # browser, and an exception message is written for whoever reads the log.
+    assert "ValueError" in failed.summary
+    assert "parse" in failed.summary
+    assert "bad clause" not in failed.summary
 
 
 def test_history_is_filtered_by_session():

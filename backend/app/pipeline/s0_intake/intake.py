@@ -25,6 +25,7 @@ from pathlib import Path
 import cv2
 import fitz
 import numpy as np
+from PIL import Image
 
 from app.agents.base import LLMUnavailable
 from app.agents.registry import registry
@@ -52,7 +53,48 @@ NATIVE_TEXT_MIN_CHARS = 180
 and a footer in its text layer is effectively an image."""
 
 RASTER_DPI = 300
+LEGIBLE_DPI = 60
+"""Below this, OCR reads nothing off a page, so a resolution lower than it is
+not a smaller answer but no answer."""
+
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+
+
+class DocumentTooLarge(ValueError):
+    """More pages than any policy has. Refused before any of them is read."""
+
+
+def _raster_dpi(page: fitz.Page, dpi: int = RASTER_DPI) -> int:
+    """The resolution to rasterise a page at, given how big the page is.
+
+    A PDF page can declare any size up to 200 inches square, and rasterising
+    one of those at 300 DPI asks for a 60000 by 60000 pixel image: eleven
+    gigabytes, from a file of about a kilobyte. Nothing upstream stops that
+    being uploaded, so the resolution gives way rather than the machine.
+
+    Reducing the DPI is the right concession instead of refusing. A genuinely
+    oversized page is usually a large-format scan, which is readable at a lower
+    resolution, whereas a refusal would turn an unusual document into a dead
+    end. An ordinary page is far below the ceiling and is unaffected.
+    """
+    inches = (page.rect.width / 72) * (page.rect.height / 72)
+    if inches <= 0:
+        return dpi
+    ceiling = settings.max_page_megapixels * 1_000_000
+    if inches * dpi * dpi <= ceiling:
+        return dpi
+
+    fits = int((ceiling / inches) ** 0.5)
+    if fits < LEGIBLE_DPI:
+        # Below this nothing on the page can be read, so there is no resolution
+        # that both fits the ceiling and produces an answer. A page this size
+        # is not a document somebody is holding, and pretending to read it
+        # would spend the time and return nothing.
+        raise DocumentTooLarge(
+            "One page of that file is far larger than any sheet of paper. "
+            "Upload the pages of your policy rather than a poster-sized scan."
+        )
+    return fits
 
 VISION_PROMPT = (
     "Transcribe every line of text visible in this document image, exactly as "
@@ -84,7 +126,7 @@ def _native_page(page: fitz.Page, index: int) -> Page:
 
 
 def _rasterize(page: fitz.Page, dpi: int = RASTER_DPI) -> np.ndarray:
-    pix = page.get_pixmap(dpi=dpi)
+    pix = page.get_pixmap(dpi=_raster_dpi(page, dpi))
     buf = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
     if pix.n == 4:
         return cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
@@ -216,6 +258,39 @@ def ingest(
     )
 
 
+def _refuse_oversized_image(path: Path) -> None:
+    """Reject an image whose header claims more pixels than a camera makes.
+
+    The dimensions of an image are declared in its header, not implied by the
+    file size, so a few kilobytes of compressed nothing can decode into
+    gigabytes. The header is read on its own first, which costs nothing, and
+    the decode only happens once the answer is a size a photograph could be.
+    """
+    try:
+        with Image.open(path) as probe:
+            width, height = probe.size
+    except Image.DecompressionBombError as exc:
+        # Pillow refuses the header on its own once an image is absurd enough.
+        # Catching that alongside everything else was letting the worst case
+        # through: the one file certain to be a bomb was the one exempted.
+        raise DocumentTooLarge(
+            "That image is far larger than a photograph of a document. "
+            "Send the picture your phone took rather than an enlarged copy."
+        ) from exc
+    except Exception:
+        # Unreadable header. Let the decoder below produce the real error,
+        # which is a better sentence than anything that could be written here.
+        return
+
+    ceiling = settings.max_image_megapixels * 1_000_000
+    if width * height > ceiling:
+        raise DocumentTooLarge(
+            f"That image is {width} by {height} pixels, which is far larger "
+            f"than a photograph of a document. Send the picture your phone "
+            f"took rather than an enlarged copy."
+        )
+
+
 def _ingest_image(
     path: Path, *, session_id: str | None, save_page_images: bool, shown: str = ""
 ) -> IngestedDocument:
@@ -223,6 +298,7 @@ def _ingest_image(
         STAGE, "read_image", session_id=session_id,
         summary=f"Reading {shown}",
     ) as step:
+        _refuse_oversized_image(path)
         image = cv2.imread(str(path))
         if image is None:
             raise ValueError(f"Could not read image: {path.name}")
@@ -258,6 +334,17 @@ def _ingest_pdf(
 
     with fitz.open(path) as doc:
         page_count = doc.page_count
+        # Checked before the loop rather than inside it. Every page that is not
+        # already text is rasterised and put through OCR, which is a second of
+        # a core each, so a small file declaring thousands of blank pages is
+        # hours of work asked for in one request. No policy document is this
+        # long, so the ceiling costs a real user nothing.
+        if page_count > settings.max_document_pages:
+            raise DocumentTooLarge(
+                f"That file has {page_count} pages. This reads up to "
+                f"{settings.max_document_pages}. Upload the pages that list "
+                f"your cover rather than the whole booklet."
+            )
         bus.publish(
             STAGE, "open_pdf", session_id=session_id,
             summary=f"Opened {shown}, {page_count} page"

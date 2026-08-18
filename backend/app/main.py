@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.events import bus
 from app.core.guardrails import DISCLAIMER
 from app.core.logging import configure_logging, get_logger
+from app.core.middleware import RequestGuard, SecurityHeaders
 
 log = get_logger(__name__)
 
@@ -74,6 +75,11 @@ async def _probe_models() -> None:
         )
 
 
+# The generated reference is a complete map of every route, every field and
+# every accepted value. That is a gift while building and a head start for
+# anybody else, so it is served only where it was asked for.
+_docs = "/docs" if settings.enable_docs else None
+
 app = FastAPI(
     title="PoliMap",
     description=(
@@ -81,17 +87,34 @@ app = FastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=_docs,
+    redoc_url="/redoc" if settings.enable_docs else None,
+    openapi_url="/openapi.json" if settings.enable_docs else None,
 )
+
+# Middleware is added innermost first: the last one registered is the one that
+# sees a request earliest and a response last. The order that matters here is
+# headers outside CORS outside the guard, so that a refusal from the guard is
+# still stamped as inert data and still carries the CORS headers the browser
+# needs before it will let our own page read the reason it was refused.
+app.add_middleware(RequestGuard, trust_proxy=settings.trust_proxy)
 
 # The frontend is served from a different origin than the API, in development
 # and in deployment alike, so the browser needs explicit permission to call it.
+# No credentials: this API has no cookies and no browser-managed auth, so
+# allowing them would only widen what a permitted origin could do on a user's
+# behalf while buying nothing. The session id travels in the URL path and is
+# sent deliberately by our own client.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
+    max_age=600,
 )
+
+app.add_middleware(SecurityHeaders, hsts=settings.behind_tls)
 
 app.include_router(router)
 
