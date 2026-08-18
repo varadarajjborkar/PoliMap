@@ -4,6 +4,7 @@ import { ActivityLog } from './components/ActivityLog'
 import { SignIn, StayList } from './components/HomeScreen'
 import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
+import { ReadingProgress } from './components/ReadingProgress'
 import { Results, SearchPanel } from './components/Results'
 import { Button, ErrorNote, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
@@ -11,6 +12,7 @@ import { UploadStep } from './components/UploadStep'
 import {
   SETUP_STEPS, TRACK_STEP, stayPath, stepIndex, useRoute,
 } from './hooks/useRoute'
+import { READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
 import { useStay } from './hooks/useStay'
 import {
@@ -50,6 +52,11 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [connected, setConnected] = useState(false)
 
+  // The session whose work is being watched right now. Set before an upload,
+  // so the stream is open before the reading starts rather than after it ends,
+  // and cleared when the work finishes.
+  const [watching, setWatching] = useState(null)
+
   // Destructured rather than held as an object: the hook returns a fresh one
   // every render, and an effect depending on the object would re-run forever.
   // The functions inside it are memoised, so these are stable.
@@ -64,18 +71,26 @@ export default function App() {
     api.reference().then(setReference).catch((e) => setError(e.message))
   }, [])
 
-  // The stream is opened only when the panel that displays it is on.
+  // The stream is open while something is running, and otherwise only when the
+  // activity panel is showing it.
   //
   // It used to run always, so a hidden developer panel cost an open connection
-  // and a re-render of the whole page per pipeline step, during the upload,
-  // which is the one moment the user is waiting on us. Nothing is lost by
-  // waiting: the server keeps a replay buffer, so switching the panel on
-  // mid-session still shows every step from the beginning.
+  // and a re-render of the whole page per pipeline step. It then ran only with
+  // the panel on, which meant the one moment worth watching, a document being
+  // read, was the one moment nothing was watching. Both are covered now, and
+  // nothing is lost either way: the server keeps a replay buffer, so switching
+  // the panel on mid-session still shows every step from the beginning.
+  //
+  // `watching` and `sessionId` hold the same string once an upload succeeds,
+  // so finishing does not tear the connection down and lose the log with it.
+  const streamId = watching ?? sessionId
+  const streaming = Boolean(streamId) && (Boolean(watching) || settings.showActivity)
+
   useEffect(() => {
-    if (!sessionId || !settings.showActivity) return
+    if (!streaming || !streamId) return
 
     setEvents([])
-    const stop = subscribeToEvents(sessionId, (event) => {
+    const stop = subscribeToEvents(streamId, (event) => {
       setConnected(true)
       setEvents((current) =>
         current.some((e) => e.id === event.id)
@@ -87,7 +102,7 @@ export default function App() {
       stop()
       setConnected(false)
     }
-  }, [sessionId, settings.showActivity])
+  }, [streamId, streaming])
 
   // Put a restored session back on screen. The server returns every part of it
   // in one payload, so a reload lands on the step the user left rather than
@@ -167,10 +182,27 @@ export default function App() {
 
   async function handleUpload(files, insurerId) {
     const id = stayId ?? newStayId()
-    const result = await run('upload', () => api.uploadPolicy(files, insurerId))
-    if (!result) return
+
+    // The session is claimed before the files are sent, so the stream carrying
+    // the reading is already open when the reading begins. If that call fails
+    // there is nothing to watch, but there is still a policy to read, so the
+    // upload goes ahead and the server issues its own id.
+    const watchId = await api.newSession()
+      .then((s) => s.session_id)
+      .catch(() => null)
+    setWatching(watchId)
+
+    const result = await run('upload', () => api.uploadPolicy(files, insurerId, watchId))
+    if (!result) {
+      setWatching(null)
+      return
+    }
+
     saveStay(user, { id, createdAt: Date.now(), insurer: result.insurer_name })
+    // Adopted first, so the stay takes over the same id in the same render and
+    // the log of what just happened survives into the activity panel.
     adoptPolicy(result, id)
+    setWatching(null)
   }
 
   async function handleManual(payload) {
@@ -204,6 +236,9 @@ export default function App() {
 
   async function handleSearch() {
     const city = reference?.cities?.find((c) => c.city === search.city)
+    // Same id as the session, so this opens the stream without disturbing it
+    // when the activity panel already has it open.
+    setWatching(sessionId)
     const result = await run('search', () =>
       api.search(sessionId, {
         procedure_code: search.procedure_code,
@@ -215,6 +250,7 @@ export default function App() {
         urgency: search.urgency,
       })
     )
+    setWatching(null)
     if (result) {
       setResults(result)
       const name = reference?.procedures
@@ -376,6 +412,17 @@ export default function App() {
             busy={busy === 'upload'}
             error={error}
             onClearError={() => setError(null)}
+            progress={
+              busy === 'upload' && (
+                <ReadingProgress
+                  events={events}
+                  phases={READING_PHASES}
+                  title="Reading your policy"
+                  waiting="Sending your files. Keep this page open."
+                  hint="Long documents and phone photos take longer. You can leave this open in the background."
+                />
+              )
+            }
           />
         ) : (
           <div className="mx-auto max-w-3xl space-y-5 py-6 motion-safe:animate-fade">
@@ -407,6 +454,14 @@ export default function App() {
                   onSearch={handleSearch}
                   busy={busy === 'search'}
                 />
+                {busy === 'search' && (
+                  <ReadingProgress
+                    events={events}
+                    phases={SEARCH_PHASES}
+                    title="Looking for your options"
+                    hint="Every hospital in range is costed against your policy, one at a time."
+                  />
+                )}
                 <Results
                   results={results}
                   onStartJourney={handleStartJourney}

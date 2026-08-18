@@ -112,6 +112,29 @@ def run_policy_pipeline_bytes(
     return _run(document, use_model=use_model, verify_clauses=verify_clauses)
 
 
+def _starting_on(
+    stage: PipelineStage,
+    filename: str,
+    index: int,
+    total: int,
+    session_id: str | None,
+) -> None:
+    """Mark the point where the work moves onto the next file.
+
+    Reading four documents is four times the wait of reading one, and without
+    this the browser can only say that something is happening. With it, it can
+    say which of them is being read and how many are left, which is the
+    difference between waiting and being kept waiting.
+    """
+    if total < 2:
+        return
+    bus.publish(
+        stage, "document_started", session_id=session_id,
+        summary=f"{filename} ({index + 1} of {total})",
+        file=filename, index=index, documents=total,
+    )
+
+
 @dataclass
 class MultiDocumentResult:
     """Several uploaded files, read together or held apart deliberately."""
@@ -156,10 +179,11 @@ def run_policy_pipeline_many(
     the files name two different policies nothing is merged and the caller is
     handed the disagreement to put to the user.
     """
-    documents = [
-        ingest_bytes(data, filename, session_id=session_id)
-        for data, filename in payloads
-    ]
+    documents = []
+    for index, (data, filename) in enumerate(payloads):
+        _starting_on(PipelineStage.INTAKE, filename, index, len(payloads), session_id)
+        documents.append(ingest_bytes(data, filename, session_id=session_id))
+
     for document in documents:
         triage(document)
 
@@ -182,9 +206,13 @@ def run_policy_pipeline_many(
             policy=None, verification=None, conflicts=conflicts,
         )
 
-    clauses = reconcile.merge_clauses([
-        atomize(document, use_model=use_model) for document in documents
-    ])
+    per_document = []
+    for index, document in enumerate(documents):
+        _starting_on(
+            PipelineStage.ATOMIZE, document.filename, index, len(documents), session_id
+        )
+        per_document.append(atomize(document, use_model=use_model))
+    clauses = reconcile.merge_clauses(per_document)
 
     if len(documents) > 1:
         bus.publish(
@@ -209,7 +237,27 @@ def run_policy_pipeline_many(
         r for r in verification.clarifications if r.clause_kind not in known
     )
 
-    return MultiDocumentResult(
+    result = MultiDocumentResult(
         documents=documents, identities=identities,
         policy=policy, verification=verification, conflicts=conflicts,
     )
+
+    # The same closing line the single-document path emits. Without it a
+    # multi-file read has no end in the log or on the browser's progress panel,
+    # which leaves the last step looking as though it never finished.
+    bus.publish(
+        PipelineStage.SYSTEM, "pipeline_complete", session_id=session_id,
+        summary=(
+            f"Read {len(documents)} file{'s' if len(documents) != 1 else ''}: "
+            f"cover {format_inr(policy.sum_insured)}, "
+            f"room {policy.room_limit.describe(policy.sum_insured)}"
+            + (f", {len(policy.open_clarifications)} question"
+               f"{'s' if len(policy.open_clarifications) != 1 else ''} for you"
+               if policy.open_clarifications else "")
+        ),
+        clauses=len(policy.clauses),
+        confidence=policy.confidence,
+        questions=len(policy.open_clarifications),
+        **result.summary(),
+    )
+    return result

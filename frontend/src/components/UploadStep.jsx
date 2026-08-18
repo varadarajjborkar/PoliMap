@@ -14,7 +14,9 @@ const MAX_UPLOAD_MB = 25
 // few photographed pages; beyond that the upload is likelier a mistake.
 const MAX_FILES = 6
 
-export function UploadStep({ reference, onUploaded, onManual, busy, error, onClearError }) {
+export function UploadStep({
+  reference, onUploaded, onManual, busy, error, onClearError, progress,
+}) {
   const [mode, setMode] = useState('upload')
   const [insurerId, setInsurerId] = useState('')
   const [files, setFiles] = useState([])
@@ -182,15 +184,13 @@ export function UploadStep({ reference, onUploaded, onManual, busy, error, onCle
               )}
 
               {busy ? (
-                <div className="rounded-lg bg-canvas px-4 py-3">
-                  <Spinner
-                    label={
-                      files.length > 1
-                        ? `Reading ${files.length} documents. This can take a couple of minutes.`
-                        : 'Reading your policy. This can take a minute for a photo.'
-                    }
-                  />
-                </div>
+                // The live panel when the parent has one, which it does for an
+                // upload. A spinner only when there is nothing better to show.
+                progress ?? (
+                  <div className="rounded-lg bg-canvas px-4 py-3">
+                    <Spinner label="Reading your policy." />
+                  </div>
+                )
               ) : (
                 <Button
                   className="w-full"

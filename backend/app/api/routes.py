@@ -35,6 +35,7 @@ from app.pipeline.s4_compile.edit import (
     edit_field,
 )
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
+from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
 from app.schemas.match import CareContext, Preference
@@ -268,10 +269,61 @@ def _policy_payload(session: Session) -> dict[str, Any]:
     }
 
 
+def _announce_upload(session_id: str, filenames: list[str], total_bytes: int) -> None:
+    """Say that the files have arrived, before any of them is opened.
+
+    The first real step can be a slow one, and on a phone the upload itself
+    takes long enough that a screen with nothing on it looks broken. This is
+    the first thing the stream carries, and it is true the moment it is sent.
+    """
+    bus.publish(
+        PipelineStage.INTAKE,
+        "upload_received",
+        status=EventStatus.STARTED,
+        session_id=session_id,
+        summary=(
+            f"Received {len(filenames)} file{'s' if len(filenames) != 1 else ''}"
+            f", {total_bytes / 1024 / 1024:.1f} MB"
+        ),
+        files=filenames,
+        documents=len(filenames),
+        megabytes=round(total_bytes / 1024 / 1024, 1),
+    )
+
+
+UNREADABLE = (
+    "We could not open that file. It may be password-protected, or damaged in "
+    "transit. A photo of the pages listing your cover usually works."
+)
+"""What the user is told when a document will not open at all.
+
+The exception's own text names a temporary file on the server and tells the
+reader nothing they can act on. `log.exception` keeps it for us."""
+
+
+def _announce_failure(session_id: str, exc: Exception) -> None:
+    """Close the stream on a failure, rather than letting it stop mid-sentence.
+
+    A document that cannot be opened at all fails before any timed step has
+    begun, so nothing would otherwise mark the end. The user sees the error
+    either way; this is so the log of what happened has one.
+    """
+    bus.publish(
+        PipelineStage.INTAKE,
+        "read_failed",
+        status=EventStatus.FAILED,
+        session_id=session_id,
+        summary=UNREADABLE,
+        error=type(exc).__name__,
+        detail_for_logs=str(exc)[:200],
+    )
+
+
 @router.post("/policy/upload")
 async def upload_policy(
     file: UploadFile = File(...),
     insurer_id: str = Form(""),
+    session_id: str = Form(""),
 ) -> dict[str, Any]:
     """Read an uploaded policy document into a compiled policy."""
     data = await file.read()
@@ -280,9 +332,11 @@ async def upload_policy(
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "That file is too large. The limit is 25 MB.")
 
-    session = sessions.create()
+    session = _session_for(session_id)
     session.insurer_id = insurer_id
     filename = file.filename or "policy.pdf"
+
+    _announce_upload(session.session_id, [filename], len(data))
 
     try:
         # OCR and model calls are blocking and CPU-heavy; keep them off the loop
@@ -292,7 +346,8 @@ async def upload_policy(
         )
     except Exception as exc:
         log.exception("policy pipeline failed", filename=filename)
-        raise HTTPException(500, f"We could not read that document: {exc}") from exc
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(500, UNREADABLE) from exc
 
     session.policy = result.policy
     session.document_name = filename
@@ -315,6 +370,7 @@ every extra file is another minute of the user's waiting."""
 async def upload_policies(
     files: list[UploadFile] = File(...),
     insurer_id: str = Form(""),
+    session_id: str = Form(""),
 ) -> dict[str, Any]:
     """Read several files as one policy, unless they are not one policy.
 
@@ -349,8 +405,12 @@ async def upload_policies(
     if not payloads:
         raise HTTPException(400, "Those files were empty.")
 
-    session = sessions.create()
+    session = _session_for(session_id)
     session.insurer_id = insurer_id
+
+    _announce_upload(
+        session.session_id, [name for _, name in payloads], total
+    )
 
     try:
         result = await asyncio.to_thread(
@@ -358,7 +418,8 @@ async def upload_policies(
         )
     except Exception as exc:
         log.exception("multi-document pipeline failed", files=len(payloads))
-        raise HTTPException(500, f"We could not read those documents: {exc}") from exc
+        _announce_failure(session.session_id, exc)
+        raise HTTPException(500, UNREADABLE) from exc
 
     if result.held_for_conflict:
         # Nothing was merged, so there is no session state worth keeping. The
@@ -470,7 +531,7 @@ def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
         if dropped:
             session.policy.open_clarifications = []
             bus.publish(
-                __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
+                PipelineStage.COMPILE,
                 "clarification_limit", session_id=session_id,
                 summary=(
                     f"Stopping after {MAX_CLARIFICATION_ROUNDS} questions. "
@@ -480,7 +541,7 @@ def answer_question(session_id: str, payload: Answer) -> dict[str, Any]:
 
     sessions.save(session)
     bus.publish(
-        __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
+        PipelineStage.COMPILE,
         "user_answer", session_id=session_id,
         summary=f"You confirmed: {payload.answer}",
     )
@@ -517,7 +578,7 @@ def correct_field(session_id: str, payload: FieldEdit) -> dict[str, Any]:
 
     sessions.save(session)
     bus.publish(
-        __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.COMPILE,
+        PipelineStage.COMPILE,
         "user_correction", session_id=session_id,
         summary=f"You corrected {payload.field.replace('_', ' ')}",
         field=payload.field,
@@ -1097,7 +1158,7 @@ def file_preauth(session_id: str) -> dict[str, Any]:
     session.journey.active_alerts = tracker.evaluate(session.journey, session.policy)
     sessions.save(session)
     bus.publish(
-        __import__("app.schemas.events", fromlist=["PipelineStage"]).PipelineStage.JOURNEY,
+        PipelineStage.JOURNEY,
         "preauth_filed", session_id=session_id,
         summary="Pre-authorisation filed with the insurer",
     )
@@ -1113,6 +1174,39 @@ def get_journey(session_id: str) -> dict[str, Any]:
 
 
 # --- session ---------------------------------------------------------------
+
+
+@router.post("/session")
+def open_session() -> dict[str, Any]:
+    """Hand the browser an empty session before it has anything to put in one.
+
+    Reading a policy is the slowest thing this system does and the one moment
+    the user is certainly waiting on us, so it is also the moment they should
+    be able to watch. The activity stream is keyed by session, and until now
+    the session did not exist until the read had finished, which meant the only
+    honest thing the interface could show while it ran was a spinner.
+
+    So the browser asks for the id first, opens the stream on it, and hands it
+    back with the upload.
+    """
+    session = sessions.create()
+    return {"session_id": session.session_id}
+
+
+def _session_for(session_id: str) -> Session:
+    """The session an upload belongs to.
+
+    Reuses the one the browser has already opened a stream on, so the steps it
+    is watching are the steps of its own upload. An id naming a session that
+    already holds a policy is ignored rather than overwritten: a stale id left
+    in an old tab must not be able to replace the policy someone is working
+    from.
+    """
+    if session_id:
+        existing = sessions.get(session_id)
+        if existing is not None and existing.policy is None:
+            return existing
+    return sessions.create()
 
 
 @router.get("/session/{session_id}")

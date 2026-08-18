@@ -48,6 +48,11 @@ export const api = {
 
   clear: (sessionId) => request(`/api/session/${sessionId}`, { method: 'DELETE' }),
 
+  // An empty session, asked for before there is anything to put in it. The
+  // activity stream is keyed by session, so having the id up front is what
+  // lets the browser watch a document being read instead of waiting blind.
+  newSession: () => request('/api/session', { method: 'POST' }),
+
   // The session as the server holds it, for the browser to keep. Sessions
   // expire here and a restart drops them, so the device is the durable copy.
   session: (sessionId) => request(`/api/session/${sessionId}`),
@@ -57,11 +62,12 @@ export const api = {
   // One policy usually arrives in pieces: the schedule, the wording, a
   // photograph of an endorsement. They are read together, and the server
   // refuses to merge them if they turn out to name two different policies.
-  uploadPolicy(files, insurerId) {
+  uploadPolicy(files, insurerId, sessionId = '') {
     const chosen = Array.isArray(files) ? files : [files]
     const form = new FormData()
     for (const file of chosen) form.append('files', file)
     form.append('insurer_id', insurerId || '')
+    form.append('session_id', sessionId || '')
     return request('/api/policy/upload-many', { method: 'POST', body: form })
   },
   manualPolicy: (payload) => request('/api/policy/manual', json(payload)),

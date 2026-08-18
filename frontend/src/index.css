@@ -83,8 +83,9 @@ html.theme-dark { color-scheme: dark; }
 /* Motion.
    Short, and only ever in one direction: content arrives by settling into
    place from slightly below, which reads as the page composing itself rather
-   than as decoration. Nothing loops, nothing bounces, and nothing moves after
-   the user has started reading it.
+   than as decoration. Nothing bounces, and nothing moves after the user has
+   started reading it. The only things that loop are the two below that mean
+   "still working", and they stop when the work does.
 
    `motion-safe:` on the utilities means a reduced-motion setting removes these
    entirely rather than merely shortening them, so the block below is a
@@ -104,6 +105,27 @@ html.theme-dark { color-scheme: dark; }
   100% { background-color: transparent; }
 }
 
+/* The two exceptions to "nothing loops".
+   Both belong to work that is genuinely still running, and both stop the
+   moment it finishes, so a loop here means the same thing a stopped one does:
+   we are still going. `sweep` is the indeterminate bar across the top of the
+   progress card; `breathe` is the halo on the step being worked on. */
+@keyframes sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 0.9;  transform: scale(1.3); }
+}
+
+@utility animate-sweep {
+  animation: sweep 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@utility animate-breathe {
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
 @utility animate-rise {
   animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
@@ -114,7 +136,13 @@ html.theme-dark { color-scheme: dark; }
   animation: settle 1.1s ease-out;
 }
 
-/* Respect a user who has asked for less motion; this app is used under stress. */
+/* Respect a user who has asked for less motion; this app is used under stress.
+   The iteration count matters as much as the duration: a looping animation cut
+   to 0.01ms without it does not stop, it strobes. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
