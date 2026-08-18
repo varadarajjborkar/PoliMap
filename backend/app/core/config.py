@@ -8,6 +8,7 @@ probes them at boot and keeps the first that answers.
 
 from __future__ import annotations
 
+import os
 from enum import StrEnum
 from pathlib import Path
 
@@ -138,11 +139,17 @@ class Settings(BaseSettings):
     cors_origins: str = ""
 
     # --- protection ---
-    # Set only where a reverse proxy really is in front. The forwarded address
-    # is the caller's true one there, and is a free spoof anywhere else, so
-    # trusting it unconditionally would hand anyone a fresh rate-limit
-    # allowance per request.
-    trust_proxy: bool = False
+    # Whether a reverse proxy really is in front. The forwarded address is the
+    # caller's true one there, and is a free spoof anywhere else, so trusting
+    # it unconditionally would hand anyone a fresh rate-limit allowance per
+    # request.
+    #
+    # Left unset it is detected, because getting it wrong is silent and looks
+    # exactly like the app being broken: behind a proxy without it, every
+    # request in the world arrives from the proxy's address, everybody shares
+    # one allowance, and the first few users lock out the rest. Nothing errors.
+    # A managed host is not a thing anybody should have to remember to declare.
+    trust_proxy: bool | None = None
 
     # The rate limit itself. On everywhere it matters; the test suite turns it
     # off because a suite is one caller making thousands of requests, which is
@@ -152,7 +159,9 @@ class Settings(BaseSettings):
 
     # Whether TLS terminates at the edge. Turns on HSTS, which is a promise a
     # plain-HTTP deployment cannot keep and a development server must not make.
-    behind_tls: bool = False
+    # Detected the same way, since the hosts that put a proxy in front are the
+    # same ones that terminate TLS.
+    behind_tls: bool | None = None
 
     # The generated API reference. Useful while building, and a map of every
     # route and every field for anybody else, so it is off unless asked for.
@@ -202,6 +211,33 @@ class Settings(BaseSettings):
         ]
         extra = [o.strip().rstrip("/") for o in self.cors_origins.split(",")]
         return local + [o for o in extra if o]
+
+    @property
+    def on_managed_host(self) -> bool:
+        """Whether this is running on a platform that fronts it with a proxy.
+
+        Each of these variables is set by the platform itself and cannot be
+        reached by a request, so reading one is not something a caller can
+        influence. They are the same hosts that terminate TLS.
+        """
+        return any(
+            os.environ.get(name)
+            for name in ("RENDER", "RAILWAY_ENVIRONMENT", "FLY_APP_NAME", "DYNO")
+        )
+
+    @property
+    def proxy_trusted(self) -> bool:
+        """Whether to read the caller's address from X-Forwarded-For."""
+        if self.trust_proxy is not None:
+            return self.trust_proxy
+        return self.on_managed_host
+
+    @property
+    def tls_terminated(self) -> bool:
+        """Whether to promise HSTS."""
+        if self.behind_tls is not None:
+            return self.behind_tls
+        return self.on_managed_host
 
     @property
     def has_ollama(self) -> bool:

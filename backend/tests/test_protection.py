@@ -371,8 +371,39 @@ def test_a_refusal_carries_the_same_headers_as_an_answer():
 def test_nothing_promises_https_from_a_server_that_does_not_speak_it():
     # Sent from a development server it would pin localhost to HTTPS in the
     # developer's browser for a year.
-    assert not settings.behind_tls
+    assert not settings.tls_terminated
     assert "strict-transport-security" not in client.get("/api/health").headers
+
+
+def test_a_managed_host_is_recognised_without_being_told(monkeypatch):
+    """The setting that fails silently should not have to be remembered.
+
+    Behind a proxy with nothing configured, every request arrives from the
+    proxy's address, everybody shares one rate-limit allowance, and the first
+    few users lock out the rest. Nothing errors, so nobody finds out until
+    people are being refused.
+    """
+    for platform in ("RENDER", "RAILWAY_ENVIRONMENT", "FLY_APP_NAME", "DYNO"):
+        monkeypatch.setenv(platform, "true")
+        assert settings.on_managed_host, platform
+        assert settings.proxy_trusted, platform
+        assert settings.tls_terminated, platform
+        monkeypatch.delenv(platform)
+
+    assert not settings.on_managed_host
+    assert not settings.proxy_trusted
+
+
+def test_saying_so_explicitly_still_wins(monkeypatch):
+    """Detection is a default, not a decision taken out of anybody's hands."""
+    from app.core.config import Settings
+
+    monkeypatch.setenv("RENDER", "true")
+    assert Settings(trust_proxy=False).proxy_trusted is False
+    assert Settings(behind_tls=False).tls_terminated is False
+
+    monkeypatch.delenv("RENDER")
+    assert Settings(trust_proxy=True).proxy_trusted is True
 
 
 def test_the_api_reference_is_not_served_unless_it_was_asked_for():

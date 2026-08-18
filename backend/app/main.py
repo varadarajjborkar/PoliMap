@@ -97,7 +97,7 @@ app = FastAPI(
 # headers outside CORS outside the guard, so that a refusal from the guard is
 # still stamped as inert data and still carries the CORS headers the browser
 # needs before it will let our own page read the reason it was refused.
-app.add_middleware(RequestGuard, trust_proxy=settings.trust_proxy)
+app.add_middleware(RequestGuard, trust_proxy=settings.proxy_trusted)
 
 # The frontend is served from a different origin than the API, in development
 # and in deployment alike, so the browser needs explicit permission to call it.
@@ -114,7 +114,7 @@ app.add_middleware(
     max_age=600,
 )
 
-app.add_middleware(SecurityHeaders, hsts=settings.behind_tls)
+app.add_middleware(SecurityHeaders, hsts=settings.tls_terminated)
 
 app.include_router(router)
 
