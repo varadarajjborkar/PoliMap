@@ -577,7 +577,11 @@ def extract_meta(page: Page) -> list[Clause]:
     ]
     for label_re, field in specs:
         for match in find_labelled(page.text, label_re):
-            value = match.value_text.strip(" :|-")
+            # A running header puts several fields on one line: "Policy No.
+            # BHA/2026/IND/4029929 | Page 1". Everything past the first bar
+            # belongs to the next field, and the full stop belongs to the label
+            # that was just matched.
+            value = match.value_text.split("|")[0].strip(" :|-.	")
             if not value or len(value) > 80:
                 continue
             clauses.append(

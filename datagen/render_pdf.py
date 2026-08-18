@@ -29,6 +29,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.core import typeface
 from app.schemas.money import format_inr
 from datagen.policies import (
     PolicyBlueprint,
@@ -41,57 +42,7 @@ INK = colors.HexColor("#111111")
 RULE = colors.HexColor("#666666")
 BAND = colors.HexColor("#E8E8E8")
 
-RUPEE_CODEPOINT = 0x20B9
-
-# reportlab's built-in Helvetica has no rupee sign, and neither do several fonts
-# that look like safe bets, Arial Unicode predates the 2010 introduction of the
-# glyph and silently emits NUL for it. Registration therefore proves nothing;
-# the font's character map has to be inspected directly.
-#
-# Candidates are listed Linux-first so a CI or deploy box resolves without
-# depending on this machine. If none covers the glyph the renderer writes "Rs.",
-# which is what most Indian policy documents use anyway.
-_FONT_CANDIDATES: list[tuple[str, str, str]] = [
-    ("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-    ("NotoSans", "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-     "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"),
-    ("Georgia", "/System/Library/Fonts/Supplemental/Georgia.ttf",
-     "/System/Library/Fonts/Supplemental/Georgia Bold.ttf"),
-    ("Geneva", "/System/Library/Fonts/Geneva.ttf", ""),
-]
-
-
-def _covers_rupee(path: str) -> bool:
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    try:
-        return RUPEE_CODEPOINT in TTFont("probe", path).face.charToGlyph
-    except Exception:
-        return False
-
-
-def _register_unicode_font() -> tuple[str, str, bool]:
-    """Return (regular font name, bold font name, whether ₹ can be drawn)."""
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    for name, regular, bold in _FONT_CANDIDATES:
-        if not Path(regular).exists() or not _covers_rupee(regular):
-            continue
-        try:
-            pdfmetrics.registerFont(TTFont(name, regular))
-            if bold and Path(bold).exists() and _covers_rupee(bold):
-                pdfmetrics.registerFont(TTFont(f"{name}-Bold", bold))
-                return name, f"{name}-Bold", True
-            # A single-weight face still beats losing the glyph.
-            return name, name, True
-        except Exception:
-            continue
-    return "Helvetica", "Helvetica-Bold", False
-
-
-FONT, FONT_BOLD, SUPPORTS_RUPEE = _register_unicode_font()
+FONT, FONT_BOLD, SUPPORTS_RUPEE = typeface.resolve()
 
 
 def _rupee_safe(text: str) -> str:

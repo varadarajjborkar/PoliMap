@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from functools import partial
@@ -18,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
@@ -37,6 +38,7 @@ from app.pipeline.s4_compile.edit import (
 )
 from app.pipeline.s5_match.matcher import find_options, travel_minutes
 from app.pipeline.s6_simulate import eligibility, stack
+from app.report import stay as report
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.hospital import GeoPoint
 from app.schemas.journey import JourneyStage
@@ -1503,6 +1505,39 @@ def _restored_search(session: Session) -> dict[str, Any] | None:
             )
         )
     return payload
+
+
+@router.get("/session/{session_id}/report.pdf")
+def stay_report(session_id: str) -> Response:
+    """The whole stay on one printable page.
+
+    A screen cannot be put in front of a hospital insurance desk, and a phone
+    battery does not last a five-day admission. This is the version somebody
+    can argue from, or hand to a relative who has just arrived.
+    """
+    session = _session(session_id)
+    if session.policy is None:
+        raise HTTPException(400, "There is no policy on this stay yet.")
+
+    try:
+        pdf = report.build(session)
+    except Exception as exc:
+        log.exception("report failed", session=session_id)
+        raise HTTPException(500, "We could not produce that document.") from exc
+
+    name = "polimap-stay"
+    if session.journey and session.journey.hospital_name:
+        slug = re.sub(r"[^a-z0-9]+", "-", session.journey.hospital_name.lower())
+        name = f"polimap-{slug.strip('-')}"
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}.pdf"',
+            "Content-Length": str(len(pdf)),
+        },
+    )
 
 
 @router.get("/session/{session_id}/export")

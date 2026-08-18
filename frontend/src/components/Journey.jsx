@@ -76,6 +76,24 @@ export function Journey({
         </div>
 
         <BurnDown burn={journey.burn_down} accrued={journey.accrued_display} />
+
+        {/* A screen cannot be put in front of a hospital insurance desk, and a
+            phone battery does not last a five-day admission. This is the
+            version somebody can argue from, or hand to a relative who has just
+            arrived. */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
+          <a
+            href={api.reportUrl(sessionId)}
+            className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
+          >
+            <DownloadIcon />
+            Download this stay
+          </a>
+          <span className="text-[0.75rem] leading-relaxed text-muted">
+            Your cover, the estimate, what has been billed, and what is still to
+            do. One page to take to the insurance desk.
+          </span>
+        </div>
       </Card>
 
       <Position position={journey.position} accrued={journey.accrued_display} />
@@ -366,6 +384,19 @@ function EditCharge({ cost, onSave, onClose, busy }) {
 // the previous screen had already worked out the difference. Showing the first
 // while the previous screen showed the second left two numbers contradicting
 // each other with no way for a reader to tell which one to plan against.
+function DownloadIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16" aria-hidden="true"
+      className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round"
+    >
+      <path d="M8 2v8m0 0 3-3m-3 3L5 7" />
+      <path d="M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" />
+    </svg>
+  )
+}
+
 // What to do here, with this policy's own figures in it.
 //
 // Advice about hospital admissions in general is available everywhere and helps

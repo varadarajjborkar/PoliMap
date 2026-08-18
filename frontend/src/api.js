@@ -123,6 +123,9 @@ export const api = {
     request(`/api/journey/${sessionId}/cost/${entryId}`, { method: 'DELETE' }),
   receiptUrl: (sessionId, entryId) =>
     apiUrl(`/api/journey/${sessionId}/cost/${entryId}/receipt`),
+  // A plain link rather than a fetch: the server sends it as an attachment, so
+  // the browser saves it without this code touching the bytes.
+  reportUrl: (sessionId) => apiUrl(`/api/session/${sessionId}/report.pdf`),
 
   // Ticking off something on the stage checklist. Kept server-side so the list
   // is a record of what was done rather than a poster that resets on reload.
