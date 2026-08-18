@@ -115,6 +115,29 @@ class RequestGuard:
         self.trust_proxy = trust_proxy
         self.max_upload_bytes = max_upload_bytes
         self.max_json_bytes = max_json_bytes
+        self._proxy_warned = False
+
+    def _warn_once_about_the_proxy(self, headers: dict[str, str]) -> None:
+        """Say so when the deployment is behind a proxy and has not said so.
+
+        This is the misconfiguration that looks like the app being broken. With
+        a proxy in front and TRUST_PROXY unset, every request in the world
+        arrives from the proxy's address, so everybody shares one allowance and
+        the first busy user locks out the rest. Nothing errors; the app simply
+        starts refusing people. Saying it once, loudly, in the log is the
+        difference between a five minute fix and an afternoon.
+        """
+        if self._proxy_warned or self.trust_proxy:
+            return
+        if "x-forwarded-for" not in headers:
+            return
+        self._proxy_warned = True
+        log.warning(
+            "requests are arriving through a proxy but TRUST_PROXY is not set, "
+            "so every caller shares one rate limit allowance and one busy user "
+            "will lock out the rest. Set TRUST_PROXY=true if a proxy really is "
+            "in front of this."
+        )
 
     def _ceiling(self, content_type: str) -> int:
         """How large this request is allowed to be, by what it claims to be.
@@ -153,6 +176,7 @@ class RequestGuard:
         # --- the rate limit -----------------------------------------------
         bucket = bucket_for(method, path)
         if bucket is not None and method != "OPTIONS" and settings.rate_limit_enabled:
+            self._warn_once_about_the_proxy(headers)
             caller = client_key(
                 scope.get("client"), headers, trust_proxy=self.trust_proxy
             )

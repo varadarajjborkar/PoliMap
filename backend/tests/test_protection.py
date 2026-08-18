@@ -419,3 +419,37 @@ def test_a_saved_stay_that_cannot_be_read_is_refused_plainly():
     response = client.post("/api/session/import", json={"snapshot": {"bad": True}})
     assert response.status_code == 400
     assert "Traceback" not in response.text
+
+
+def _proxy_warnings(trust_proxy: bool, *header_sets) -> list[str]:
+    """What the guard says when requests arrive with the given headers."""
+    from structlog.testing import capture_logs
+
+    from app.core.middleware import RequestGuard
+
+    guard = RequestGuard(None, trust_proxy=trust_proxy)
+    with capture_logs() as entries:
+        for headers in header_sets:
+            guard._warn_once_about_the_proxy(headers)
+    return [e["event"] for e in entries if "TRUST_PROXY" in e.get("event", "")]
+
+
+def test_a_proxy_in_front_with_nothing_configured_says_so():
+    """The misconfiguration that looks like the app being broken.
+
+    Behind a proxy with TRUST_PROXY unset, every request arrives from the
+    proxy's address, so everybody shares one allowance and the first busy user
+    locks out the rest. Nothing errors, it just starts refusing people, which
+    is why it has to announce itself rather than wait to be noticed.
+    """
+    forwarded = {"x-forwarded-for": "9.9.9.9"}
+    said = _proxy_warnings(False, forwarded, forwarded, forwarded)
+    assert len(said) == 1, "said once, not on every request"
+
+
+def test_nothing_is_said_when_the_deployment_is_configured():
+    assert _proxy_warnings(True, {"x-forwarded-for": "9.9.9.9"}) == []
+
+
+def test_nothing_is_said_when_there_is_no_proxy():
+    assert _proxy_warnings(False, {}, {"host": "localhost"}) == []

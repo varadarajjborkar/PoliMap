@@ -430,6 +430,76 @@ because a provider is having a bad day.
 
 ---
 
+## What is walled off
+
+There is no account and no password anywhere in this app, on purpose: a family
+in a hospital at two in the morning should not have to invent one. That makes
+everything else here load-bearing, so it was tested against a running server
+rather than reasoned about.
+
+**What one upload may ask for.** Reading a policy rasterises every page, runs
+OCR on each and then makes several model calls, and none of it was bounded. A
+20 KB file declaring 120 blank pages held every core on the machine at 638% CPU
+for over two minutes and carried on after the client gave up. A one kilobyte
+file can declare a page 200 inches square, which at 300 DPI asks for a 60000 by
+60000 pixel image: eleven gigabytes. There are ceilings on both now. An A0 scan
+is a real thing somebody photographs, so an oversized page gives up resolution
+rather than being refused; a page the size of a wall is refused, because no
+resolution both fits the ceiling and leaves anything readable. An image's
+dimensions are read from its header before it is decoded.
+
+**How often.** A token bucket per caller, priced by what the route costs:
+reading a document is strict, the help desk gets its own allowance because it is
+a conversation, and recording a charge is an ordinary write. That last one
+matters. An earlier pass priced charges as expensive, and a caregiver entering
+the day's charges at a counter would have met the ceiling with the day half
+entered. The pricing is checked against a whole journey run end to end, not
+against what is easy to classify.
+
+**How large.** The body cap is applied before the body is read. A 200 MB upload
+used to be spooled to disk in full and then refused; it is now refused with
+nothing on the wire. Anything that is not multipart is held to a megabyte,
+because a large JSON body is not an upload, it is work for the parser.
+
+**The session id.** It is the whole of the access control, and it was twelve hex
+characters. It is 192 bits from `secrets` now, and checked for shape before it
+reaches a store or a filesystem path, so a traversal attempt is refused for
+what it looks like rather than by the accident of finding no such session. A
+missing session and a malformed one answer identically: the difference would be
+a hint about how to guess better.
+
+**The page.** Served under a content security policy that permits no inline
+script at all. The one script that was inline, which sets the theme before first
+paint, is a file for that reason. The bundle contains no `eval`, so
+`unsafe-eval` is not needed either. The API returns its own policy of
+`default-src 'none'` alongside nosniff, a denied frame, and no referrer.
+Uploaded receipts are served as attachments with sniffing off, so an HTML page
+wearing a `.png` suffix cannot become a page running on the API's origin.
+
+**The help desk.** It is the one place a person's own words reach a model, and
+the guarantee that matters there is structural rather than a pattern: it is
+handed no session, no policy and no document, and its route takes no session
+id. A question asking for somebody's cover is being asked of a process that
+does not have it. Around that, questions are screened before any model call and
+drafts are screened after: a draft carrying a link, a phone number, its own
+instructions, or a claim to have changed something is dropped rather than
+edited, because text that has been steered cannot be repaired by removing the
+evidence of it.
+
+Two leaks turned up while writing the tests for the above, both worth naming
+because neither was where anybody was looking. The API key was printed in full
+by any traceback holding the settings object, which is how it reached a pytest
+assertion and would have reached a public CI log. And exception text was being
+streamed to the browser as an activity event, carrying temporary file paths and
+library internals; the type names the failure now, and the message stays in the
+log.
+
+All of it is in `backend/tests/test_protection.py`, one test per hole, because
+the failure mode of a wall is silence: nothing looks different when one stops
+working, right up until somebody walks through it.
+
+---
+
 ## Scope
 
 This is a decision-support and information tool. It does not diagnose, does not
@@ -449,9 +519,11 @@ backend/app/
   schemas/      the domain contracts
   journey/      care journey tracking
   bill/         reading a hospital bill and checking it
-  help/         the help desk's knowledge base and its refusals
+  help/         the help desk: knowledge.yaml, guardrails.yaml, and the
+                two modules that read them
   report/       the stay as one printable page
-  core/         config, telemetry bus, guardrails, artifact cleanup
+  core/         config, telemetry bus, guardrails, rate limits, the HTTP
+                walls, artifact cleanup
   api/          HTTP surface, session store, the SSE activity stream
 datagen/        corpus builders
 bench/          OCR and extraction benchmarks

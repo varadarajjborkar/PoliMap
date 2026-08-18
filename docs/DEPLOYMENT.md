@@ -55,9 +55,28 @@ Point your host at the repository with:
 | `SESSION_TTL_MINUTES` | no | Default 720. Sessions and page images expire after this |
 | `LOG_LEVEL` | no | `INFO` by default |
 | `PORT` | no | Most hosts set it themselves; the image honours it |
+| `TRUST_PROXY` | **yes, on any real host** | See below. Render, Railway and Fly all put a proxy in front |
+| `BEHIND_TLS` | recommended | Turns on HSTS. True wherever the host terminates TLS, which is everywhere with a https URL |
+| `ENABLE_DOCS` | no | `/docs` and the OpenAPI schema. Off by default and best left off |
+| `MAX_DOCUMENT_PAGES` | no | Default 60. Pages one upload may contain |
+| `MAX_EVENT_STREAMS` | no | Default 200. Activity streams held open at once |
 
-`CORS_ORIGINS` is the one that gets forgotten. Miss it and the site loads
-perfectly and every request fails in the browser console.
+Two of these get forgotten, and they fail in opposite ways.
+
+`CORS_ORIGINS` fails loudly: the site loads perfectly and every request fails
+in the browser console.
+
+`TRUST_PROXY` fails quietly, which is worse. Every managed host puts a proxy in
+front of your container, so without it every request in the world arrives from
+the proxy's address and shares one rate-limit allowance. Nothing errors. The
+app simply starts refusing people, and the first busy user locks out everyone
+else. The app says so in its log the first time it sees a forwarded header
+without this set, so check the log if the live site starts answering 429 to
+people who have not done anything.
+
+Set it only where a proxy really is in front. Where nothing is proxying, the
+forwarded header is written by whoever is calling, and trusting it hands every
+caller a fresh allowance per request, which is the same as having no limit.
 
 ### Persistence
 
