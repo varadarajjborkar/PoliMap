@@ -5,20 +5,34 @@ model the knowledge base answers on its own by matching what was asked. With
 one, the model is handed that same knowledge and told to answer only from it,
 so the difference between the two paths is fluency rather than substance.
 
-Three things are refused outright, before any model sees them: anything
-clinical, anything asking what an insurer will decide, and anything asking the
-helpdesk to change something. The first two are the problem statement's own
-boundaries. The third is this module's: there is no write path from here, so
-saying yes would be a promise nothing could keep.
+What the help desk refuses, and what it says instead, is in `guardrails.yaml`.
+This module applies those rules; it does not contain them. Both directions are
+applied:
 
-Whatever comes back from a model goes through the same guardrails as every
-other model-written sentence in this system, and is dropped rather than
-repaired if it strays.
+* A question matching an `incoming` rule is answered from the file and never
+  reaches a model. Refusing before the call is stronger than instructing a
+  model to refuse, because the instruction is only as good as the model's
+  attention and the refusal is not.
+* A model's draft matching an `outgoing` rule is dropped and the written answer
+  is used in its place. A question is untrusted text, and the payoff of a
+  successful injection is not rudeness, it is a link or a claim for somebody in
+  a hospital to act on.
+
+The structural guarantee sits underneath all of that and does not depend on any
+pattern: this module is given no session, no policy and no document, and the
+route that calls it takes no session id. There is nothing here to leak, and
+nothing here to write. A model asked to reveal somebody's cover is being asked
+by a process that does not have it.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
+import yaml
 
 from app.agents.registry import registry
 from app.core import guardrails
@@ -29,79 +43,7 @@ from app.schemas.help import HelpReply, HelpSource, Suggestion
 
 log = get_logger(__name__)
 
-MAX_QUESTION = 500
-"""Long enough for anything worth asking, short enough that a paste of a whole
-policy is refused rather than sent to a model."""
-
-SYSTEM = (
-    "You are the help desk inside PoliMap, an app that estimates what an "
-    "Indian hospital stay will cost somebody given their health insurance "
-    "policy. You are talking to a person who may be standing in a hospital.\n\n"
-    "Answer ONLY from the reference below. If the reference does not cover it, "
-    "say plainly that you do not know and that they can raise it with the "
-    "team. Never invent a figure, a policy term, or a feature of the app.\n\n"
-    "You cannot change anything. You cannot edit their policy, record a cost, "
-    "move their stay along or file a claim. You explain and you point at where "
-    "in the app something is done.\n\n"
-    "Never give medical or clinical advice of any kind. Never say what an "
-    "insurer will decide; say what is likely and that only the insurer can "
-    "decide a claim.\n\n"
-    "Two or three short paragraphs at most. Plain words. No lists unless the "
-    "answer is genuinely a list."
-)
-
-# Asked to do something rather than explain something.
-_ASKS_FOR_ACTION = re.compile(
-    r"\b(change|edit|update|set|fix|delete|remove|add|enter|fill|correct|"
-    r"upload|record|submit|file)\b.{0,40}\b(for me|it for me|on my behalf|"
-    r"yourself|please do)\b",
-    re.IGNORECASE,
-)
-# A clinical question needs a clinical subject, not merely a clinical shape.
-# "Should I have this surgery" is one; "whose name should I enter" is not, and
-# an earlier version of this refused the second, which is the single question
-# this help desk most exists to answer. "Doctor" is deliberately absent: asking
-# whether a doctor's letter is needed for a claim is paperwork, not medicine.
-_CLINICAL_SUBJECT = (
-    r"surgery|operation|treatment|procedure|medicine|medication|drug|tablet|"
-    r"injection|therapy|chemo\w*|dialysis|symptom|pain|fever|infection"
-)
-_ASKS_CLINICAL = re.compile(
-    rf"\b(?:should i|do i need|is it safe|is it necessary|is it risky)\b"
-    rf"(?=.*\b(?:{_CLINICAL_SUBJECT})\b)"
-    r"|\b(?:diagnos|prescri)\w*"
-    r"|\bwhat is wrong with\b"
-    r"|\bwhich (?:treatment|surgery|doctor|medicine|procedure)\b"
-    r"|\bis it safe\b",
-    re.IGNORECASE,
-)
-_ASKS_FOR_A_RULING = re.compile(
-    r"\b(will (?:they|my insurer|the insurer|the company) (?:pay|approve|"
-    r"reject|cover)|am i covered|is this covered|guarantee)\b",
-    re.IGNORECASE,
-)
-
-CANNOT_ACT = (
-    "I cannot change anything in the app myself, on purpose: everything here "
-    "is what your claim gets estimated from, so it stays in your hands. Tell "
-    "me what you are trying to do and I will point you at where to do it."
-)
-
-NOT_CLINICAL = (
-    "That is a medical question and I am the wrong place for it. This app "
-    "handles the money and the paperwork side of an admission and nothing "
-    "clinical, so please ask the treating doctor or the hospital.\n\n"
-    "If it was really about what your policy covers for a treatment, ask me "
-    "that instead and I can help."
-)
-
-NOT_A_RULING = (
-    "Only your insurer can decide a claim, so I cannot tell you what they will "
-    "do. What this app can show you is what your policy says and what that "
-    "usually means in rupees, which is the thing to take to them.\n\n"
-    "Ask me about a particular part of your cover and I will explain how it "
-    "works."
-)
+RULES_FILE = Path(__file__).with_name("guardrails.yaml")
 
 DO_NOT_KNOW = (
     "I do not know that one. I only know how this app works and how Indian "
@@ -110,6 +52,53 @@ DO_NOT_KNOW = (
     "If it is something the team should hear, I can pass it on and give you a "
     "reference to quote."
 )
+
+OPENING = (
+    "Ask me anything about this app or about how your cover works. I explain "
+    "and point you to the right place; I cannot change anything for you, and "
+    "nothing here is medical advice."
+)
+
+
+@dataclass(frozen=True)
+class Rule:
+    name: str
+    pattern: re.Pattern[str]
+    reply: str = ""
+
+
+@dataclass(frozen=True)
+class _Rules:
+    system: str
+    incoming: tuple[Rule, ...]
+    outgoing: tuple[Rule, ...]
+    max_question_chars: int
+    max_reply_chars: int
+
+
+@lru_cache(maxsize=1)
+def rules() -> _Rules:
+    """Read the guardrails once. `safe_load` constructs nothing but data."""
+    raw = yaml.safe_load(RULES_FILE.read_text(encoding="utf-8"))
+    limits = raw.get("limits", {})
+
+    def compiled(section: str) -> tuple[Rule, ...]:
+        return tuple(
+            Rule(
+                name=entry["name"],
+                pattern=re.compile(entry["pattern"], re.IGNORECASE),
+                reply=entry.get("reply", "").strip(),
+            )
+            for entry in raw.get(section, ())
+        )
+
+    return _Rules(
+        system=raw["system"].strip(),
+        incoming=compiled("incoming"),
+        outgoing=compiled("outgoing"),
+        max_question_chars=int(limits.get("max_question_chars", 500)),
+        max_reply_chars=int(limits.get("max_reply_chars", 2000)),
+    )
 
 
 def _suggestions(screen: str) -> list[Suggestion]:
@@ -120,37 +109,41 @@ def _suggestions(screen: str) -> list[Suggestion]:
 
 
 def opening(screen: str = "") -> HelpReply:
-    """What the helpdesk says before anybody has asked anything."""
+    """What the help desk says before anybody has asked anything."""
     return HelpReply(
-        text=(
-            "Ask me anything about this app or about how your cover works. I "
-            "explain and point you to the right place; I cannot change "
-            "anything for you, and nothing here is medical advice."
-        ),
-        source=HelpSource.KNOWLEDGE,
-        suggestions=_suggestions(screen),
+        text=OPENING, source=HelpSource.KNOWLEDGE, suggestions=_suggestions(screen)
     )
+
+
+def _normalised(text: str) -> str:
+    r"""The form the rules are matched against.
+
+    Apostrophes are dropped because they split words: `everyone\w*` does not
+    match "everyone's", and a rule that misses the possessive misses the way
+    people actually write the question. Curly and straight are both dropped,
+    since phones produce one and keyboards the other.
+    """
+    return text.replace("\u2019", "").replace("'", "")
+
+
+def refused_by(question: str) -> Rule | None:
+    """The incoming rule this question trips, if any."""
+    asked = _normalised(question)
+    return next((r for r in rules().incoming if r.pattern.search(asked)), None)
 
 
 def answer(question: str, *, screen: str = "", use_model: bool = True) -> HelpReply:
     """Answer one question, or say honestly that it cannot be answered."""
-    asked = (question or "").strip()[:MAX_QUESTION]
+    asked = (question or "").strip()[: rules().max_question_chars]
     if not asked:
         return opening(screen)
 
-    if _ASKS_CLINICAL.search(asked):
+    refusal = refused_by(asked)
+    if refusal is not None:
+        log.info("helpdesk refused", rule=refusal.name)
         return HelpReply(
-            text=NOT_CLINICAL, source=HelpSource.KNOWLEDGE,
-            suggestions=_suggestions(screen),
-        )
-    if _ASKS_FOR_ACTION.search(asked):
-        return HelpReply(
-            text=CANNOT_ACT, source=HelpSource.KNOWLEDGE,
-            suggestions=_suggestions(screen),
-        )
-    if _ASKS_FOR_A_RULING.search(asked):
-        return HelpReply(
-            text=NOT_A_RULING, source=HelpSource.KNOWLEDGE,
+            text=refusal.reply,
+            source=HelpSource.KNOWLEDGE,
             suggestions=_suggestions(screen),
         )
 
@@ -178,15 +171,30 @@ def answer(question: str, *, screen: str = "", use_model: bool = True) -> HelpRe
     )
 
 
+# Markers around the question, so that a question saying "ignore the above" is
+# read as part of the thing being quoted. They are unlikely in ordinary text
+# and are stripped from the question itself, so a question cannot close its own
+# fence and start writing instructions after it.
+_FENCE_OPEN = "<<<QUESTION"
+_FENCE_CLOSE = "QUESTION>>>"
+_FENCE_LIKE = re.compile(r"<<<|>>>", re.IGNORECASE)
+
+
+def _fenced(question: str) -> str:
+    return f"{_FENCE_OPEN}\n{_FENCE_LIKE.sub(' ', question)}\n{_FENCE_CLOSE}"
+
+
 def _from_model(question: str, match) -> str:
     """Let a model word the answer, from the knowledge base and nothing else."""
-    reference = knowledge.as_context()
     hint = f"\n\nThe closest reference entry is [{match.key}]." if match else ""
     try:
         response = registry.complete(
             ModelRole.NARRATE,
-            system=SYSTEM,
-            prompt=f"Reference:\n{reference}\n\nQuestion: {question}{hint}",
+            system=rules().system,
+            prompt=(
+                f"Reference:\n{knowledge.as_context()}\n\n"
+                f"{_fenced(question)}{hint}"
+            ),
             temperature=0.2,
             max_tokens=400,
         )
@@ -194,7 +202,36 @@ def _from_model(question: str, match) -> str:
         log.warning("helpdesk model unavailable", error=str(exc)[:120])
         return ""
 
-    # The same treatment every model-written sentence in this system gets. A
-    # dropped answer falls back to the knowledge base rather than to nothing.
-    clean = guardrails.sanitise(response.text.strip(), fallback="")
-    return clean
+    return _vetted(response.text.strip())
+
+
+def _vetted(draft: str) -> str:
+    """Whether a model's draft is allowed out, and nothing in between.
+
+    Every rejection returns the empty string, which sends the caller back to
+    the written answer. Editing a draft into shape is not offered: text that
+    has been steered somewhere cannot be repaired by deleting the evidence of
+    it, and a half-rewritten answer hides the signal that anything happened.
+    """
+    if not draft:
+        return ""
+
+    if len(draft) > rules().max_reply_chars:
+        log.warning("helpdesk draft dropped", rule="too_long", chars=len(draft))
+        return ""
+
+    for rule in rules().outgoing:
+        if rule.pattern.search(draft):
+            log.warning("helpdesk draft dropped", rule=rule.name)
+            return ""
+
+    # A question that got past the incoming rules can still produce an answer
+    # that trips them, which is the shape a successful injection takes: the
+    # request looks ordinary and the reply is the part that strayed.
+    refusal = refused_by(draft)
+    if refusal is not None:
+        log.warning("helpdesk draft dropped", rule=f"incoming:{refusal.name}")
+        return ""
+
+    # The same treatment every model-written sentence in this system gets.
+    return guardrails.sanitise(draft, fallback="")

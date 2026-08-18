@@ -23,6 +23,13 @@ reportlab==5.0.0
 ollama==0.6.2
 httpx==0.28.1
 
+# --- help desk knowledge and guardrails ---
+# The help desk's answers and its refusal rules are YAML rather than Python.
+# Read with safe_load only: the full loader instantiates arbitrary objects
+# named in a document, which is not a thing a knowledge base should be able
+# to do.
+pyyaml==6.0.3
+
 # --- observability ---
 structlog==26.1.0
 rich==14.3.0
