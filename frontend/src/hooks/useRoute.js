@@ -71,5 +71,3 @@ export function useRoute() {
 
   return { ...location, navigate }
 }
-
-export const stepIndex = (id) => STEPS.findIndex((s) => s.id === id)

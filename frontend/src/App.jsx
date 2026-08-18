@@ -6,11 +6,12 @@ import { Journey } from './components/Journey'
 import { PolicySummary } from './components/PolicySummary'
 import { ReadingProgress } from './components/ReadingProgress'
 import { EligibilityNotice, Results, SearchPanel } from './components/Results'
+import { Locked, SettledRail, SetupFlow } from './components/SetupFlow'
 import { Button, ErrorNote, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
 import {
-  SETUP_STEPS, TRACK_STEP, stayPath, stepIndex, useRoute,
+  SETUP_STEPS, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
 import { READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
@@ -51,6 +52,13 @@ export default function App() {
   // rather than inside it, because they are facts about the patient rather
   // than about what they are looking for.
   const [claimFacts, setClaimFacts] = useState({ pre_existing: null, accident: false })
+
+  // A move within the setup flow, asked for by something inside it. Carries a
+  // nonce so asking twice for the same section still moves the page.
+  const [jump, setJump] = useState(null)
+  const goToSection = useCallback(
+    (id) => setJump({ id, n: Date.now() }), [],
+  )
 
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -169,6 +177,15 @@ export default function App() {
       setBusy(null)
     }
   }
+
+  // Keep the address bar on the section being read, so a link copied halfway
+  // through the flow reopens where the reader was. `replace`, because scrolling
+  // is not navigation: filling the history with a dozen entries would make the
+  // back button useless for leaving.
+  const markStepInView = useCallback((id) => {
+    if (!stayId || id === step) return
+    navigate(stayPath(stayId, id), { replace: true })
+  }, [stayId, step, navigate])
 
   // What this stay is, so the home screen lists it recognisably a day later.
   // The hospital and the treatment are what someone recognises; the id is not.
@@ -421,6 +438,15 @@ export default function App() {
     journey: Boolean(journey),
   }
 
+  // What the setup flow may scroll to. The same map, minus the stay, which is
+  // a separate screen rather than a section of this one.
+  const reached = {
+    upload: true, policy: reachable.policy, search: reachable.search,
+  }
+
+  const chosenTreatment = reference?.procedures
+    ?.find((p) => p.code === search.procedure_code)?.name
+
   const shell = {
     events, connected, settings,
     onOpenSettings: () => setSettingsOpen(true),
@@ -444,83 +470,128 @@ export default function App() {
           </div>
         ) : gone && !policy ? (
           <StayGone onHome={goHome} onNew={startNewStay} />
-        ) : step === 'upload' ? (
-          <UploadStep
-            reference={reference}
-            onUploaded={handleUpload}
-            onManual={handleManual}
-            busy={busy === 'upload'}
-            error={error}
-            onClearError={() => setError(null)}
-            progress={
-              busy === 'upload' && (
-                <ReadingProgress
-                  events={events}
-                  phases={READING_PHASES}
-                  title="Reading your policy"
-                  waiting="Sending your files. Keep this page open."
-                  hint="Long documents and phone photos take longer. You can leave this open in the background."
+        ) : step !== 'journey' ? (
+          <>
+            <ErrorNote onDismiss={() => setError(null)}>{error}</ErrorNote>
+            {/* Clears the sticky sub-step bar, which is fixed on small
+                screens because it has to sit under a header that is itself
+                sticky. */}
+            <div aria-hidden="true" className="h-9 lg:hidden" />
+            <SetupFlow
+              step={step}
+              reached={reached}
+              jump={jump}
+              onStepInView={markStepInView}
+              rail={
+                <SettledRail
+                  items={[
+                    policy && {
+                      label: 'Your cover',
+                      value: policy.sum_insured_display,
+                      onChange: () => goToSection('policy'),
+                      changeLabel: 'Check what we read',
+                    },
+                    policy && {
+                      label: 'Room you are covered for',
+                      value: policy.room_limit?.description,
+                    },
+                    chosenTreatment && {
+                      label: 'Treatment',
+                      value: chosenTreatment,
+                    },
+                    results?.options?.length && {
+                      label: 'Cheapest for you',
+                      value: `${results.options[0].hospital.name} · ${results.options[0].you_pay_display}`,
+                    },
+                  ]}
                 />
-              )
-            }
-          />
+              }
+              sections={{
+                upload: (
+                  <UploadStep
+                    reference={reference}
+                    onUploaded={handleUpload}
+                    onManual={handleManual}
+                    busy={busy === 'upload'}
+                    error={null}
+                    onClearError={() => setError(null)}
+                    done={Boolean(policy)}
+                    progress={
+                      busy === 'upload' && (
+                        <ReadingProgress
+                          events={events}
+                          phases={READING_PHASES}
+                          title="Reading your policy"
+                          waiting="Sending your files. Keep this page open."
+                          hint="Long documents and phone photos take longer. You can leave this open in the background."
+                        />
+                      )
+                    }
+                  />
+                ),
+                policy: policy ? (
+                  <PolicySummary
+                    policy={policy}
+                    onAddSecondPolicy={handleAddSecondPolicy}
+                    onDropSecondPolicy={handleDropSecondPolicy}
+                    onAnswer={handleAnswer}
+                    onSkip={handleSkip}
+                    onEditField={handleEditField}
+                    onContinue={() => goToSection('search')}
+                    answering={busy === 'answer'}
+                  />
+                ) : (
+                  <Locked title="Your cover">
+                    Once your policy is read, everything it says about what you
+                    are covered for appears here, and you can correct anything we
+                    got wrong.
+                  </Locked>
+                ),
+                search: policy ? (
+                  <div className="space-y-5">
+                    <SearchPanel
+                      reference={reference}
+                      policy={policy}
+                      value={search}
+                      onChange={setSearch}
+                      onSearch={() => handleSearch()}
+                      busy={busy === 'search'}
+                    />
+                    {busy === 'search' && (
+                      <ReadingProgress
+                        events={events}
+                        phases={SEARCH_PHASES}
+                        title="Looking for your options"
+                        hint="Every hospital in range is costed against your policy, one at a time."
+                      />
+                    )}
+                    <EligibilityNotice
+                      eligibility={results?.eligibility}
+                      busy={busy === 'search'}
+                      onAnswer={(answer) => {
+                        const facts = { ...claimFacts, ...answer }
+                        setClaimFacts(facts)
+                        handleSearch(facts)
+                      }}
+                    />
+                    <Results
+                      results={results}
+                      onStartJourney={handleStartJourney}
+                      starting={busy === 'journey'}
+                    />
+                  </div>
+                ) : (
+                  <Locked title="Hospitals">
+                    We cost every hospital in range against your own policy, so
+                    this needs your cover first.
+                  </Locked>
+                ),
+              }}
+            />
+          </>
         ) : (
           <div className="mx-auto max-w-3xl space-y-5 py-6 motion-safe:animate-fade">
             <ErrorNote onDismiss={() => setError(null)}>{error}</ErrorNote>
-
-            {step === 'policy' && policy && (
-              <>
-                <BackLink onClick={goHome}>All your stays</BackLink>
-                <PolicySummary
-                  policy={policy}
-                  onAddSecondPolicy={handleAddSecondPolicy}
-                  onDropSecondPolicy={handleDropSecondPolicy}
-                  onAnswer={handleAnswer}
-                  onSkip={handleSkip}
-                  onEditField={handleEditField}
-                  onContinue={() => navigate(stayPath(stayId, 'search'))}
-                  answering={busy === 'answer'}
-                />
-              </>
-            )}
-
-            {step === 'search' && (
-              <>
-                <BackLink onClick={() => navigate(stayPath(stayId, 'policy'))}>
-                  Back to your cover
-                </BackLink>
-                <SearchPanel
-                  reference={reference}
-                  policy={policy}
-                  value={search}
-                  onChange={setSearch}
-                  onSearch={() => handleSearch()}
-                  busy={busy === 'search'}
-                />
-                {busy === 'search' && (
-                  <ReadingProgress
-                    events={events}
-                    phases={SEARCH_PHASES}
-                    title="Looking for your options"
-                    hint="Every hospital in range is costed against your policy, one at a time."
-                  />
-                )}
-                <EligibilityNotice
-                  eligibility={results?.eligibility}
-                  busy={busy === 'search'}
-                  onAnswer={(answer) => {
-                    const facts = { ...claimFacts, ...answer }
-                    setClaimFacts(facts)
-                    handleSearch(facts)
-                  }}
-                />
-                <Results
-                  results={results}
-                  onStartJourney={handleStartJourney}
-                  starting={busy === 'journey'}
-                />
-              </>
-            )}
 
             {step === 'journey' && (
               <>
@@ -690,64 +761,49 @@ function Shell({
   )
 }
 
-// The step bar doubles as navigation and as a sense of place. A step already
-// visited stays clickable, because comparing what you were shown at one step
-// against another is the whole reason someone would move backwards here.
+// Two, not four.
 //
-// The three setup steps are grouped apart from the stay itself. They are
-// different kinds of work: the first three are answered once, at the start,
-// while the stay is returned to daily for as long as the admission lasts.
+// Setting up and tracking the stay are different kinds of work: the first is
+// answered once, at the start, while the second is returned to daily for as
+// long as the admission lasts. Putting the three setup steps in this bar as
+// well meant the same three things were named twice on the same screen, once
+// here and once on the thread beside the flow they belong to, and the bar was
+// the copy with no sense of where in the page you were.
+//
+// The three live on the thread now. This says which of the two halves of the
+// application you are in, which is the only thing it was ever good at.
 function StepNav({ step, onGo, reachable }) {
-  const current = stepIndex(step)
+  const inSetup = step !== TRACK_STEP.id
 
-  const item = (entry, index) => {
-    const isCurrent = entry.id === step
-    const isDone = index < current && reachable[entry.id]
-    const enabled = reachable[entry.id]
-
-    return (
-      <li key={entry.id} className="min-w-0 flex-1">
-        <button
-          disabled={!enabled}
-          aria-current={isCurrent ? 'step' : undefined}
-          onClick={() => onGo(entry.id)}
-          className={`flex w-full items-center justify-center gap-1.5 border-b-2 px-1.5 py-2 text-[0.8125rem] font-medium transition sm:px-2 sm:text-[0.875rem] ${
-            isCurrent
-              ? 'border-brand text-brand'
-              : enabled
-                ? 'border-transparent text-muted hover:text-ink'
-                : 'cursor-not-allowed border-transparent text-muted/40'
-          }`}
-        >
-          <span
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.75rem] transition ${
-              isCurrent
-                ? 'bg-brand text-on-brand'
-                : isDone
-                  ? 'bg-brand-soft text-brand'
-                  : 'bg-canvas text-muted'
-            }`}
-          >
-            {isDone ? '✓' : index + 1}
-          </span>
-          <span className="truncate sm:hidden">{entry.short}</span>
-          <span className="hidden truncate sm:inline">{entry.label}</span>
-        </button>
-      </li>
-    )
-  }
+  const item = (id, label, enabled, isCurrent) => (
+    <li key={id} className="min-w-0 flex-1">
+      <button
+        disabled={!enabled}
+        aria-current={isCurrent ? 'page' : undefined}
+        onClick={() => onGo(id)}
+        className={`flex w-full items-center justify-center gap-2 border-b-2 px-2 py-2 text-[0.875rem] font-medium transition ${
+          isCurrent
+            ? 'border-brand text-brand'
+            : enabled
+              ? 'border-transparent text-muted hover:text-ink'
+              : 'cursor-not-allowed border-transparent text-muted/40'
+        }`}
+      >
+        {label}
+      </button>
+    </li>
+  )
 
   return (
-    <nav aria-label="Progress" className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl items-stretch px-2">
-        <ol className="flex min-w-0 flex-[3] items-stretch gap-1">
-          {SETUP_STEPS.map(item)}
-        </ol>
-        <div className="mx-1.5 my-2 w-px shrink-0 bg-line" aria-hidden="true" />
-        <ol className="flex min-w-0 flex-1 items-stretch">
-          {item(TRACK_STEP, SETUP_STEPS.length)}
-        </ol>
-      </div>
+    <nav aria-label="Sections" className="border-t border-line">
+      <ol className="mx-auto flex max-w-6xl items-stretch px-2">
+        {item(
+          SETUP_STEPS[0].id, 'Setting up', true, inSetup,
+        )}
+        {item(
+          TRACK_STEP.id, TRACK_STEP.label, reachable[TRACK_STEP.id], !inSetup,
+        )}
+      </ol>
     </nav>
   )
 }

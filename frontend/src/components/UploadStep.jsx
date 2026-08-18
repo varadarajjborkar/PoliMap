@@ -16,6 +16,7 @@ const MAX_FILES = 6
 
 export function UploadStep({
   reference, onUploaded, onManual, busy, error, onClearError, progress,
+  done = false,
 }) {
   const [mode, setMode] = useState('upload')
   const [insurerId, setInsurerId] = useState('')
@@ -68,8 +69,33 @@ export function UploadStep({
     onClearError?.()
   }
 
+  // Once a policy has been read this section stays on the page, because the
+  // flow scrolls rather than replaces. Collapsed to what it achieved, with a
+  // way back in: somebody who uploaded the wrong document should be able to
+  // say so without starting the stay again.
+  if (done && !busy) {
+    return (
+      <div className="mx-auto max-w-2xl motion-safe:animate-fade">
+        <Card>
+          <div className="flex items-start gap-3 px-5 py-4">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.6875rem] text-on-brand">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.9375rem] font-medium">Your policy has been read</p>
+              <p className="mt-0.5 text-[0.875rem] leading-relaxed text-muted">
+                What it says is below. Correct anything we got wrong before you
+                go on.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto max-w-2xl space-y-5 py-8">
+    <div className="mx-auto max-w-2xl space-y-5">
       <div className="text-center">
         <h1 className="text-[1.625rem] font-semibold tracking-tight">
           Find out what your hospital stay will really cost
