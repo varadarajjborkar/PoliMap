@@ -271,7 +271,9 @@ def _discharge_planning(
             "Check the bill for items your insurer never pays",
             "Gloves, gowns, administration and record charges are on the IRDAI "
             "non-payable list. They belong on your side of the bill, but they "
-            "are sometimes on the insurer's, and the hospital will correct it.",
+            "are sometimes on the insurer's, and the hospital will correct it. "
+            "Photograph the itemised bill above and we will go through it line "
+            "by line with you.",
             urgent=True,
         ),
     ]
@@ -282,7 +284,8 @@ def _discharge_planning(
             "Check how the proportionate deduction was worked out",
             "It applies to room-linked charges only: room, nursing, doctor "
             "visits, surgeon, theatre. Since the IRDAI circular of May 2024 it "
-            "must not touch medicines, tests, implants or ICU.",
+            "must not touch medicines, tests, implants or ICU. The bill check "
+            "above works it out on the bill you were actually handed.",
             urgent=True,
         ))
 
