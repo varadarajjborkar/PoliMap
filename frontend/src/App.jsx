@@ -220,6 +220,16 @@ export default function App() {
     adoptPolicy(result, id)
   }
 
+  // Not wrapped in `run`: ticking a box should not grey out the page, and a
+  // failure here is worth a banner rather than an interruption.
+  async function handleToggleChecklist(itemId, done) {
+    try {
+      setJourney(await api.toggleChecklist(sessionId, itemId, done))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   async function handleAnswer(questionId, answer) {
     const result = await run('answer', () =>
       api.answer(sessionId, questionId, answer))
@@ -497,6 +507,7 @@ export default function App() {
                 </BackLink>
                 <Journey
                   journey={journey}
+                  onToggleChecklist={handleToggleChecklist}
                   busy={busy === 'journey'}
                   sessionId={sessionId}
                   onAdvance={journeyAction((stage, opts) =>

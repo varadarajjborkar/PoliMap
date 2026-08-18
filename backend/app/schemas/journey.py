@@ -180,6 +180,12 @@ class JourneyState(BaseModel):
     pre_auth_filed: bool = False
     pre_auth_approved_amount: Rupees | None = None
 
+    checklist_done: list[str] = Field(default_factory=list)
+    """Items ticked off, across every stage. Kept on the journey rather than in
+    the browser so the list is a record of what was done rather than a poster
+    that resets on reload, and so a second person opening the same stay sees
+    what the first has already dealt with."""
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def accrued_total(self) -> Rupees:

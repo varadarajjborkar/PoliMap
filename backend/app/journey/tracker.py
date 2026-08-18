@@ -618,21 +618,10 @@ def _stage_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
             stage=state.stage,
         ))
 
-    if state.stage is JourneyStage.DISCHARGE_PLANNING:
-        alerts.append(Alert(
-            kind=AlertKind.DOCUMENTS_NEEDED,
-            severity=AlertSeverity.ATTENTION,
-            title="Collect your documents before you leave",
-            message=(
-                "You will need the discharge summary, the itemised final bill, "
-                "and all original test reports and pharmacy receipts."
-                + (f" Treatment costs for {policy.post_hospitalisation_days} days "
-                   f"after discharge are also covered."
-                   if policy.post_hospitalisation_days else "")
-            ),
-            action="Ask for originals, not photocopies. Claims are refused without them.",
-            stage=state.stage,
-        ))
+    # The discharge paperwork used to be one alert repeating the same four
+    # sentences to everybody. It is now a checklist carrying this policy's own
+    # figures and its own deadlines, ticked off as each is dealt with, which is
+    # both more use and impossible to state in a single paragraph.
 
     return alerts
 

@@ -118,6 +118,11 @@ export const api = {
   receiptUrl: (sessionId, entryId) =>
     apiUrl(`/api/journey/${sessionId}/cost/${entryId}/receipt`),
 
+  // Ticking off something on the stage checklist. Kept server-side so the list
+  // is a record of what was done rather than a poster that resets on reload.
+  toggleChecklist: (sessionId, itemId, done) =>
+    request(`/api/journey/${sessionId}/checklist`, json({ item_id: itemId, done })),
+
   filePreauth: (sessionId) =>
     request(`/api/journey/${sessionId}/preauth`, { method: 'POST' }),
 }

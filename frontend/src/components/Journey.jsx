@@ -29,6 +29,7 @@ const SEVERITY = {
 export function Journey({
   journey, sessionId, busy,
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
+  onToggleChecklist,
 }) {
   if (!journey) return null
 
@@ -78,6 +79,13 @@ export function Journey({
       </Card>
 
       <Position position={journey.position} accrued={journey.accrued_display} />
+
+      <Checklist
+        checklist={journey.checklist}
+        stageLabel={journey.stage_label}
+        onToggle={onToggleChecklist}
+        busy={busy}
+      />
 
       {journey.alerts.length > 0 && (
         <div className="space-y-3">
@@ -358,6 +366,83 @@ function EditCharge({ cost, onSave, onClose, busy }) {
 // the previous screen had already worked out the difference. Showing the first
 // while the previous screen showed the second left two numbers contradicting
 // each other with no way for a reader to tell which one to plan against.
+// What to do here, with this policy's own figures in it.
+//
+// Advice about hospital admissions in general is available everywhere and helps
+// nobody. "Ask for a room at or under ₹5,000 a day" is not available anywhere
+// else, and it is the sentence that decides how much of the rest of the bill
+// the insurer pays.
+//
+// Ticks live on the server, so this is a record of what has been dealt with
+// rather than a poster that resets on reload, and a second family member
+// opening the same stay sees what the first has already done.
+function Checklist({ checklist, stageLabel, onToggle, busy }) {
+  if (!checklist?.items?.length) return null
+
+  const { done, total, items } = checklist
+  const complete = done === total
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Before you leave this stage`}
+        subtitle={stageLabel}
+        aside={
+          <Badge tone={complete ? 'good' : 'neutral'}>
+            {done} of {total}
+          </Badge>
+        }
+      />
+
+      <div className="h-1 bg-canvas">
+        <div
+          className="h-full bg-brand transition-[width] duration-500 ease-out"
+          style={{ width: `${total ? (done / total) * 100 : 0}%` }}
+        />
+      </div>
+
+      <ul className="divide-y divide-line">
+        {items.map((item) => (
+          <li key={item.id}>
+            <label
+              className={`flex cursor-pointer gap-3 px-5 py-3 transition hover:bg-canvas ${
+                item.done ? 'opacity-55' : ''
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={item.done}
+                disabled={busy}
+                onChange={(e) => onToggle(item.id, e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand)]"
+              />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block text-[0.875rem] leading-snug ${
+                    item.done ? 'line-through' : 'font-medium'
+                  }`}
+                >
+                  {item.text}
+                </span>
+                {item.why && !item.done && (
+                  <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
+                    {item.why}
+                  </span>
+                )}
+              </span>
+              {item.urgent && !item.done && (
+                <span className="shrink-0 self-start">
+                  <Badge tone="warn">Now</Badge>
+                </span>
+              )}
+            </label>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 function Position({ position, accrued }) {
   const [open, setOpen] = useState(false)
   if (!position) return null

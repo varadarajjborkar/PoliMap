@@ -25,7 +25,7 @@ from app.api.session import DatasetMissing, Session, datasets, sessions
 from app.core import artifacts
 from app.core.events import bus
 from app.core.logging import get_logger
-from app.journey import position, tracker
+from app.journey import checklist, position, tracker
 from app.pipeline.run import run_policy_pipeline_bytes, run_policy_pipeline_many
 from app.pipeline.s4_compile.compiler import apply_answer, skip_question
 from app.pipeline.s4_compile.edit import (
@@ -990,6 +990,65 @@ def _position_payload(state, policy) -> dict[str, Any] | None:
     }
 
 
+def _checklist_payload(session: Session) -> dict[str, Any]:
+    """What to do at this stage, with this policy's own figures in it.
+
+    Advice about hospital admissions in general is available everywhere and
+    helps nobody. The same advice carrying this family's room cap and their
+    diagnostics sub-limit is not available anywhere else.
+    """
+    state, policy = session.journey, session.policy
+    assert state is not None and policy is not None
+
+    # Whether this hospital is in the insurer's network decides which of two
+    # discharge lists applies: a reimbursement claim has a filing deadline that
+    # a cashless one does not.
+    hospital = next(
+        (h for h in datasets.hospitals if h.hospital_id == state.hospital_id), None
+    )
+    is_network = (
+        hospital.is_cashless_for(session.insurer_id)
+        if hospital and session.insurer_id else True
+    )
+    settlement = position.settlement_mode(policy, is_network=is_network)
+    items = checklist.items_for(state, policy, settlement=settlement)
+    done, total = checklist.progress(items)
+    return {
+        "done": done,
+        "total": total,
+        "items": [
+            {
+                "id": item.item_id,
+                "text": item.text,
+                "why": item.why,
+                "urgent": item.urgent,
+                "done": item.done,
+            }
+            for item in items
+        ],
+    }
+
+
+class ChecklistToggle(BaseModel):
+    item_id: str
+    done: bool = True
+
+
+@router.post("/journey/{session_id}/checklist")
+def toggle_checklist(session_id: str, payload: ChecklistToggle) -> dict[str, Any]:
+    """Tick an item, or untick it."""
+    session = _session(session_id)
+    if session.journey is None:
+        raise HTTPException(404, "No journey started yet.")
+
+    done = [i for i in session.journey.checklist_done if i != payload.item_id]
+    if payload.done:
+        done.append(payload.item_id)
+    session.journey.checklist_done = done
+    sessions.save(session)
+    return _journey_payload(session)
+
+
 def _journey_payload(session: Session) -> dict[str, Any]:
     state = session.journey
     policy = session.policy
@@ -1027,6 +1086,7 @@ def _journey_payload(session: Session) -> dict[str, Any]:
             for s in sorted(JourneyStage, key=lambda s: s.order)
         ],
         "next_stage": _natural_next(state.stage),
+        "checklist": _checklist_payload(session),
         "burn_down": {
             "sum_insured": float(burn.sum_insured),
             "consumed": float(burn.consumed),
