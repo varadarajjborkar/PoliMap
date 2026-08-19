@@ -125,24 +125,32 @@ def _language_rule(language: str, question: str = "") -> str:
     """
     chosen = LANGUAGE_NAMES.get(language, "English")
     script = script_of(question)
-    where = (
-        f"The question is written in the {script} script, so write your whole "
-        f"reply in {script} too."
-        if script
-        else (
-            "The question is written in the Latin alphabet, so write your whole "
-            "reply in the Latin alphabet too. Do not use Devanagari, Kannada, "
-            "Telugu or any other script, even where the language itself is "
-            "Hindi, Marathi, Kannada or Telugu: 'room rent ka limit kitna hai' "
-            "is answered in that same Hinglish, in English letters."
+    if script:
+        return (
+            f"\n\nThe question is written in the {script} script. Write your "
+            f"whole reply in {script} too, in the same language it was asked "
+            "in, and keep the insurance words people already say in English."
         )
-    )
+    # Latin letters, which is two different questions: English, or an Indian
+    # language written in English letters. The language of the app decides
+    # which Indian one it is, and that prior matters: left to guess, a model
+    # reads romanised Kannada and answers a Kannada speaker in Tamil.
+    if chosen == "English":
+        return (
+            "\n\nThe question is written in the Latin alphabet. If it is plain "
+            "English, reply in English. If it is an Indian language written in "
+            "English letters, Hinglish and the like, reply in that same "
+            "language in English letters, never in another script and never in "
+            "a language they did not use."
+        )
     return (
-        f"\n\n{where}\n"
-        "Reply in the same language the question is written in, mixing the two "
-        "the way the question mixed them and keeping the insurance words people "
-        f"already say in English. A question in plain English is answered in "
-        f"{chosen}."
+        f"\n\nThe question is written in the Latin alphabet, and this person's "
+        f"app is set to {chosen}. {chosen} is the language to answer in either "
+        "way; the letters are what changes. If the question is plain English, "
+        f"reply in {chosen} in its own script. If the question is {chosen} "
+        f"written in English letters, or a mixture of {chosen} and English, "
+        f"reply in {chosen} written in English letters exactly as they wrote "
+        "it, and never in another script or another language."
     )
 
 

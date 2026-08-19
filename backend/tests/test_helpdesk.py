@@ -532,13 +532,24 @@ def test_the_script_is_read_off_the_question_rather_than_guessed(question, scrip
     assert assistant.script_of(question) == script
 
 
-def test_a_question_in_english_letters_is_answered_in_english_letters():
+def test_a_question_in_english_letters_is_never_answered_in_another_script():
     """The rule a model kept getting wrong on its own: it recognised the Hindi
-    in "kitna cover hoga" and answered a Hinglish typist in Devanagari."""
+    in "kitna cover hoga" and answered a Hinglish typist in Devanagari. Which of
+    the two it is, English or an Indian language in English letters, is left to
+    the model; that it is answered in the letters it was asked in is not."""
     rule = assistant._language_rule("hi", "room rent ka limit kitna hai")
     assert "Latin alphabet" in rule
-    assert "Do not use Devanagari" in rule
+    assert "in English letters" in rule
+    assert "never in another script" in rule
+    # And the other way round: an Indic question is answered in its own script.
     assert "Devanagari script" in assistant._language_rule("hi", "रूम रेंट की सीमा")
+
+
+def test_a_question_in_plain_english_lands_in_the_language_of_the_app():
+    """English typed into a Kannada interface is answered in Kannada. The two
+    rules used to contradict each other here, and the script rule won."""
+    rule = assistant._language_rule("kn", "what is cashless?")
+    assert "reply in Kannada" in rule
 
 
 def test_the_language_reaches_the_model_from_the_request(api):

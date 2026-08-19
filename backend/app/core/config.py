@@ -74,11 +74,18 @@ DEFAULT_MODEL_CHAINS: dict[ModelRole, list[str]] = {
     ],
     # Only vision-capable models belong here.
     ModelRole.VISION_OCR: ["gemma4:31b", "minimax-m3", "kimi-k3"],
+    # The help desk answers on this role, and it answers in whichever of five
+    # languages it was asked in, in the script it was asked in. That turns out
+    # to need the larger model: given romanised Kannada, gpt-oss:20b replies in
+    # Kannada script about half the time and once picked Tamil, while the 120b
+    # holds the letters it was given. It is also quicker here, 2.1s against 3
+    # to 7, because the small one spends the budget reasoning about a question
+    # that does not need it.
     ModelRole.NARRATE: [
+        "gpt-oss:120b",
         "gpt-oss:20b",
         "nemotron-3-nano:30b",
         "gemma4:31b",
-        "nemotron-3-super",
     ],
 }
 

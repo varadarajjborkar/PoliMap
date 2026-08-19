@@ -194,7 +194,18 @@ class OllamaProvider(LLMProvider):
         last_error: Exception | None = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                return self._content(self._get_client().chat(**kwargs))
+                text = self._content(self._get_client().chat(**kwargs))
+                # An empty reply is a failure that did not raise. These models
+                # sometimes spend the whole budget reasoning and return nothing
+                # at all, and asking again is what fixes it; treating it as an
+                # answer means handing the caller a blank.
+                if text.strip():
+                    return text
+                log.warning("llm returned nothing, retrying", model=model, attempt=attempt)
+                last_error = LLMUnavailable(f"{model} returned an empty response")
+                if attempt < MAX_ATTEMPTS:
+                    time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+                continue
             except Exception as exc:
                 last_error = exc
                 if any(m in str(exc).lower() for m in _PERMANENT_MARKERS):

@@ -68,7 +68,12 @@ class ResponseCache:
         return str(row[0])
 
     def set(self, key: str, model: str, payload: str) -> None:
-        if not self.enabled:
+        # An empty answer is never worth keeping. A model that returns nothing
+        # once, which these do occasionally, would otherwise return nothing to
+        # that exact question for as long as the file lives: the caller falls
+        # back, sees a sensible answer, and never learns that the model was
+        # asked and had already given up.
+        if not self.enabled or not payload:
             return
         with self._lock:
             conn = self._connect()

@@ -11,6 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.agents.base import LLMProvider, LLMUnavailable
+from app.agents.cache import ResponseCache
 from app.agents.offline_provider import OfflineProvider
 from app.agents.ollama_provider import (
     VISION_CAPABLE_PREFIXES,
@@ -185,3 +186,54 @@ def test_health_reports_degraded_roles():
     health = reg.health()
     assert health["llm_available"] is False
     assert set(health["degraded_roles"]) == {r.value for r in ModelRole}
+
+
+# --- an answer that is not an answer ---------------------------------------
+#
+# These models occasionally return nothing at all: the call succeeds, the
+# message is empty, and every layer above treats it as a reply. Both halves of
+# that are covered here, because together they made one blank answer permanent.
+
+
+class _Blank:
+    """A client that answers with nothing, then with something."""
+
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.calls = 0
+
+    def chat(self, **kwargs):
+        self.calls += 1
+        return {"message": {"content": self.replies.pop(0)}}
+
+
+def test_an_empty_reply_is_asked_again_rather_than_returned(monkeypatch):
+    monkeypatch.setattr("app.agents.ollama_provider.RETRY_BACKOFF_SECONDS", 0)
+    provider = OllamaProvider(cache=ResponseCache(enabled=False))
+    client = _Blank(["", "   ", "The policy schedule is the one that matters."])
+    provider._client = client
+
+    answer = provider.complete(model="m", prompt="which document?")
+
+    assert answer.text == "The policy schedule is the one that matters."
+    assert client.calls == 3
+
+
+def test_nothing_at_all_is_a_failure_rather_than_an_answer(monkeypatch):
+    monkeypatch.setattr("app.agents.ollama_provider.RETRY_BACKOFF_SECONDS", 0)
+    provider = OllamaProvider(cache=ResponseCache(enabled=False))
+    provider._client = _Blank(["", "", ""])
+
+    with pytest.raises(LLMUnavailable):
+        provider.complete(model="m", prompt="which document?")
+
+
+def test_an_empty_answer_is_never_cached(tmp_path):
+    """Cached, it would be the answer to that exact question for as long as the
+    file lives, and the caller would never learn the model had given up."""
+    cache = ResponseCache(tmp_path / "c.db")
+    cache.set("k", "m", "")
+    assert cache.get("k") is None
+
+    cache.set("k", "m", "an answer")
+    assert cache.get("k") == "an answer"
