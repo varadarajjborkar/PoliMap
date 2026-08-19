@@ -145,7 +145,9 @@ def _indemnity_band(
         low=min(low.out_of_pocket, expected.out_of_pocket),
         expected=expected.out_of_pocket,
         high=max(high.out_of_pocket, expected.out_of_pocket),
-        high_driver=driver,
+        high_driver=driver.text,
+        high_driver_key=driver.key,
+        high_driver_values=driver.values,
     )
 
 
@@ -170,12 +172,17 @@ def _scheme_band(
         procedure, hospital, room_category=room,
     )
 
+    worse = high.out_of_pocket > expected.out_of_pocket
     return CostBand(
         low=expected.out_of_pocket,
         expected=expected.out_of_pocket,
         high=max(high.out_of_pocket, expected.out_of_pocket),
+        # A package rate does not move with the stay, so the high figure has a
+        # different cause and often no gap at all to explain.
         high_driver=(
-            driver if high.out_of_pocket > expected.out_of_pocket
+            driver.text if worse
             else "the package price does not change with a longer stay"
         ),
+        high_driver_key=driver.key if worse else "package_fixed",
+        high_driver_values=driver.values if worse else {},
     )

@@ -509,17 +509,48 @@ class RoomLimit(BaseModel):
         return min(candidates) if candidates else None
 
     def describe(self, sum_insured: Decimal) -> str:
+        key, values = self.describe_parts(sum_insured)
+        return _ROOM_LIMIT_WORDING[key].format(**values)
+
+    def describe_parts(self, sum_insured: Decimal) -> tuple[str, dict[str, str]]:
+        """The same description as a key and the values written into it.
+
+        A cap and a ceiling are one sentence with two figures in it, and the
+        ceiling is an enum whose name the reader has in their own language
+        already. So the parts travel and the sentence is rebuilt at the far end
+        rather than translated after it has closed over "per day".
+        """
         from app.schemas.money import format_inr
 
         cap = self.effective_daily_cap(sum_insured)
-        if cap is None and self.category_ceiling is None:
-            return "No room rent limit"
-        parts = []
+        ceiling = self.category_ceiling
+
+        values: dict[str, str] = {}
         if cap is not None:
-            parts.append(f"{format_inr(cap)} per day")
-        if self.category_ceiling is not None:
-            parts.append(f"up to {self.category_ceiling.label}")
-        return " · ".join(parts)
+            values["amount"] = format_inr(cap)
+        if ceiling is not None:
+            values["category"] = ceiling.label
+            # The value beside the label, because the interface holds the
+            # room names in five languages and looks them up by this.
+            values["category_key"] = f"room.{ceiling.value}"
+
+        if cap is None and ceiling is None:
+            return "none", {}
+        if ceiling is None:
+            return "per_day", values
+        if cap is None:
+            return "category", values
+        return "per_day_category", values
+
+
+# The English of each shape, kept beside the keys they are read under so a
+# reader with no translation still gets the sentence rather than the key.
+_ROOM_LIMIT_WORDING = {
+    "none": "No room rent limit",
+    "per_day": "{amount} per day",
+    "category": "up to {category}",
+    "per_day_category": "{amount} per day · up to {category}",
+}
 
 
 class SubLimit(BaseModel):

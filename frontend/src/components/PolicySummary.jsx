@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
-import { said } from '../lib/i18n'
+import { capped, date, said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // What we read from the policy, and the things we could not settle.
@@ -34,7 +34,7 @@ function SchemeFacts({ policy }) {
         />
         <Fact
           label={t('scheme.room', 'Room included')}
-          value={policy.room_limit.description}
+          value={capped(t, policy.room_limit)}
           note={t(
             'scheme.room.note',
             'A higher room is yours to pay for, but it reduces nothing else the ' +
@@ -66,6 +66,7 @@ function SchemeFacts({ policy }) {
     </>
   )
 }
+
 
 export function PolicySummary({
   policy, onAnswer, onSkip, onEditField, onContinue, answering,
@@ -153,7 +154,7 @@ export function PolicySummary({
             />
             <Fact
               label={t('policy.room', 'Room you are covered for')}
-              value={policy.room_limit.description}
+              value={capped(t, policy.room_limit)}
               field="room_limit"
               current={policy.room_limit.daily_cap ?? ''}
               hint={t(
@@ -195,7 +196,7 @@ export function PolicySummary({
                   : null
               }
             />
-            <Fact label={t('policy.icu', 'ICU cover')} value={policy.icu_limit} />
+            <Fact label={t('policy.icu', 'ICU cover')} value={capped(t, policy.icu_limit)} />
             <Fact
               label={t('policy.deductible', 'You pay first')}
               value={
@@ -267,10 +268,10 @@ export function PolicySummary({
               {t('policy.sublimits', 'Separate limits')}
             </h3>
             <ul className="mt-2 space-y-1.5">
-              {policy.sublimits.map((limit) => (
-                <li key={limit.label} className="flex justify-between text-[0.875rem]">
-                  <span>{limit.label}</span>
-                  <span className="tabular-nums font-medium">{limit.amount_display}</span>
+              {policy.sublimits.map((sub) => (
+                <li key={sub.label} className="flex justify-between text-[0.875rem]">
+                  <span>{t(sub.label_key, sub.label)}</span>
+                  <span className="tabular-nums font-medium">{sub.amount_display}</span>
                 </li>
               ))}
             </ul>
@@ -336,7 +337,7 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
           </div>
           <div className="flex justify-between gap-4">
             <dt>{t('second.room', 'Room')}</dt>
-            <dd>{second.room_limit}</dd>
+            <dd>{capped(t, second.room_limit)}</dd>
           </div>
           {second.is_top_up && (
             <div className="flex justify-between gap-4">
@@ -565,9 +566,15 @@ function WaitingPeriods({ policy }) {
           <li key={index} className="text-[0.875rem]">
             <div className="flex justify-between gap-4">
               <span className={wait.cleared ? 'text-muted line-through' : ''}>
-                {wait.applies_to === 'unspecified' ? wait.kind_label : wait.applies_to}
+                {wait.applies_to === 'unspecified'
+                  ? t(`waitkind.${wait.kind}`, wait.kind_label)
+                  : wait.applies_to}
               </span>
-              <span className="shrink-0 font-medium tabular-nums">{wait.duration}</span>
+              {/* The span arrives as a unit and its numbers as well as written
+                  out, because "24 months" is a phrase no table reaches into. */}
+              <span className="shrink-0 font-medium tabular-nums">
+                {t(`dur.${wait.duration_unit}`, wait.duration, wait.duration_parts)}
+              </span>
             </div>
             {wait.clears_on && (
               <p className="mt-0.5 text-[0.75rem] text-muted">
@@ -605,9 +612,7 @@ function WaitingPeriods({ policy }) {
 }
 
 const shortDate = (iso) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
+  date(`${iso}T00:00:00`, { month: 'short', year: 'numeric' })
 
 
 function ConfidenceBadge({ policy }) {

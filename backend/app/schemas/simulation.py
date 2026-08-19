@@ -169,6 +169,9 @@ class CostBand(BaseModel):
     high: Rupees
     high_driver: str = ""
     """Plain-language cause of the high figure, e.g. "a second stent"."""
+    high_driver_key: str = ""
+    """Which cause this is, for reading it in another language."""
+    high_driver_values: dict[str, str] = Field(default_factory=dict)
 
 
 class SettlementMode(StrEnum):

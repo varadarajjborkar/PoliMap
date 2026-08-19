@@ -167,6 +167,24 @@ export default {
   'home.stored_locally':
     'ఇవి ఈ పరికరంలో మాత్రమే ఉంటాయి. బ్రౌజర్ డేటా తొలగిస్తే ఇవి పోతాయి.',
 
+  'home.stay_of': '{date} నాటి చికిత్స',
+  'accred.none': 'గుర్తింపు లేదు',
+  'accred.nabh_entry': 'NABH ప్రారంభ స్థాయి',
+  'accred.nabh_full': 'NABH గుర్తింపు పొందింది',
+  'accred.jci': 'JCI గుర్తింపు పొందింది',
+  'waitkind.initial': 'మొదటి వేచి ఉండే కాలం',
+  'waitkind.pre_existing': 'ముందే ఉన్న జబ్బులు',
+  'waitkind.specific_ailment': 'పేర్కొన్న చికిత్సలు',
+  'waitkind.maternity': 'ప్రసూతి',
+  'waitkind.other': 'వేచి ఉండే కాలం',
+  'roomlimit.none': 'గది అద్దెకు పరిమితి లేదు',
+  'roomlimit.per_day': 'రోజుకు {amount}',
+  'roomlimit.category': '{category} వరకు',
+  'roomlimit.per_day_category': 'రోజుకు {amount} · {category} వరకు',
+  'driver.longer_stay': '{days} రోజుల బస, ఐసీయూలో ఒక రోజు ఎక్కువ',
+  'driver.longer_stay_implant': '{days} రోజుల బస, ఐసీయూలో ఒక రోజు ఎక్కువ, రెండో ఇంప్లాంట్',
+  'driver.package_fixed': 'బస పొడిగినా ప్యాకేజీ ధర మారదు',
+
   'restore.opening':
     'మీ చికిత్సను తెరుస్తున్నాం. సర్వర్ మేల్కొనడానికి కొంత సమయం పట్టవచ్చు.',
 

@@ -167,6 +167,25 @@ export default {
   'home.stored_locally':
     'ಇವು ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಇರುತ್ತವೆ. ಬ್ರೌಸರ್ ಮಾಹಿತಿ ಅಳಿಸಿದರೆ ಇವು ಹೋಗುತ್ತವೆ.',
 
+  'home.stay_of': '{date} ರ ಚಿಕಿತ್ಸೆ',
+  'accred.none': 'ಮಾನ್ಯತೆ ಇಲ್ಲ',
+  'accred.nabh_entry': 'NABH ಆರಂಭಿಕ ಹಂತ',
+  'accred.nabh_full': 'NABH ಮಾನ್ಯತೆ ಪಡೆದಿದೆ',
+  'accred.jci': 'JCI ಮಾನ್ಯತೆ ಪಡೆದಿದೆ',
+  'waitkind.initial': 'ಆರಂಭಿಕ ಕಾಯುವಿಕೆ',
+  'waitkind.pre_existing': 'ಮೊದಲೇ ಇದ್ದ ಕಾಯಿಲೆಗಳು',
+  'waitkind.specific_ailment': 'ಹೆಸರಿಸಿದ ಚಿಕಿತ್ಸೆಗಳು',
+  'waitkind.maternity': 'ಹೆರಿಗೆ',
+  'waitkind.other': 'ಕಾಯುವ ಅವಧಿ',
+  'roomlimit.none': 'ಕೋಣೆ ಬಾಡಿಗೆಗೆ ಮಿತಿ ಇಲ್ಲ',
+  'roomlimit.per_day': 'ದಿನಕ್ಕೆ {amount}',
+  'roomlimit.category': '{category} ವರೆಗೆ',
+  'roomlimit.per_day_category': 'ದಿನಕ್ಕೆ {amount} · {category} ವರೆಗೆ',
+  'driver.longer_stay': '{days} ದಿನಗಳ ವಾಸ ಮತ್ತು ಐಸಿಯುನಲ್ಲಿ ಒಂದು ದಿನ ಹೆಚ್ಚು',
+  'driver.longer_stay_implant':
+    '{days} ದಿನಗಳ ವಾಸ, ಐಸಿಯುನಲ್ಲಿ ಒಂದು ದಿನ ಹೆಚ್ಚು ಮತ್ತು ಎರಡನೇ ಇಂಪ್ಲಾಂಟ್',
+  'driver.package_fixed': 'ವಾಸ ಉದ್ದವಾದರೂ ಪ್ಯಾಕೇಜ್ ಬೆಲೆ ಬದಲಾಗುವುದಿಲ್ಲ',
+
   'restore.opening':
     'ನಿಮ್ಮ ಚಿಕಿತ್ಸೆಯನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ. ಸರ್ವರ್ ಎಚ್ಚರಗೊಳ್ಳಲು ಸ್ವಲ್ಪ ಸಮಯ ಬೇಕಾಗಬಹುದು.',
 

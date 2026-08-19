@@ -15,6 +15,7 @@ import { UploadStep } from './components/UploadStep'
 import {
   SETUP_STEPS, SIGNIN_PATH, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
+import { capped } from './lib/i18n'
 import { deleteAllTickets } from './lib/tickets'
 import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
@@ -570,7 +571,7 @@ export default function App() {
     },
     policy && {
       label: t('rail.room', 'Room you are covered for'),
-      value: policy.room_limit?.description,
+      value: capped(t, policy.room_limit),
     },
     chosenTreatment && {
       label: t('rail.treatment', 'Treatment'), value: chosenTreatment,

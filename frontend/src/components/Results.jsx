@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
-import { dates, said, spans } from '../lib/i18n'
+import { readable, said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
 import { TreatmentPicker } from './TreatmentPicker'
 
@@ -161,7 +161,7 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
             {blocking
               ? t('eligibility.declined', 'Your insurer would decline this claim')
               : t(`elig.${eligibility.findings[0]?.key}`, eligibility.headline,
-                  eligibility.findings[0]?.values)}
+                  readable(t, eligibility.findings[0]?.values))}
           </p>
           <p className="mt-1 text-[0.875rem] leading-relaxed">
             {blocking
@@ -179,10 +179,10 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
             .map((finding, index) => (
               <li key={index} className="rounded-lg bg-surface/70 px-3 py-2">
                 <p className="text-[0.8125rem] font-medium">
-                  {t(`elig.${finding.key}`, finding.headline, dates(spans(t, finding.values)))}
+                  {t(`elig.${finding.key}`, finding.headline, readable(t, finding.values))}
                 </p>
                 <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                  {t(`elig.${finding.key}.detail`, finding.detail, dates(spans(t, finding.values)))}
+                  {t(`elig.${finding.key}.detail`, finding.detail, readable(t, finding.values))}
                 </p>
               </li>
             ))}
@@ -191,7 +191,7 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
         {question && (
           <div className="rounded-lg border border-line bg-surface px-3 py-3">
             <p className="text-[0.875rem] font-medium">
-              {t(`eligask.${question.key}`, question.question, question.values)}
+              {t(`eligask.${question.key}`, question.question, readable(t, question.values))}
             </p>
             <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
               {t(
@@ -392,7 +392,8 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
             {t('results.travel', 'about {minutes} min', {
               minutes: option.travel_minutes,
             })}{' '}
-            · {option.hospital.accreditation}
+            · {t(`accred.${option.hospital.accreditation_value}`,
+                 option.hospital.accreditation)}
           </p>
         </div>
 
@@ -419,7 +420,9 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
               {option.band.high_driver && (
                 <span className="block text-[0.75rem] leading-snug sm:max-w-[13rem]">
                   {t('results.up_to.driver', 'with {driver}', {
-                    driver: option.band.high_driver,
+                    driver: t(`driver.${option.band.high_driver_key}`,
+                              option.band.high_driver,
+                              option.band.high_driver_values),
                   })}
                 </span>
               )}
@@ -559,7 +562,7 @@ function Waterfall({ option }) {
               tone="deduct"
             />
             <p className="mt-1 pl-1 text-[0.75rem] leading-relaxed text-muted">
-              {t(`waterfall.${step.key}.why`, step.explanation, step.values)}
+              {t(`waterfall.${step.key}.why`, step.explanation, readable(t, step.values))}
               {step.heads?.length > 0 && (
                 <span className="text-muted">
                   {' ('}

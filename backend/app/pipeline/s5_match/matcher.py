@@ -347,10 +347,12 @@ def _explain(
             "reason.cashless", "Cashless: your insurer pays the hospital directly.",
         ))
     if option.hospital.quality.accreditation.is_nabh_tier:
+        accreditation = option.hospital.quality.accreditation
         reasons.append(phrase(
             "reason.accredited",
-            f"{option.hospital.quality.accreditation.label}.",
-            accreditation=option.hospital.quality.accreditation.label,
+            f"{accreditation.label}.",
+            accreditation=accreditation.label,
+            accreditation_key=f"accred.{accreditation.value}",
         ))
     if not reasons:
         reasons.append(phrase(

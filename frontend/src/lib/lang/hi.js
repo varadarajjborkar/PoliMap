@@ -167,6 +167,25 @@ export default {
   'home.stored_locally':
     'ये सिर्फ़ इसी डिवाइस पर रखे हैं। ब्राउज़र का डेटा साफ़ करने पर ये मिट जाते हैं।',
 
+  'home.stay_of': '{date} का इलाज',
+  'accred.none': 'मान्यता नहीं',
+  'accred.nabh_entry': 'NABH शुरुआती स्तर',
+  'accred.nabh_full': 'NABH मान्यता प्राप्त',
+  'accred.jci': 'JCI मान्यता प्राप्त',
+  'waitkind.initial': 'शुरुआती इंतज़ार',
+  'waitkind.pre_existing': 'पहले से मौजूद बीमारियाँ',
+  'waitkind.specific_ailment': 'नामित इलाज',
+  'waitkind.maternity': 'प्रसूति',
+  'waitkind.other': 'इंतज़ार की अवधि',
+  'roomlimit.none': 'कमरे के किराए की कोई सीमा नहीं',
+  'roomlimit.per_day': '{amount} रोज़',
+  'roomlimit.category': '{category} तक',
+  'roomlimit.per_day_category': '{amount} रोज़ · {category} तक',
+  'driver.longer_stay': '{days} दिन का ठहराव और ICU में एक दिन ज़्यादा',
+  'driver.longer_stay_implant':
+    '{days} दिन का ठहराव, ICU में एक दिन ज़्यादा और दूसरा इंप्लांट',
+  'driver.package_fixed': 'पैकेज की क़ीमत लंबे ठहराव से नहीं बदलती',
+
   'restore.opening':
     'आपका इलाज खोला जा रहा है। सर्वर को जागने में थोड़ा समय लग सकता है।',
 

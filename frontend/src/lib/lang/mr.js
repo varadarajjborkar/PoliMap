@@ -168,6 +168,25 @@ export default {
   'home.stored_locally':
     'हे फक्त याच डिव्हाइसवर ठेवलेले आहेत. ब्राउझरचा डेटा पुसल्यास हे नाहीसे होतात.',
 
+  'home.stay_of': '{date} चे उपचार',
+  'accred.none': 'मान्यता नाही',
+  'accred.nabh_entry': 'NABH प्रारंभिक स्तर',
+  'accred.nabh_full': 'NABH मान्यताप्राप्त',
+  'accred.jci': 'JCI मान्यताप्राप्त',
+  'waitkind.initial': 'सुरुवातीची प्रतीक्षा',
+  'waitkind.pre_existing': 'आधीपासून असलेले आजार',
+  'waitkind.specific_ailment': 'नामनिर्दिष्ट उपचार',
+  'waitkind.maternity': 'प्रसूती',
+  'waitkind.other': 'प्रतीक्षा काळ',
+  'roomlimit.none': 'खोली भाड्याला मर्यादा नाही',
+  'roomlimit.per_day': 'दिवसाला {amount}',
+  'roomlimit.category': '{category} पर्यंत',
+  'roomlimit.per_day_category': 'दिवसाला {amount} · {category} पर्यंत',
+  'driver.longer_stay': '{days} दिवसांचा मुक्काम आणि अतिदक्षतेत एक दिवस जास्त',
+  'driver.longer_stay_implant':
+    '{days} दिवसांचा मुक्काम, अतिदक्षतेत एक दिवस जास्त आणि दुसरे इम्प्लांट',
+  'driver.package_fixed': 'मुक्काम वाढला तरी पॅकेजची किंमत बदलत नाही',
+
   'restore.opening':
     'तुमचा उपचार उघडला जात आहे. सर्व्हरला जागे व्हायला थोडा वेळ लागू शकतो.',
 

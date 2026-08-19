@@ -46,6 +46,19 @@ const TEMPLATES = {
   'settlement.': [
     'cashless', 'reimbursement', 'scheme_package',
   ],
+  'accred.': ['none', 'nabh_entry', 'nabh_full', 'jci'],
+  // A waiting period as a unit and a count. "24 months" is a phrase no table
+  // can reach inside, so the span travels in parts and is rebuilt where it is
+  // read, both inside a sentence and on its own beside the period it belongs to.
+  'dur.': ['days', 'months', 'months_days', 'years'],
+  'waitkind.': [
+    'initial', 'pre_existing', 'specific_ailment', 'maternity', 'other',
+  ],
+  // A room or ICU cap is a sentence with figures in it, so the shape it takes
+  // is the key and the figures travel beside it.
+  'roomlimit.': ['none', 'per_day', 'category', 'per_day_category'],
+  // What makes the high end of an estimate high.
+  'driver.': ['longer_stay', 'longer_stay_implant', 'package_fixed'],
 
   // --- what the server writes ---------------------------------------------
   //
@@ -147,9 +160,6 @@ const SERVER_KEYS = [
   'counterfactual.saving', 'counterfactual.within_cap',
   'doc.hard_to_read', 'doc.no_schedule', 'doc.unreadable',
   'doc.unreadable_pages',
-  // A waiting period as a unit and a count. "24 months" is a phrase no table
-  // can reach inside, so the span travels in parts and is rebuilt in lib/i18n.
-  'dur.days', 'dur.months', 'dur.months_days', 'dur.years',
   'note.consumables_covered', 'note.copay_not_applicable', 'note.restore',
   'note.scheme_nothing_to_pay', 'note.scheme_room_free',
   'note.scheme_window_after', 'note.scheme_window_both',
@@ -192,7 +202,14 @@ function walk(dir) {
 }
 
 const used = new Set([...SERVER_KEYS, ...LIB_KEYS])
-for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
+// Both extensions: a few strings are asked for from lib/ rather than from a
+// component, and one of them sat in a .js file long enough to go missing from
+// two languages without this noticing. The tables themselves are read further
+// down and are not call sites.
+const sources = walk(SRC).filter(
+  (p) => (p.endsWith('.jsx') || p.endsWith('.js')) && !p.includes('/lib/lang/')
+)
+for (const path of sources) {
   const text = readFileSync(path, 'utf8')
   for (const [, key] of text.matchAll(/\bt\(\s*'([a-z][a-z0-9._]*)'/g)) {
     // Other calls end in "t(" too, and only a dotted key is one of ours.

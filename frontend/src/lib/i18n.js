@@ -75,67 +75,89 @@ export function loadStrings(code) {
 // sentence the server can send but no language can say fail the build.
 export function said(t, phrase, prefix = '') {
   if (!phrase) return ''
-  return t(prefix + phrase.key, phrase.text, phrase.values)
+  return t(prefix + phrase.key, phrase.text, readable(t, phrase.values))
 }
 
-// A waiting period, said in the reader's language.
+// The values inside a sentence, said in the reader's language.
 //
-// The server sends "24 months" already written, because a sentence with no
-// translation still has to read. Beside it, it sends the same span as a unit
-// and a count, which is the only form a table can reach: no translation can
-// get inside an English phrase already dropped into the middle of a sentence.
-export function spans(t, values) {
-  if (!values?.period_unit) return values
-  return {
-    ...values,
-    period: t(`dur.${values.period_unit}`, values.period, {
-      n: values.period_n,
-      d: values.period_d,
-    }),
-  }
-}
-
-// A date, written the way the reader's language writes dates.
+// A sentence composed on the server arrives with its figures beside it, and
+// most of them need nothing: a rupee amount reads the same in every one of
+// these languages, and a hospital's name is its name. Three kinds do need
+// something, and each announces itself by the shape of its own name:
 //
-// The server sends both: the date already written out, so a sentence with no
-// translation still reads, and the same date in ISO form under the same name
-// with `_iso` on the end. Only the second can be moved into another language,
-// because "17 November" is a month name in English wherever it has been
-// dropped into a sentence, and no table can reach inside a value.
+//   period_unit   a span, as a unit and its numbers rather than as "24 months"
+//   x_iso         a date, in the only form another language can write out
+//   x_key         a name this app holds in five languages, e.g. a room category
 //
-// The language comes off the document rather than being threaded through every
-// call: the settings hook sets `lang` on the root element for screen readers
-// and the browser's own font choice, and this is the same question.
-export function dates(values) {
+// All three exist for the same reason. The sentence can be looked up whole,
+// but a value already written in English cannot: by the time it arrives it has
+// closed over the English word inside it, and no table can reach in there.
+export function readable(t, values) {
   if (!values) return values
   let out = values
 
-  for (const [name, iso] of Object.entries(values)) {
-    if (!name.endsWith('_iso')) continue
-    const at = new Date(iso)
-    if (Number.isNaN(at.getTime())) continue
-
-    const under = name.slice(0, -4)
-    // Whether the year belongs on it is the server's decision, not this one: a
-    // deadline three days out is a day and a month, a waiting period ending in
-    // 2028 is not. It said which by writing one, so the year is kept where the
-    // sentence it is going into already had one.
-    const withYear = /\d{4}/.test(String(values[under] ?? ''))
+  const change = (name, text) => {
     if (out === values) out = { ...values }
-    out[under] = at.toLocaleDateString(locale(), {
-      day: 'numeric',
-      month: 'long',
-      ...(withYear ? { year: 'numeric' } : {}),
-    })
+    out[name] = text
+  }
+
+  if (values.period_unit) {
+    change('period', t(`dur.${values.period_unit}`, values.period, {
+      n: values.period_n, d: values.period_d,
+    }))
+  }
+
+  for (const [name, value] of Object.entries(values)) {
+    if (name.endsWith('_iso')) {
+      const under = name.slice(0, -4)
+      const written = date(value, {
+        // Whether the year belongs on it is the server's decision, not this
+        // one: a deadline three days out is a day and a month, a waiting period
+        // ending in 2028 is not. It said which by writing one.
+        year: /\d{4}/.test(String(values[under] ?? '')) ? 'numeric' : undefined,
+      })
+      if (written) change(under, written)
+    } else if (name.endsWith('_key') && value) {
+      const under = name.slice(0, -4)
+      if (under in values) change(under, t(value, values[under]))
+    }
   }
 
   return out
 }
 
-// Indian formatting in every one of these languages: these are dates on an
-// Indian hospital bill, read by somebody standing in front of it.
-function locale() {
-  return `${document.documentElement.lang || 'en'}-IN`
+// A room or ICU cap, said in the reader's language.
+//
+// "₹5,000 per day · up to Twin sharing" is two figures and a room name inside a
+// sentence, and all three parts move: the sentence is looked up under the key
+// the server chose for its shape, and the room name under the key it sent
+// beside it.
+export function capped(t, limit) {
+  if (!limit) return ''
+  return t(`roomlimit.${limit.description_key}`, limit.description,
+           readable(t, limit.description_values))
+}
+
+// A date, written the way the reader's language writes dates. The language
+// comes off the document rather than being threaded through every call: the
+// settings hook sets `lang` on the root element for screen readers and for the
+// browser's own font choice, and this is the same question.
+export function date(value, options = {}) {
+  const at = new Date(value)
+  if (Number.isNaN(at.getTime())) return ''
+  return at.toLocaleDateString(`${document.documentElement.lang || 'en'}-IN`, {
+    day: 'numeric', month: 'long', ...options,
+  })
+}
+
+// The same, with the time of day on it: when a charge was entered, when a
+// stage was moved.
+export function moment(value) {
+  const at = new Date(value)
+  if (Number.isNaN(at.getTime())) return ''
+  return at.toLocaleString(`${document.documentElement.lang || 'en'}-IN`, {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
 }
 
 // Takes the table rather than the code, because by the time anything renders

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
 import { useT } from '../hooks/useLanguage'
-import { dates } from '../lib/i18n'
+import { moment, readable } from '../lib/i18n'
 import { BillCheck } from './BillCheck'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
@@ -173,7 +173,7 @@ export function Journey({
                 <div className="px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className={`text-[0.9375rem] font-semibold ${style.text}`}>
-                      {t(`alert.${alert.key}`, alert.title, alert.values)}
+                      {t(`alert.${alert.key}`, alert.title, readable(t, alert.values))}
                     </h3>
                     {alert.amount_display && (
                       <span className={`shrink-0 text-[0.9375rem] font-semibold tabular-nums ${style.text}`}>
@@ -182,11 +182,11 @@ export function Journey({
                     )}
                   </div>
                   <p className="mt-1.5 text-[0.875rem] leading-relaxed">
-                    {t(`alert.${alert.key}.msg`, alert.message, alert.values)}
+                    {t(`alert.${alert.key}.msg`, alert.message, readable(t, alert.values))}
                   </p>
                   {alert.action && (
                     <p className="mt-2 text-[0.875rem] font-medium leading-relaxed">
-                      → {t(`alert.${alert.key}.do`, alert.action, alert.values)}
+                      → {t(`alert.${alert.key}.do`, alert.action, readable(t, alert.values))}
                     </p>
                   )}
                   {alert.kind === 'pre_auth_due' && !journey.pre_auth_filed && (
@@ -234,9 +234,7 @@ export function Journey({
                     : t(`journey.stage.${event.stage}`, event.title)}
                 </span>
                 <span className="shrink-0 text-[0.75rem] text-muted">
-                  {new Date(event.at).toLocaleString('en-IN', {
-                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                  })}
+                  {moment(event.at)}
                 </span>
               </div>
               {event.description && (
@@ -310,13 +308,10 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[0.875rem] font-medium">{cost.head}</span>
-                    <span className="text-[0.75rem] text-muted">
-                      {new Date(cost.at).toLocaleString('en-IN', {
-                        day: 'numeric', month: 'short',
-                        hour: '2-digit', minute: '2-digit',
-                      })}
+                    <span className="text-[0.875rem] font-medium">
+                      {t(`head.${cost.head_value}`, cost.head)}
                     </span>
+                    <span className="text-[0.75rem] text-muted">{moment(cost.at)}</span>
                   </div>
                   {cost.description && (
                     <p className="mt-0.5 text-[0.8125rem] text-muted">{cost.description}</p>
@@ -539,11 +534,11 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
                     item.done ? 'line-through' : 'font-medium'
                   }`}
                 >
-                  {t(`checklist.${item.key}`, item.text, dates(item.values))}
+                  {t(`checklist.${item.key}`, item.text, readable(t, item.values))}
                 </span>
                 {item.why && !item.done && (
                   <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
-                    {t(`checklist.${item.key}.why`, item.why, dates(item.values))}
+                    {t(`checklist.${item.key}.why`, item.why, readable(t, item.values))}
                   </span>
                 )}
               </span>
@@ -610,7 +605,7 @@ function Position({ position, accrued }) {
                       </span>
                     </div>
                     <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                      {t(`waterfall.${step.key}.why`, step.explanation, step.values)}
+                      {t(`waterfall.${step.key}.why`, step.explanation, readable(t, step.values))}
                     </p>
                   </li>
                 ))}

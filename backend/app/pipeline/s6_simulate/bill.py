@@ -18,6 +18,7 @@ from decimal import Decimal
 
 from app.schemas.hospital import Hospital
 from app.schemas.money import round_inr
+from app.schemas.phrasing import Phrase, phrase
 from app.schemas.policy import ExpenseHead, RoomCategory
 from app.schemas.procedure import Procedure
 from app.schemas.simulation import BillLine, EstimatedBill
@@ -156,7 +157,7 @@ def adverse_bill(
     hospital: Hospital,
     procedure: Procedure,
     room_category: RoomCategory,
-) -> tuple[EstimatedBill, str]:
+) -> tuple[EstimatedBill, Phrase]:
     """The plausible bad case, and a plain sentence naming what drove it.
 
     Not a worst case. Nothing here assumes a catastrophe: it is a stay at the
@@ -174,14 +175,18 @@ def adverse_bill(
         icu_days=icu,
     )
 
-    drivers = [f"a stay of {long_stay:g} days with an extra day in intensive care"]
-
+    implant = False
     for line in bill.lines:
         if line.head is ExpenseHead.IMPLANTS and procedure.requires_implant:
             line.amount = round_inr(line.amount * SECOND_IMPLANT_MULTIPLIER)
             line.note = "a second device"
-            drivers.append("a second implant")
+            implant = True
         elif line.head in (ExpenseHead.PHARMACY, ExpenseHead.CONSUMABLES):
             line.amount = round_inr(line.amount * HEAVIER_USAGE_MULTIPLIER)
 
-    return bill, " and ".join(drivers)
+    days = f"{long_stay:g}"
+    said = f"a stay of {days} days with an extra day in intensive care"
+    if implant:
+        return bill, phrase("longer_stay_implant", f"{said} and a second implant",
+                            days=days)
+    return bill, phrase("longer_stay", said, days=days)

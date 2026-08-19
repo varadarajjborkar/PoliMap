@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useDialog } from '../hooks/useDialog'
 import { useScreenExit } from '../hooks/useScreenExit'
 import { useT } from '../hooks/useLanguage'
-import { LANGUAGES } from '../lib/i18n'
+import { date, LANGUAGES } from '../lib/i18n'
 import { listTickets } from '../lib/tickets'
 import { Button } from './Primitives'
 
@@ -228,9 +228,7 @@ function TicketRow({ ticket, t }) {
       <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-muted">
         {t('settings.tickets.stage', 'Received')}
         {' · '}
-        {new Date(ticket.raised_at).toLocaleDateString('en-IN', {
-          day: 'numeric', month: 'short',
-        })}
+        {date(ticket.raised_at, { month: 'short' })}
         {' · '}
         {t(
           'settings.tickets.note',

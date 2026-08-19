@@ -197,6 +197,16 @@ def reference() -> dict[str, Any]:
 # --- policy ingestion -----------------------------------------------------
 
 
+def _limit_wording(limit: RoomLimit, sum_insured: Decimal) -> dict[str, Any]:
+    """A room or ICU cap, as the sentence and as the parts it is built from."""
+    key, values = limit.describe_parts(sum_insured)
+    return {
+        "description": limit.describe(sum_insured),
+        "description_key": key,
+        "description_values": values,
+    }
+
+
 def _policy_payload(session: Session) -> dict[str, Any]:
     policy = session.policy
     assert policy is not None
@@ -217,14 +227,14 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         "sum_insured": float(policy.sum_insured),
         "sum_insured_display": format_inr(policy.sum_insured),
         "room_limit": {
-            "description": policy.room_limit.describe(policy.sum_insured),
+            **_limit_wording(policy.room_limit, policy.sum_insured),
             "daily_cap": float(cap) if cap is not None else None,
             "category_ceiling": (
                 policy.room_limit.category_ceiling.value
                 if policy.room_limit.category_ceiling else None
             ),
         },
-        "icu_limit": policy.icu_limit.describe(policy.sum_insured),
+        "icu_limit": _limit_wording(policy.icu_limit, policy.sum_insured),
         "copay_pct": float(policy.copay_pct),
         "copay_above_age": policy.copay_above_age,
         "deductible": float(policy.deductible),
@@ -245,8 +255,9 @@ def _policy_payload(session: Session) -> dict[str, Any]:
                 "label": stack.label_for(session.second_policy),
                 "sum_insured": float(session.second_policy.sum_insured),
                 "sum_insured_display": format_inr(session.second_policy.sum_insured),
-                "room_limit": session.second_policy.room_limit.describe(
-                    session.second_policy.sum_insured
+                "room_limit": _limit_wording(
+                    session.second_policy.room_limit,
+                    session.second_policy.sum_insured,
                 ),
                 "copay_pct": float(session.second_policy.copay_pct),
                 "deductible": float(session.second_policy.deductible),
@@ -267,6 +278,15 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         "sublimits": [
             {
                 "label": s.label or (s.head.label if s.head else s.procedure_code),
+                # A cap on an expense head is named by that head, and the
+                # interface holds those names in five languages. Only where the
+                # label is our own word for the head, though: a label lifted off
+                # the document is the document's wording and stays in it.
+                "label_key": (
+                    f"head.{s.head.value}"
+                    if s.head and s.label in ("", s.head.label)
+                    else ""
+                ),
                 "amount": float(s.amount) if s.amount else None,
                 "amount_display": format_inr(s.amount) if s.amount else "",
             }
@@ -279,6 +299,11 @@ def _policy_payload(session: Session) -> dict[str, Any]:
                 "kind": w.kind.value,
                 "kind_label": w.kind.label,
                 "duration": w.describe(),
+                # The span in the only form another language can rebuild: a unit
+                # and its numbers. "24 months" is a phrase, and a phrase already
+                # written cannot be translated from the outside.
+                "duration_unit": w.duration_parts()[0],
+                "duration_parts": w.duration_parts()[1],
                 "applies_to": w.applies_to,
                 # The date is the part someone can act on. "Two years" from an
                 # unstated start is not an answer to "can I have this operation".
@@ -789,6 +814,7 @@ def _option_payload(option, procedure_name: str) -> dict[str, Any]:
             "city": option.hospital.city,
             "phone": option.hospital.phone,
             "accreditation": option.hospital.quality.accreditation.label,
+            "accreditation_value": option.hospital.quality.accreditation.value,
             "beds": option.hospital.quality.bed_count,
             "icu_beds": option.hospital.quality.icu_beds,
             "specialties": len(option.hospital.specialties),
@@ -827,6 +853,8 @@ def _option_payload(option, procedure_name: str) -> dict[str, Any]:
                 # reason to believe. With it, the high figure is a scenario
                 # they can picture and argue with.
                 "high_driver": result.band.high_driver,
+                "high_driver_key": result.band.high_driver_key,
+                "high_driver_values": result.band.high_driver_values,
             }
             if result.band else None
         ),

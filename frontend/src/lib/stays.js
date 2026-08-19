@@ -11,6 +11,7 @@
 // makes "my stay is still here tomorrow" true without asking a family in a
 // hospital to invent a password.
 
+import { date } from './i18n'
 import { keysWithPrefix, readJSON, remove, writeJSON } from './storage'
 
 const USER_KEY = 'polimap.user'
@@ -106,8 +107,12 @@ export function writeSnapshot(user, id, snapshot) {
 
 // A stay needs a name a person recognises a day later. The hospital is the
 // thing they remember; the treatment is the fallback; the date is the floor.
-export function describeStay(stay) {
+export function describeStay(t, stay) {
   if (stay.hospital) return stay.hospital
   if (stay.procedure) return stay.procedure
-  return `Stay of ${new Date(stay.createdAt ?? Date.now()).toLocaleDateString()}`
+  // Nothing recognisable yet, so the day it was started is the name. Both the
+  // wording and the date are the reader's, which is why this takes `t`.
+  return t('home.stay_of', 'Stay of {date}', {
+    date: date(stay.createdAt ?? Date.now(), { year: 'numeric' }),
+  })
 }

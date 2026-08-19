@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
-import { said } from '../lib/i18n'
+import { readable, said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Spinner } from './Primitives'
 
 // The final bill, read and checked.
@@ -202,7 +202,7 @@ function Finding({ finding }) {
             {t(`findkind.${finding.kind}`, finding.label)}
           </span>
           <p className="mt-0.5 text-[0.875rem] font-medium leading-relaxed">
-            {t(`finding.${finding.key}`, finding.headline, finding.values)}
+            {t(`finding.${finding.key}`, finding.headline, readable(t, finding.values))}
           </p>
         </div>
         {finding.amount_display && (
@@ -214,7 +214,7 @@ function Finding({ finding }) {
 
       {finding.detail && (
         <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-          {t(`finding.${finding.key}.detail`, finding.detail, finding.values)}
+          {t(`finding.${finding.key}.detail`, finding.detail, readable(t, finding.values))}
         </p>
       )}
 
@@ -222,7 +222,7 @@ function Finding({ finding }) {
           set apart from the explanation rather than buried under it. */}
       {finding.ask && (
         <p className="mt-2 border-l-2 border-current/30 pl-3 text-[0.8125rem] leading-relaxed">
-          {t(`finding.${finding.key}.ask`, finding.ask, finding.values)}
+          {t(`finding.${finding.key}.ask`, finding.ask, readable(t, finding.values))}
         </p>
       )}
 
