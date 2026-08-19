@@ -175,7 +175,7 @@ def test_category_entitlement_without_a_figure_warns_instead_of_guessing():
         policy, make_bill(*CANONICAL, room=RoomCategory.DELUXE), room_category=RoomCategory.DELUXE
     )
     assert result.deduction_for(DeductionKind.PROPORTIONATE) == 0
-    assert any("proportionately" in w for w in result.warnings)
+    assert any("likely to be cut" in w.text for w in result.warnings)
 
 
 # --- non-payables ---------------------------------------------------------
@@ -271,7 +271,7 @@ def test_payout_cannot_exceed_remaining_cover():
     result = simulate(policy, make_bill((ExpenseHead.PHARMACY, 200000)))
     assert result.payable_by_insurer == D(80000)
     assert result.out_of_pocket == D(120000)
-    assert any("remaining cover" in w for w in result.warnings)
+    assert any("use up" in w.text for w in result.warnings)
 
 
 def test_exhausted_cover_pays_nothing():
@@ -293,7 +293,7 @@ def test_non_network_requires_the_whole_bill_upfront():
     assert result.settlement_mode is SettlementMode.REIMBURSEMENT
     assert result.cash_to_arrange_upfront == D(200000)
     assert result.payable_by_insurer == D(200000)  # eventually reimbursed in full
-    assert any("cashless network" in w for w in result.warnings)
+    assert any("cashless hospital" in w.text for w in result.warnings)
 
 
 def test_network_hospital_only_needs_the_shortfall():

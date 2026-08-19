@@ -42,6 +42,7 @@ from app.schemas.match import (
     RelaxationKind,
 )
 from app.schemas.money import format_inr
+from app.schemas.phrasing import Phrase, phrase
 from app.schemas.policy import NormalizedPolicy, RoomCategory
 from app.schemas.procedure import Procedure, Urgency
 from app.schemas.simulation import SettlementMode
@@ -331,37 +332,57 @@ def _explain(
     nearest = min(options, key=lambda o: o.distance_km)
     strongest = max(options, key=lambda o: o.hospital.quality.capability_score)
 
-    reasons: list[str] = []
+    reasons: list[Phrase] = []
     if option is cheapest:
-        reasons.append("Lowest cost to you of the options found.")
+        reasons.append(phrase("reason.cheapest", "Cheapest of the options found."))
     if option is nearest:
-        reasons.append(f"Closest, about {travel_minutes(option.distance_km)} minutes away.")
+        minutes = str(travel_minutes(option.distance_km))
+        reasons.append(phrase(
+            "reason.nearest", f"Closest, about {minutes} minutes away.", n=minutes,
+        ))
     if option is strongest:
-        reasons.append("Best equipped of the options found.")
+        reasons.append(phrase("reason.best_equipped", "Best equipped of the options found."))
     if result.settlement_mode is SettlementMode.CASHLESS:
-        reasons.append("Cashless, so your insurer settles directly with the hospital.")
+        reasons.append(phrase(
+            "reason.cashless", "Cashless: your insurer pays the hospital directly.",
+        ))
     if option.hospital.quality.accreditation.is_nabh_tier:
-        reasons.append(f"{option.hospital.quality.accreditation.label}.")
+        reasons.append(phrase(
+            "reason.accredited",
+            f"{option.hospital.quality.accreditation.label}.",
+            accreditation=option.hospital.quality.accreditation.label,
+        ))
     if not reasons:
-        reasons.append(
-            f"Balances cost and travel: {format_inr(result.out_of_pocket)} to you, "
-            f"{option.distance_km:.0f} km away."
-        )
+        reasons.append(phrase(
+            "reason.balanced",
+            f"Balances cost and travel: {format_inr(result.out_of_pocket)} to "
+            f"you, {option.distance_km:.0f} km away.",
+            amount=format_inr(result.out_of_pocket),
+            km=f"{option.distance_km:.0f}",
+        ))
 
-    tradeoffs: list[str] = []
+    tradeoffs: list[Phrase] = []
     if result.settlement_mode is SettlementMode.REIMBURSEMENT:
-        tradeoffs.append(
-            f"You would pay {format_inr(result.cash_to_arrange_upfront)} at the "
-            f"hospital and claim it back later."
-        )
+        tradeoffs.append(phrase(
+            "tradeoff.pay_first",
+            f"You would pay {format_inr(result.cash_to_arrange_upfront)} here "
+            f"and claim it back later.",
+            amount=format_inr(result.cash_to_arrange_upfront),
+        ))
     if option is not cheapest:
         extra = result.out_of_pocket - cheapest.simulation.out_of_pocket
         if extra > 0:
-            tradeoffs.append(
-                f"{format_inr(extra)} more than the cheapest option found."
-            )
+            tradeoffs.append(phrase(
+                "tradeoff.costlier",
+                f"{format_inr(extra)} more than the cheapest found.",
+                amount=format_inr(extra),
+            ))
     if option is not nearest:
-        tradeoffs.append(f"{option.distance_km:.0f} km away, further than the nearest option.")
+        tradeoffs.append(phrase(
+            "tradeoff.further",
+            f"{option.distance_km:.0f} km away, further than the nearest.",
+            km=f"{option.distance_km:.0f}",
+        ))
 
     option.reasons = reasons[:3]
     option.tradeoffs = tradeoffs[:2]
@@ -370,7 +391,7 @@ def _explain(
 
 def _counterfactual(
     option: RankedOption, policy: NormalizedPolicy, context: CareContext
-) -> str:
+) -> Phrase | None:
     """A concrete, costed alternative at this same hospital.
 
     Room choice is the one lever a family actually controls at admission, and
@@ -386,7 +407,7 @@ def _counterfactual(
         if t.category is not RoomCategory.ICU and t.category.rank < current.rank
     ]
     if not cheaper:
-        return ""
+        return None
 
     best_saving = None
     for tariff in sorted(cheaper, key=lambda t: -t.category.rank):
@@ -409,18 +430,22 @@ def _counterfactual(
             best_saving = (saving, tariff.category, alternative)
 
     if best_saving is None:
-        return ""
+        return None
 
     saving, category, _ = best_saving
     if cap is not None and option.simulation.bill.room_rate_per_day > cap:
-        return (
-            f"Choosing a {category.label.lower()} here instead would save about "
-            f"{format_inr(saving)}, because it stays within the "
-            f"{format_inr(cap)} a day your policy covers."
+        return phrase(
+            "counterfactual.within_cap",
+            f"A {category.label.lower()} here would save about "
+            f"{format_inr(saving)}, by staying inside the {format_inr(cap)} a "
+            f"day you are covered for.",
+            room=category.label, amount=format_inr(saving),
+            cap=format_inr(cap), room_key=category.value,
         )
-    return (
-        f"Choosing a {category.label.lower()} here instead would save about "
-        f"{format_inr(saving)}."
+    return phrase(
+        "counterfactual.saving",
+        f"A {category.label.lower()} here would save about {format_inr(saving)}.",
+        room=category.label, amount=format_inr(saving), room_key=category.value,
     )
 
 
@@ -429,22 +454,22 @@ _procedure_cache: dict[str, Procedure] = {}
 
 _RELAXATIONS: dict[RelaxationKind, tuple[str, str]] = {
     RelaxationKind.WIDER_RADIUS: (
-        "We looked further from you.",
-        "You would travel further to get there.",
+        "We searched a wider area.",
+        "You would travel further.",
     ),
     RelaxationKind.ROOM_CATEGORY: (
-        "We included rooms outside your usual entitlement.",
-        "A room above your limit reduces what your insurer pays on other "
-        "charges too. The cost shown already accounts for this.",
+        "We included rooms above your entitlement.",
+        "A room above your limit also cuts what is paid on other charges. The "
+        "cost shown already includes that.",
     ),
     RelaxationKind.BED_AVAILABILITY: (
-        "We included hospitals with no bed free right now.",
-        "You would need to call ahead; a bed may not be available on arrival.",
+        "We included hospitals with no free bed now.",
+        "Call ahead: a bed may not be free when you arrive.",
     ),
     RelaxationKind.NON_NETWORK: (
         "We included hospitals outside your cashless network.",
-        "You would pay the whole bill at the hospital and claim it back later, "
-        "which means arranging the full amount upfront.",
+        "You would pay the whole bill there and claim it back, so the full "
+        "amount has to be found upfront.",
     ),
 }
 
@@ -549,7 +574,8 @@ def find_options(
             STAGE, "find_options", status=EventStatus.FAILED,
             summary="No treatment selected", session_id=session_id,
         )
-        return MatchResult(context=context, message="Please choose a treatment first.")
+        return MatchResult(context=context, message=phrase(
+            "search.no_treatment", "Please choose a treatment first."))
 
     filters = _Filters(
         max_distance_km=context.max_distance_km,
@@ -626,7 +652,10 @@ def find_options(
         return MatchResult(
             context=context, exclusions=excluded, considered_count=len(hospitals),
             relaxations=filters.relaxations,
-            message="We found hospitals but could not estimate costs for them.",
+            message=phrase(
+                "search.no_estimate",
+                "We found hospitals but could not estimate costs for them.",
+            ),
         )
 
     with bus.step(
@@ -655,31 +684,46 @@ def find_options(
     )
 
 
-def _result_message(options: list[RankedOption], relaxations: list[Relaxation]) -> str:
+def _result_message(
+    options: list[RankedOption], relaxations: list[Relaxation]
+) -> Phrase:
     if not options:
-        return "We could not find a suitable hospital."
+        return phrase("search.none", "We could not find a suitable hospital.")
+    n = str(len(options))
+    lowest = format_inr(min(o.simulation.out_of_pocket for o in options))
     lead = (
-        f"{len(options)} option{'s' if len(options) != 1 else ''} found. "
-        f"Your lowest estimated cost is {format_inr(min(o.simulation.out_of_pocket for o in options))}."
+        f"{n} option{'s' if len(options) != 1 else ''} found. "
+        f"Your lowest estimate is {lowest}."
     )
     if relaxations:
-        return lead + " To find these we had to relax some of what you asked for."
-    return lead
+        return phrase(
+            "search.found_relaxed",
+            lead + " To find these we relaxed some of what you asked for.",
+            n=n, amount=lowest,
+        )
+    return phrase("search.found", lead, n=n, amount=lowest)
 
 
-def _starved_message(exclusions: list[Exclusion], procedure: Procedure) -> str:
+def _starved_message(exclusions: list[Exclusion], procedure: Procedure) -> Phrase:
     """Explain an empty result in terms of what actually blocked it."""
+    treatment = procedure.name.lower()
     if not exclusions:
-        return f"We could not find any hospital offering {procedure.name.lower()}."
+        return phrase(
+            "search.none_offering",
+            f"No hospital here offers {treatment}.",
+            procedure=treatment,
+        )
 
     counts: dict[ExclusionCause, int] = {}
     for exclusion in exclusions:
         counts[exclusion.cause] = counts.get(exclusion.cause, 0) + 1
     top = max(counts, key=lambda c: counts[c])
 
-    return (
-        f"No hospital met all your requirements for {procedure.name.lower()}. "
-        f"The most common reason was: {top.label.lower()} "
-        f"({counts[top]} hospital{'s' if counts[top] != 1 else ''}). "
-        f"Try widening your search area."
+    return phrase(
+        "search.starved",
+        f"No hospital met everything you asked for {treatment}. The commonest "
+        f"reason was {top.label.lower()}, at {counts[top]} "
+        f"hospital{'s' if counts[top] != 1 else ''}. Try a wider search area.",
+        procedure=treatment, reason=top.label, reason_key=top.value,
+        n=str(counts[top]),
     )

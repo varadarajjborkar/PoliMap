@@ -84,6 +84,8 @@ def estimate_bill(
             head=ExpenseHead.ROOM_RENT,
             amount=round_inr(tariff.per_day * Decimal(str(ward_days))),
             note=f"{ward_days:g} nights at {room_category.label}",
+            note_key="nights",
+            note_values={"n": f"{ward_days:g}", "room": room_category.label},
         ))
 
     if icu > 0:
@@ -93,6 +95,8 @@ def estimate_bill(
             head=ExpenseHead.ICU_CHARGES,
             amount=round_inr(icu_rate * Decimal(str(icu))),
             note=f"{icu:g} days in intensive care",
+            note_key="icu_days",
+            note_values={"n": f"{icu:g}"},
         ))
 
     for head, amount in split.items():
@@ -104,13 +108,15 @@ def estimate_bill(
         lines.append(BillLine(
             head=head,
             amount=round_inr(value),
-            note="scales with room category" if head in TIER_SCALED_HEADS else "",
+            note="priced by room type" if head in TIER_SCALED_HEADS else "",
+            note_key="tier_scaled" if head in TIER_SCALED_HEADS else "",
         ))
 
     lines.append(BillLine(
         head=ExpenseHead.NON_MEDICAL,
         amount=round_inr(NON_MEDICAL_PER_DAY * Decimal(str(max(stay, 1.0)))),
-        note="registration, records and attendant charges",
+        note="registration, records, attendant",
+        note_key="non_medical",
     ))
 
     return EstimatedBill(

@@ -31,6 +31,7 @@ from decimal import Decimal
 from app.core.logging import get_logger
 from app.schemas.hospital import Hospital
 from app.schemas.money import ZERO, apply_pct, format_inr, round_inr
+from app.schemas.phrasing import Phrase, phrase
 from app.schemas.policy import NormalizedPolicy, RoomCategory
 from app.schemas.procedure import Procedure
 from app.schemas.scheme import SchemeRules
@@ -75,7 +76,7 @@ def settle_under_scheme(
     empanelled = rules.scheme in hospital.empanelled_schemes
 
     steps: list[WaterfallStep] = []
-    warnings: list[str] = []
+    warnings: list[Phrase] = []
     notes: list[str] = []
 
     if not empanelled:
@@ -103,12 +104,16 @@ def settle_under_scheme(
         deducted=round_inr(max(bill.total - paid_by_scheme, ZERO)),
         payable_after=paid_by_scheme,
         explanation=(
-            f"{rules.label} buys this treatment at a fixed package rate of "
-            f"{format_inr(scheme_rate)}. The hospital cannot bill you the "
-            f"difference from its own price of {format_inr(bill.total)}. "
-            f"Consumables, implants, medicines, tests and food are inside the "
-            f"package."
+            f"{rules.label} buys this treatment at a fixed {format_inr(scheme_rate)}. "
+            f"The hospital cannot bill you the gap from its own "
+            f"{format_inr(bill.total)}. Consumables, implants, medicines, "
+            f"tests and food are all inside the package."
         ),
+        values={
+            "scheme": rules.label,
+            "rate": format_inr(scheme_rate),
+            "price": format_inr(bill.total),
+        },
         detail={
             "package_rate": float(scheme_rate),
             "hospital_price": float(bill.total),
@@ -117,42 +122,55 @@ def settle_under_scheme(
     ))
 
     if paid_by_scheme < scheme_rate:
-        warnings.append(
-            f"Only {format_inr(available)} of your {rules.label} cover remains "
-            f"for this year, and this treatment is priced at "
-            f"{format_inr(scheme_rate)}. The hospital will ask you for the "
-            f"difference."
-        )
+        warnings.append(phrase(
+            "warn.scheme_cover_short",
+            f"Only {format_inr(available)} of your {rules.label} cover is left "
+            f"this year, against {format_inr(scheme_rate)} for this treatment. "
+            f"The hospital will ask you for the gap.",
+            remaining=format_inr(available), scheme=rules.label,
+            rate=format_inr(scheme_rate),
+        ))
         out_of_pocket = round_inr(out_of_pocket + (scheme_rate - paid_by_scheme))
 
     if upgrade > 0:
-        warnings.append(
-            f"You have chosen a {room.label}. {rules.label} covers a "
-            f"{rules.room_entitlement.label}, so the upgrade is yours to pay: "
-            f"about {format_inr(upgrade)} for the stay. Your treatment stays "
-            f"covered, and no other charge is reduced because of it."
-        )
+        warnings.append(phrase(
+            "warn.scheme_upgrade",
+            f"You chose a {room.label}; {rules.label} covers a "
+            f"{rules.room_entitlement.label}. The upgrade is yours, about "
+            f"{format_inr(upgrade)} for the stay. Nothing else is reduced.",
+            chosen=room.label, scheme=rules.label,
+            covered=rules.room_entitlement.label, amount=format_inr(upgrade),
+        ))
     else:
-        notes.append(
-            f"A {rules.room_entitlement.label} is included at no charge."
-        )
+        notes.append(phrase(
+            "note.scheme_room_free",
+            f"A {rules.room_entitlement.label} is included free.",
+            room=rules.room_entitlement.label,
+        ))
 
     if out_of_pocket == 0:
-        notes.append(
-            "There is nothing to pay at this hospital and nothing to claim "
-            "back afterwards."
-        )
+        notes.append(phrase(
+            "note.scheme_nothing_to_pay",
+            "Nothing to pay here, and nothing to claim back later.",
+        ))
     if rules.note:
-        notes.append(rules.note)
+        notes.append(phrase(f"scheme.note.{rules.scheme.value}", rules.note))
     if rules.post_hospitalisation_days:
-        notes.append(
-            f"Treatment for {rules.post_hospitalisation_days} days after "
-            f"discharge is included, and {rules.pre_hospitalisation_days} days "
-            f"before admission."
-            if rules.pre_hospitalisation_days else
-            f"Treatment for {rules.post_hospitalisation_days} days after "
-            f"discharge is included."
-        )
+        after = str(rules.post_hospitalisation_days)
+        if rules.pre_hospitalisation_days:
+            before = str(rules.pre_hospitalisation_days)
+            notes.append(phrase(
+                "note.scheme_window_both",
+                f"Treatment {after} days after discharge is included, and "
+                f"{before} days before admission.",
+                after=after, before=before,
+            ))
+        else:
+            notes.append(phrase(
+                "note.scheme_window_after",
+                f"Treatment {after} days after discharge is included.",
+                after=after,
+            ))
 
     return SimulationResult(
         hospital_id=bill.hospital_id,
@@ -225,8 +243,9 @@ def _not_empanelled(
             payable_after=ZERO,
             explanation=(
                 f"{hospital.name} is not empanelled for {rules.label}, so the "
-                f"scheme pays nothing towards treatment here."
+                f"scheme pays nothing here."
             ),
+            values={"hospital": hospital.name, "scheme": rules.label},
             detail={"scheme": rules.scheme.value},
         )],
         payable_by_insurer=ZERO,
@@ -234,15 +253,21 @@ def _not_empanelled(
         cash_to_arrange_upfront=bill.total,
         settlement_mode=SettlementMode.SCHEME_PACKAGE,
         warnings=[
-            f"{rules.label} cannot be used at this hospital. "
-            + (
-                "Some costs may be claimed back afterwards, but only with prior "
-                "approval; check before you are admitted."
-                if reimbursable else
-                f"There is no claim to make afterwards either: the scheme pays "
-                f"empanelled hospitals directly and nothing else. The whole "
-                f"{format_inr(bill.total)} would be yours. Choose a hospital "
-                f"marked as accepting {rules.label}."
+            phrase(
+                "warn.scheme_unusable_reimbursable",
+                f"{rules.label} cannot be used here. Some costs may be claimed "
+                f"back, but only with approval beforehand. Check before you "
+                f"are admitted.",
+                scheme=rules.label,
+            )
+            if reimbursable else
+            phrase(
+                "warn.scheme_unusable",
+                f"{rules.label} cannot be used here, and there is nothing to "
+                f"claim back later: it pays empanelled hospitals only. The "
+                f"whole {format_inr(bill.total)} would be yours. Pick a "
+                f"hospital that accepts {rules.label}.",
+                scheme=rules.label, total=format_inr(bill.total),
             )
         ],
         notes=[],

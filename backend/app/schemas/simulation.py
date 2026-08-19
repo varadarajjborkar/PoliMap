@@ -18,6 +18,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field, computed_field
 
 from app.schemas.money import Rupees, round_inr
+from app.schemas.phrasing import Phrase
 from app.schemas.policy import ExpenseHead, RoomCategory
 
 
@@ -25,6 +26,9 @@ class BillLine(BaseModel):
     head: ExpenseHead
     amount: Rupees
     note: str = ""
+    note_key: str = ""
+    """Which note this is, for reading it in another language."""
+    note_values: dict[str, str] = Field(default_factory=dict)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -98,18 +102,18 @@ class DeductionKind(StrEnum):
     @property
     def label(self) -> str:
         return {
-            DeductionKind.NON_PAYABLE: "Items your policy never covers",
+            DeductionKind.NON_PAYABLE: "Items never covered",
             DeductionKind.EXCLUSION: "Excluded by your policy",
             DeductionKind.WAITING_PERIOD: "Still in waiting period",
             DeductionKind.SUBLIMIT: "Above a category limit",
-            DeductionKind.ROOM_RENT_CAP: "Room costs more than you are covered for",
+            DeductionKind.ROOM_RENT_CAP: "Room above your cover",
             DeductionKind.PROPORTIONATE: "Proportionate deduction",
-            DeductionKind.PROCEDURE_CAP: "Above the limit for this treatment",
+            DeductionKind.PROCEDURE_CAP: "Above this treatment's limit",
             DeductionKind.COPAY: "Your co-payment share",
             DeductionKind.DEDUCTIBLE: "Your deductible",
             DeductionKind.SUM_INSURED_EXHAUSTED: "Beyond your remaining cover",
             DeductionKind.SCHEME_PACKAGE_RATE: "Covered by the scheme package",
-            DeductionKind.SCHEME_NOT_EMPANELLED: "This hospital does not accept your scheme",
+            DeductionKind.SCHEME_NOT_EMPANELLED: "Scheme not accepted here",
             DeductionKind.SECOND_POLICY: "Paid by your second policy",
         }[self]
 
@@ -122,6 +126,12 @@ class WaterfallStep(BaseModel):
     payable_after: Rupees
     explanation: str
     """Plain language. Written for someone in a hospital corridor."""
+    key: str = ""
+    """Which wording of this deduction was used, where the kind alone does not
+    say. A co-payment banded on age and one that is not are the same deduction
+    and different sentences."""
+    values: dict[str, str] = Field(default_factory=dict)
+    """The figures in the sentence, by the name a translation uses."""
 
     clause_ids: list[str] = Field(default_factory=list)
     affected_heads: list[ExpenseHead] = Field(default_factory=list)
@@ -132,6 +142,10 @@ class WaterfallStep(BaseModel):
     @property
     def label(self) -> str:
         return self.kind.label
+
+    @property
+    def string_key(self) -> str:
+        return self.key or self.kind.value
 
 
 class CostBand(BaseModel):
@@ -200,8 +214,8 @@ class SimulationResult(BaseModel):
     policy is asked to settle the balance: it adjudicates against its own room
     cap and its own sub-limits, and a single figure cannot be adjudicated."""
     band: CostBand | None = None
-    warnings: list[str] = Field(default_factory=list)
-    notes: list[str] = Field(default_factory=list)
+    warnings: list[Phrase] = Field(default_factory=list)
+    notes: list[Phrase] = Field(default_factory=list)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

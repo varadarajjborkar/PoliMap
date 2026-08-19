@@ -81,7 +81,7 @@ def test_a_room_above_the_limit_raises_the_deduction_alert():
     charge(state, ExpenseHead.SURGEON_FEE, "70000", policy)
 
     alerts = tracker.evaluate(state, policy)
-    over_limit = [a for a in alerts if "costs more than your policy covers" in a.title]
+    over_limit = [a for a in alerts if a.string_key.startswith("room_over_limit")]
     assert len(over_limit) == 1
 
     message = over_limit[0].message

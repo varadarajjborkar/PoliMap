@@ -118,7 +118,7 @@ def test_a_top_up_is_never_put_first():
         assert settled.legs[0].policy_id == CAPPED.policy_id
         assert settled.legs[1].policy_id == TOP_UP.policy_id
         assert "top-up" in settled.legs[1].label
-        assert "has to be that way round" in settled.order_note
+        assert "has to be that way round" in settled.order_note.text
 
 
 def test_a_top_up_alone_above_an_unmet_band_pays_nothing():
@@ -143,7 +143,7 @@ def test_the_cheaper_order_is_chosen_and_the_difference_stated():
     assert settled.legs[0].label.startswith("Twenty Per Cent")
     assert settled.out_of_pocket == 0
     assert settled.alternative_out_of_pocket == D(30000)
-    assert "other way round" in settled.order_note
+    assert "other way round" in settled.order_note.text
 
 
 def test_the_same_result_whichever_way_they_are_handed_in():
@@ -161,7 +161,7 @@ def test_an_order_that_changes_nothing_says_so():
     )
     assert settled.out_of_pocket == 0
     assert settled.alternative_out_of_pocket is None
-    assert "the same figure" in settled.order_note
+    assert "the same figure" in settled.order_note.text
 
 
 # --- the totals hold -----------------------------------------------------------
@@ -195,7 +195,7 @@ def test_a_cashless_stay_only_needs_the_shortfall_upfront():
 
 def test_both_insurers_have_to_be_told_about_each_other():
     settled = stack.settle_across([CAPPED, TOP_UP], BILL)
-    assert any("disclosing the second policy" in note for note in settled.notes)
+    assert any("disclosing the second policy" in note.text for note in settled.notes)
 
 
 def test_one_policy_is_not_a_stack():
@@ -319,13 +319,13 @@ def test_the_waterfall_shows_the_second_policy_paying(api):
 def test_the_order_to_claim_in_is_stated(api):
     session_id = _two_policies(api)
     option = _search(api, session_id, _expensive_code(api))["options"][0]
-    assert any("Claim from" in note for note in option["notes"])
+    assert any("Claim from" in note["text"] for note in option["notes"])
 
 
 def test_both_insurers_must_be_told_about_each_other_in_the_payload(api):
     session_id = _two_policies(api)
     option = _search(api, session_id, _expensive_code(api))["options"][0]
-    assert any("disclosing the second policy" in note for note in option["notes"])
+    assert any("disclosing the second policy" in note["text"] for note in option["notes"])
 
 
 def test_a_second_policy_can_be_detached(api):

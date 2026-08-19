@@ -523,11 +523,11 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
                     item.done ? 'line-through' : 'font-medium'
                   }`}
                 >
-                  {item.text}
+                  {t(`checklist.${item.key}`, item.text, item.values)}
                 </span>
                 {item.why && !item.done && (
                   <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
-                    {item.why}
+                    {t(`checklist.${item.key}.why`, item.why, item.values)}
                   </span>
                 )}
               </span>

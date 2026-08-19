@@ -119,17 +119,21 @@ def _uncertain(bill: ReadBill) -> BillFinding:
         severity=AlertSeverity.ATTENTION,
         headline="We could not read every figure on this photograph",
         detail=(
-            f"The lines we read come to {format_inr(bill.line_total)}"
-            + (
-                f", and the bill's own total says {format_inr(bill.gross_total)}."
-                if bill.gross_total is not None
-                else ", and we could not find the bill's own total."
-            )
-            + " Those should agree, so at least one figure has been read wrong."
+            f"Our lines come to {format_inr(bill.line_total)} and the bill says "
+            f"{format_inr(bill.gross_total)}. They should agree, so at least "
+            f"one figure was read wrong."
+            if bill.gross_total is not None else
+            f"Our lines come to {format_inr(bill.line_total)}, and we could not "
+            f"find the bill's own total to check it against."
         ),
-        ask="Check the lines below against the paper before using any of them. "
-            "A photograph taken square-on in good light, or the PDF the billing "
-            "desk can email you, reads exactly.",
+        ask="Check the lines below against the paper first. A square-on photo "
+            "in good light, or the PDF the billing desk can email, reads "
+            "exactly.",
+        key="uncertain_read" if bill.gross_total is not None else "uncertain_read_no_total",
+        values={
+            "lines": format_inr(bill.line_total),
+            "total": format_inr(bill.gross_total) if bill.gross_total is not None else "",
+        },
         amount=ZERO,
         lines=[],
     )
@@ -158,6 +162,10 @@ def _listed_items(bill: ReadBill) -> list[BillFinding]:
             headline=f"{_names(items)}: {format_inr(total)}",
             detail=listing.label + ".",
             ask=listing.ask,
+            # The listing's own words, which come from the IRDAI schedule and
+            # are looked up under the item it names rather than under the kind.
+            key=f"listing.{listing.value}",
+            values={"items": _names(items), "amount": format_inr(total)},
             amount=total,
             lines=[i.line_no for i in items],
         ))
@@ -186,8 +194,14 @@ def _duplicates(bill: ReadBill) -> list[BillFinding]:
                      f"{format_inr(amount)} each",
             detail=f"Lines {', '.join(str(i.line_no) for i in items)}.",
             ask="Ask whether this was entered twice. The same charge on two "
-                "different days is normal, so the answer may well be yes it is "
-                "right, but it costs nothing to ask.",
+                "days is normal, so the answer may be yes, but it costs "
+                "nothing to ask.",
+            values={
+                "item": items[0].description,
+                "n": str(len(items)),
+                "amount": format_inr(amount),
+                "lines": ", ".join(str(i.line_no) for i in items),
+            },
             amount=extra,
             lines=[i.line_no for i in items],
         ))
@@ -211,11 +225,19 @@ def _line_arithmetic(bill: ReadBill) -> list[BillFinding]:
                      f"not {format_inr(item.amount)}",
             detail=(
                 f"{format_inr(abs(difference))} "
-                f"{'more' if difference > 0 else 'less'} than the line multiplies out."
+                f"{'more' if difference > 0 else 'less'} than it multiplies out to."
             ),
-            ask="Ask which of the three figures is the right one. A quantity "
-                "entered against the wrong rate is the commonest billing slip "
-                "there is.",
+            ask="Ask which of the three figures is right. A quantity against "
+                "the wrong rate is the commonest billing slip there is.",
+            key="line_arithmetic_over" if difference > 0 else "line_arithmetic_under",
+            values={
+                "item": item.description,
+                "qty": f"{item.qty:g}",
+                "rate": format_inr(item.rate),
+                "expected": format_inr(expected),
+                "billed": format_inr(item.amount),
+                "difference": format_inr(abs(difference)),
+            },
             amount=round_inr(max(difference, ZERO)),
             lines=[item.line_no],
         ))
@@ -239,9 +261,14 @@ def _totals(bill: ReadBill) -> list[BillFinding]:
         headline=f"The lines come to {format_inr(bill.line_total)}, the bill "
                  f"says {format_inr(bill.gross_total)}",
         detail=f"A difference of {format_inr(abs(difference))}.",
-        ask="Ask for the total to be recalculated in front of you. Either a "
-            "line is missing from the printout or the total is wrong, and both "
-            "are worth settling before anybody signs.",
+        ask="Ask for the total to be added up in front of you. Either a line "
+            "is missing or the total is wrong, and both are worth settling "
+            "before anybody signs.",
+        values={
+            "lines": format_inr(bill.line_total),
+            "total": format_inr(bill.gross_total),
+            "difference": format_inr(abs(difference)),
+        },
         amount=round_inr(abs(difference)),
         lines=[],
     )]
@@ -258,9 +285,13 @@ def _unplaced(bill: ReadBill) -> list[BillFinding]:
         headline=f"{len(unplaced)} line{'s' if len(unplaced) > 1 else ''} we "
                  f"could not place, {format_inr(total)}",
         detail=_names(unplaced) + ".",
-        ask="These were left out of the settlement below rather than guessed "
-            "at, so the figures there are lower than the whole bill by this "
-            "much.",
+        ask="Left out of the settlement below rather than guessed at, so those "
+            "figures are lower than the whole bill by this much.",
+        values={
+            "n": str(len(unplaced)),
+            "amount": format_inr(total),
+            "items": _names(unplaced),
+        },
         amount=total,
         lines=[i.line_no for i in unplaced],
     )]
@@ -334,15 +365,14 @@ def _settle(
 _FROM_STEP: dict[DeductionKind, tuple[FindingKind, AlertSeverity, str]] = {
     DeductionKind.ROOM_RENT_CAP: (
         FindingKind.ROOM_ABOVE_CAP, AlertSeverity.ATTENTION,
-        "This is not on the bill and the billing desk will not raise it. Your "
-        "insurer takes it off at settlement, so it is yours to find.",
+        "This is not on the bill and the desk will not raise it. Your insurer "
+        "takes it off at settlement, so it is yours to find.",
     ),
     DeductionKind.PROPORTIONATE: (
         FindingKind.PROPORTIONATE, AlertSeverity.URGENT,
-        "Check how this was worked out. Since the IRDAI circular of May 2024 it "
-        "applies to room-linked charges only: room, nursing, doctor visits, "
-        "surgeon and theatre. If medicines, tests, implants or ICU have been "
-        "reduced by the same fraction, that is worth querying with your insurer.",
+        "Check how this was worked out. Since May 2024 it applies to "
+        "room-linked charges only: room, nursing, doctor, surgeon, theatre. If "
+        "medicines, tests, implants or ICU were cut too, query it.",
     ),
     DeductionKind.SUBLIMIT: (
         FindingKind.SUBLIMIT, AlertSeverity.ATTENTION,
@@ -367,6 +397,12 @@ def _from_settlement(
             headline=f"{step.label}: {format_inr(step.deducted)}",
             detail=step.explanation,
             ask=ask,
+            # The detail is the waterfall's own sentence, so it is read under
+            # the waterfall's key rather than under a second copy of it here.
+            key=step.string_key,
+            values=step.values | {
+                "step": step.label, "amount": format_inr(step.deducted),
+            },
             amount=round_inr(step.deducted),
             lines=_lines_for_heads(bill, step.affected_heads),
         ))
@@ -377,10 +413,11 @@ def _from_settlement(
             kind=FindingKind.CONSUMABLES,
             severity=AlertSeverity.INFO,
             headline=f"Consumables on this bill: {format_inr(consumables)}",
-            detail="Indian policies exclude consumables unless a rider was "
-                   "bought, so this part is yours whichever way the rest goes.",
-            ask="Worth checking the line is really consumables rather than "
+            detail="Policies exclude consumables unless a rider was bought, so "
+                   "this part is yours whichever way the rest goes.",
+            ask="Worth checking the line really is consumables and not "
                 "medicines, which your policy does pay for.",
+            values={"amount": format_inr(consumables)},
             amount=round_inr(consumables),
             lines=_lines_for_heads(bill, [ExpenseHead.CONSUMABLES]),
         ))

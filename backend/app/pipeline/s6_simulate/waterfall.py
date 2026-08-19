@@ -28,6 +28,7 @@ from decimal import Decimal
 
 from app.core.logging import get_logger
 from app.schemas.money import ZERO, apply_pct, apply_ratio, format_inr, round_inr
+from app.schemas.phrasing import Phrase, phrase
 from app.schemas.policy import (
     ExpenseHead,
     NormalizedPolicy,
@@ -101,8 +102,8 @@ def simulate(
     room = room_category or bill.room_category
     ledger = _Ledger(bill)
     steps: list[WaterfallStep] = []
-    warnings: list[str] = []
-    notes: list[str] = []
+    warnings: list[Phrase] = []
+    notes: list[Phrase] = []
 
     # Each step's deduction is measured from the ledger rather than supplied by
     # the caller. Percentages are rounded per expense head, so a requested
@@ -117,6 +118,8 @@ def simulate(
         kind: DeductionKind,
         explanation: str,
         *,
+        key: str = "",
+        values: dict[str, str] | None = None,
         heads: list[ExpenseHead] | None = None,
         clause_ids: list[str] | None = None,
         **detail: float | str,
@@ -131,6 +134,8 @@ def simulate(
             deducted=deducted,
             payable_after=after,
             explanation=explanation,
+            key=key,
+            values=values or {},
             affected_heads=heads or [],
             clause_ids=clause_ids or [],
             detail=detail,
@@ -148,16 +153,26 @@ def simulate(
         non_payable += ledger.zero(ExpenseHead.CONSUMABLES)
         removed_heads.append(ExpenseHead.CONSUMABLES)
     else:
-        notes.append("Your policy includes cover for consumables.")
+        notes.append(phrase(
+            "note.consumables_covered",
+            "Your policy does cover consumables.",
+        ))
 
-    record(
-        DeductionKind.NON_PAYABLE,
-        "Gloves, syringes, registration and similar items are not covered by "
-        "health insurance policies."
-        + ("" if policy.covers_consumables else
-           " Consumables are excluded unless you have a consumables add-on."),
-        heads=removed_heads,
-    )
+    if policy.covers_consumables:
+        record(
+            DeductionKind.NON_PAYABLE,
+            "Gloves, syringes and registration are never covered.",
+            key="non_payable",
+            heads=removed_heads,
+        )
+    else:
+        record(
+            DeductionKind.NON_PAYABLE,
+            "Gloves, syringes and registration are never covered, and "
+            "consumables need an add-on you do not have.",
+            key="non_payable_consumables",
+            heads=removed_heads,
+        )
 
     # 2. Per-head caps.
     for sublimit in policy.sublimits:
@@ -169,8 +184,13 @@ def simulate(
             ledger.reduce(sublimit.head, current - cap)
             record(
                 DeductionKind.SUBLIMIT,
-                f"Your policy covers {sublimit.head.label.lower()} only up to "
-                f"{format_inr(cap)}, and the estimate is {format_inr(current)}.",
+                f"{sublimit.head.label} is capped at {format_inr(cap)}. "
+                f"The estimate is {format_inr(current)}.",
+                values={
+                    "head": sublimit.head.label,
+                    "cap": format_inr(cap),
+                    "billed": format_inr(current),
+                },
                 heads=[sublimit.head],
                 clause_ids=sublimit.source_clause_ids,
                 cap=float(cap), billed=float(current),
@@ -190,8 +210,12 @@ def simulate(
         ledger.reduce(ExpenseHead.ROOM_RENT, excess)
         record(
             DeductionKind.ROOM_RENT_CAP,
-            f"Your room costs {format_inr(bill.room_rate_per_day)} a day but your "
-            f"policy covers {format_inr(room_cap)} a day. You pay the difference.",
+            f"Your room is {format_inr(bill.room_rate_per_day)} a day and you "
+            f"are covered for {format_inr(room_cap)}. You pay the gap.",
+            values={
+                "rate": format_inr(bill.room_rate_per_day),
+                "cap": format_inr(room_cap),
+            },
             heads=[ExpenseHead.ROOM_RENT],
             clause_ids=policy.room_limit.source_clause_ids,
             eligible_per_day=float(room_cap),
@@ -212,28 +236,32 @@ def simulate(
 
         record(
             DeductionKind.PROPORTIONATE,
-            f"Because your room is above your eligible category, your insurer "
-            f"pays only {_format_ratio(ratio)} of the charges that are priced by "
-            f"room type: the surgeon, theatre and nursing charges. Your ICU "
-            f"stay, medicines, tests and implants are not reduced.",
+            f"Your room is above your category, so only {_format_ratio(ratio)} "
+            f"is paid on charges priced by room: surgeon, theatre and nursing. "
+            f"ICU, medicines, tests and implants are untouched.",
+            values={"pct": _format_ratio(ratio)},
             heads=linked_heads,
             clause_ids=policy.room_limit.source_clause_ids,
             ratio=float(round(ratio, 4)),
         )
         if linked_total > 0:
-            warnings.append(
-                f"This room triggers a proportionate deduction of about "
-                f"{format_inr(linked_total)} on top of the room rent difference."
-            )
+            warnings.append(phrase(
+                "warn.proportionate",
+                f"This room also costs about {format_inr(linked_total)} in "
+                f"proportionate cuts, on top of the room gap.",
+                amount=format_inr(linked_total),
+            ))
 
     elif eligible_ceiling is not None and not room.is_within(eligible_ceiling):
         # A category entitlement with no rupee figure attached. The reduction
         # cannot be computed, but staying silent would be worse than saying so.
-        warnings.append(
-            f"Your policy covers a {eligible_ceiling.label} and you have chosen "
-            f"a {room.label}. Your insurer is likely to reduce the associated "
-            f"charges proportionately. Ask the hospital insurance desk to confirm."
-        )
+        warnings.append(phrase(
+            "warn.room_category",
+            f"You are covered for a {eligible_ceiling.label} and have chosen a "
+            f"{room.label}. Related charges are likely to be cut. Ask the "
+            f"insurance desk.",
+            covered=eligible_ceiling.label, chosen=room.label,
+        ))
 
     # 4. A cap on this specific treatment.
     procedure_cap = policy.sublimit_for_procedure(bill.procedure_code)
@@ -244,6 +272,7 @@ def simulate(
             record(
                 DeductionKind.PROCEDURE_CAP,
                 f"Your policy caps this treatment at {format_inr(cap)}.",
+                values={"cap": format_inr(cap)},
                 clause_ids=procedure_cap.source_clause_ids,
                 cap=float(cap),
             )
@@ -256,32 +285,40 @@ def simulate(
     copay = policy.copay_for(patient_age)
     if copay > 0:
         _reduce_proportionally(ledger, apply_pct(ledger.total, copay))
-        record(
-            DeductionKind.COPAY,
-            f"Your policy has a {copay:g}% co-payment"
-            + (
-                f" for members aged {policy.copay_above_age} and above, so "
-                f"you pay that share of every approved claim."
-                if policy.copay_above_age
-                else ", so you pay that share of every approved claim."
-            ),
-            pct=float(copay),
-        )
+        if policy.copay_above_age:
+            record(
+                DeductionKind.COPAY,
+                f"You pay {copay:g}% of every approved claim, the co-payment "
+                f"for ages {policy.copay_above_age} and above.",
+                key="copay_age",
+                values={"pct": f"{copay:g}", "age": str(policy.copay_above_age)},
+                pct=float(copay),
+            )
+        else:
+            record(
+                DeductionKind.COPAY,
+                f"You pay {copay:g}% of every approved claim.",
+                key="copay",
+                values={"pct": f"{copay:g}"},
+                pct=float(copay),
+            )
     elif policy.copay_pct > 0 and policy.copay_above_age:
-        notes.append(
-            f"This policy's {policy.copay_pct:g}% co-payment applies only to "
-            f"members aged {policy.copay_above_age} and above, so it does not "
-            f"apply here."
-        )
+        notes.append(phrase(
+            "note.copay_not_applicable",
+            f"The {policy.copay_pct:g}% co-payment starts at age "
+            f"{policy.copay_above_age}, so it does not apply here.",
+            pct=f"{policy.copay_pct:g}", age=str(policy.copay_above_age),
+        ))
 
     # 6. Deductible: the band a top-up plan only starts paying above.
     if policy.deductible > 0:
         _reduce_proportionally(ledger, min(policy.deductible, ledger.total))
         record(
             DeductionKind.DEDUCTIBLE,
-            f"This is a top-up policy. It pays only above "
-            f"{format_inr(policy.deductible)}, which you cover yourself or "
-            f"through another policy.",
+            f"A top-up policy. It pays only above "
+            f"{format_inr(policy.deductible)}, which is yours to cover or "
+            f"another policy's.",
+            values={"amount": format_inr(policy.deductible)},
             deductible=float(policy.deductible),
         )
 
@@ -291,26 +328,31 @@ def simulate(
         _reduce_proportionally(ledger, ledger.total - available)
         record(
             DeductionKind.SUM_INSURED_EXHAUSTED,
-            f"Your remaining cover for this year is {format_inr(available)}, "
-            f"and the approved amount is above that.",
+            f"Only {format_inr(available)} of cover is left this year, and the "
+            f"claim is above it.",
+            values={"remaining": format_inr(available)},
             remaining_cover=float(available),
         )
-        warnings.append(
-            f"This treatment would use up your remaining cover of "
-            f"{format_inr(available)}."
-        )
+        warnings.append(phrase(
+            "warn.cover_used_up",
+            f"This treatment would use up the {format_inr(available)} you have "
+            f"left.",
+            remaining=format_inr(available),
+        ))
         if policy.restore_benefit:
             # Deliberately a note rather than money added to this estimate.
             # Restoration reinstates the cover, but whether it can be drawn on
             # by the admission that exhausted it or only by a later one differs
             # between products, and inventing the favourable reading here would
             # understate what somebody has to arrange before they are admitted.
-            notes.append(
-                f"This policy restores the sum insured once per policy year. "
-                f"That would put {format_inr(policy.sum_insured)} back for a "
-                f"later admission; ask your insurer whether it can be used for "
-                f"this one, since policies differ."
-            )
+            notes.append(phrase(
+                "note.restore",
+                f"This policy restores cover once a year, putting "
+                f"{format_inr(policy.sum_insured)} back for a later admission. "
+                f"Ask your insurer if it can be used for this one; policies "
+                f"differ.",
+                amount=format_inr(policy.sum_insured),
+            ))
 
     payable = ledger.total
     out_of_pocket = round_inr(bill.total - payable)
@@ -335,11 +377,13 @@ def simulate(
     # That is a different problem from the final cost and is reported separately.
     cash_upfront = bill.total if mode is SettlementMode.REIMBURSEMENT else out_of_pocket
     if mode is SettlementMode.REIMBURSEMENT:
-        warnings.append(
-            f"This hospital is not in your cashless network. You would need to "
-            f"pay the full {format_inr(bill.total)} at the hospital and claim "
-            f"{format_inr(payable)} back afterwards."
-        )
+        warnings.append(phrase(
+            "warn.not_cashless",
+            f"Not a cashless hospital for you. You would pay the full "
+            f"{format_inr(bill.total)} here and claim {format_inr(payable)} "
+            f"back later.",
+            total=format_inr(bill.total), payable=format_inr(payable),
+        ))
 
     return SimulationResult(
         hospital_id=bill.hospital_id,

@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, computed_field
 
 from app.schemas.hospital import GeoPoint, Hospital
 from app.schemas.money import Rupees
+from app.schemas.phrasing import Phrase
 from app.schemas.policy import RoomCategory
 from app.schemas.procedure import Specialty, Urgency
 from app.schemas.simulation import SimulationResult
@@ -207,11 +208,11 @@ class RankedOption(BaseModel):
     rank: int = 0
     on_pareto_frontier: bool = False
 
-    reasons: list[str] = Field(default_factory=list)
+    reasons: list[Phrase] = Field(default_factory=list)
     """Why this option is here."""
-    tradeoffs: list[str] = Field(default_factory=list)
+    tradeoffs: list[Phrase] = Field(default_factory=list)
     """What the user gives up by taking it."""
-    counterfactual: str = ""
+    counterfactual: Phrase | None = None
     """A concrete, costed alternative, e.g. moving down a room category."""
 
     @computed_field  # type: ignore[prop-decorator]
@@ -228,7 +229,7 @@ class MatchResult(BaseModel):
     exclusions: list[Exclusion] = Field(default_factory=list)
     considered_count: int = 0
     context: CareContext | None = None
-    message: str = ""
+    message: Phrase | None = None
     """The headline sentence for the UI, tuned to how the search went."""
 
     @computed_field  # type: ignore[prop-decorator]

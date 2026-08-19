@@ -136,6 +136,14 @@ class Alert(BaseModel):
     title: str
     message: str
     action: str = ""
+
+    key: str = ""
+    """Which wording of this alert was used, where the kind alone does not
+    say. Falls back to the kind, which is right wherever there is only one."""
+    values: dict[str, str] = Field(default_factory=dict)
+    """The figures in the three sentences above, by the name a translation
+    uses, so the alert can be written in the reader's language rather than
+    translated after its numbers are set."""
     amount: Rupees | None = None
     clause_ids: list[str] = Field(default_factory=list)
     stage: JourneyStage | None = None
@@ -144,6 +152,10 @@ class Alert(BaseModel):
     @classmethod
     def _accept_retired_stage(cls, value: object) -> object:
         return read_stage(value)
+
+    @property
+    def string_key(self) -> str:
+        return self.key or self.kind.value
 
 
 class CostEntry(BaseModel):
@@ -185,6 +197,10 @@ class JourneyEvent(BaseModel):
     stage: JourneyStage
     title: str
     description: str = ""
+    title_key: str = ""
+    """Empty where the title is simply the stage's own name."""
+    note_key: str = ""
+    values: dict[str, str] = Field(default_factory=dict)
     alerts: list[Alert] = Field(default_factory=list)
 
     kind: TransitionKind = TransitionKind.ADVANCE

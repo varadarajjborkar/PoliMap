@@ -65,6 +65,11 @@ class Finding:
     waiting period. Set only by findings that need it."""
     clause_ids: list[str] = field(default_factory=list)
 
+    key: str = ""
+    """Which finding this is, for reading it in another language."""
+    values: dict[str, str] = field(default_factory=dict)
+    """The dates, spans and names written into the two sentences above."""
+
     @property
     def title(self) -> str:
         return self.label or self.kind.label
@@ -171,6 +176,17 @@ def names_this_treatment(applies_to: str, procedure: Procedure) -> bool:
     return False
 
 
+def _span(name: str, period: WaitingPeriod) -> dict[str, str]:
+    """A waiting period's length, as the parts a translation rebuilds it from.
+
+    The English of it travels too, under `name`, because a sentence with no
+    translation still has to read. Where there is one, the client writes the
+    span in its own words and puts it back in the same place.
+    """
+    unit, numbers = period.duration_parts()
+    return {f"{name}_unit": unit} | {f"{name}_{k}": v for k, v in numbers.items()}
+
+
 def _shortfall(period: WaitingPeriod, start: date, on: date) -> tuple[date, int] | None:
     """When this clears and how many days remain, or nothing if it has."""
     clears = period.clears_on(start)
@@ -186,6 +202,16 @@ def _in_words(days: int) -> str:
     if months < 18:
         return f"about {months} more month{'s' if months != 1 else ''}"
     return f"about {round(months / 12, 1):g} more years"
+
+
+def _left(days: int) -> tuple[str, str]:
+    """The same wait as a unit and a count, so it survives translation."""
+    if days < 45:
+        return "days", str(days)
+    months = round(days / 30.44)
+    if months < 18:
+        return "months", str(months)
+    return "years", f"{round(months / 12, 1):g}"
 
 
 def assess(
@@ -214,7 +240,8 @@ def assess(
                     verdict=Verdict.COVERED,
                     kind=WaitingKind.OTHER,
                     headline="No waiting period",
-                    detail="Scheme cover applies from the day the card is issued.",
+                    detail="Scheme cover starts the day the card is issued.",
+                    key="scheme",
                 )
             ],
         )
@@ -238,15 +265,17 @@ def assess(
             Finding(
                 verdict=Verdict.UNKNOWN,
                 kind=WaitingKind.OTHER,
-                headline="We could not read when your policy started",
+                headline="We could not read your policy's start date",
                 detail=(
-                    f"This policy has waiting periods of up to "
-                    f"{longest.describe()}. Until we know the start date we "
-                    f"cannot tell you whether they still apply."
+                    f"Waiting periods here run up to {longest.describe()}. "
+                    f"Without the start date we cannot say whether they still "
+                    f"apply."
                 ),
                 question="When did this policy start?",
                 label="Policy start date",
                 clause_ids=[cid for w in relevant for cid in w.source_clause_ids],
+                key="no_start_date",
+                values=_span("period", longest) | {"period": longest.describe()},
             )
         )
         return _assemble(findings)
@@ -288,27 +317,29 @@ def _day_care_finding(
         return Finding(
             verdict=Verdict.NOT_YET,
             kind=WaitingKind.OTHER,
-            headline="Not covered: this finishes in under a day",
+            headline="Not covered: this takes under a day",
             detail=(
-                f"{procedure.name} usually finishes inside twenty-four hours. "
-                f"This policy requires a full day of admission and does not "
-                f"cover day care procedures, so the claim would be declined "
-                f"however long you have held it."
+                f"{procedure.name} usually takes under 24 hours. This policy "
+                f"needs a full day's admission and excludes day care, so the "
+                f"claim would be declined however long you have held it."
             ),
             label="Day care treatment",
+            key="daycare_excluded",
+            values={"procedure": procedure.name},
         )
 
     return Finding(
         verdict=Verdict.UNKNOWN,
         kind=WaitingKind.OTHER,
-        headline="Check that day care treatment is covered",
+        headline="Check that day care is covered",
         detail=(
-            f"{procedure.name} usually finishes inside twenty-four hours, and "
-            f"standard cover in India requires a full day of admission. "
-            f"Nothing we have says either way. Ask your insurer whether it is "
-            f"on their day care list before you are admitted."
+            f"{procedure.name} usually takes under 24 hours, and standard cover "
+            f"needs a full day. Nothing here says either way. Ask your insurer "
+            f"before you are admitted."
         ),
         label="Day care treatment",
+        key="daycare_unknown",
+        values={"procedure": procedure.name},
     )
 
 
@@ -341,12 +372,14 @@ def _judge(
                 kind=period.kind,
                 headline="Covered as accidental injury",
                 detail=(
-                    f"The first {period.describe()} of this policy cover only "
-                    f"accidental injury, which is what this is."
+                    f"The first {period.describe()} cover accidental injury "
+                    f"only, which is what this is."
                 ),
                 clears_on=clears,
                 days_left=days_left,
                 clause_ids=period.source_clause_ids,
+                key="initial_accident",
+                values=_span("period", period) | {"period": period.describe()},
             )
         return Finding(
             verdict=Verdict.NOT_YET,
@@ -355,11 +388,18 @@ def _judge(
             detail=(
                 f"This policy started on {start:%d %B %Y}. For its first "
                 f"{period.describe()} it covers accidental injury only, so a "
-                f"planned admission before {clears:%d %B %Y} would be declined."
+                f"planned admission before {clears:%d %B %Y} is declined."
             ),
             clears_on=clears,
             days_left=days_left,
             clause_ids=period.source_clause_ids,
+            key=f"initial_{_left(days_left)[0]}",
+            values=_span("period", period) | {
+                "period": period.describe(),
+                "n": _left(days_left)[1],
+                "start": f"{start:%d %B %Y}",
+                "clears": f"{clears:%d %B %Y}",
+            },
         )
 
     if period.kind is WaitingKind.PRE_EXISTING:
@@ -369,12 +409,11 @@ def _judge(
             return Finding(
                 verdict=Verdict.ASK,
                 kind=period.kind,
-                headline="Depends on whether this condition is pre-existing",
+                headline="Depends on whether this is pre-existing",
                 detail=(
-                    f"Conditions that existed before this policy began are not "
-                    f"covered for {period.describe()} from the start, which here "
-                    f"means until {clears:%d %B %Y}. A condition that first "
-                    f"appeared after the policy started is covered now."
+                    f"Conditions from before this policy began wait "
+                    f"{period.describe()}, so until {clears:%d %B %Y}. One that "
+                    f"first appeared after the start is covered now."
                 ),
                 clears_on=clears,
                 days_left=days_left,
@@ -382,19 +421,25 @@ def _judge(
                     "Did you have this condition before this policy started?"
                 ),
                 clause_ids=period.source_clause_ids,
+                key="pre_existing_ask",
+                values=_span("period", period) | {
+                    "period": period.describe(),
+                    "clears": f"{clears:%d %B %Y}",
+                },
             )
         return Finding(
             verdict=Verdict.NOT_YET,
             kind=period.kind,
             headline=f"Pre-existing: not covered for {_in_words(days_left)}",
             detail=(
-                f"A condition you had before this policy began is covered "
-                f"{period.describe()} after the start date, which is "
+                f"A condition you had before this policy began is covered from "
                 f"{clears:%d %B %Y}."
             ),
             clears_on=clears,
             days_left=days_left,
             clause_ids=period.source_clause_ids,
+            key=f"pre_existing_{_left(days_left)[0]}",
+            values={"n": _left(days_left)[1], "clears": f"{clears:%d %B %Y}"},
         )
 
     named = period.applies_to.strip().rstrip(".") or "this treatment"
@@ -403,11 +448,19 @@ def _judge(
         kind=period.kind,
         headline=f"Not covered for {_in_words(days_left)}",
         detail=(
-            f"This policy names {named} as waiting {period.describe()} from the "
-            f"start date, so {procedure.name.lower()} is covered from "
+            f"This policy makes {named} wait {period.describe()} from the "
+            f"start, so {procedure.name.lower()} is covered from "
             f"{clears:%d %B %Y}."
         ),
         clears_on=clears,
         days_left=days_left,
         clause_ids=period.source_clause_ids,
+        key=f"named_{_left(days_left)[0]}",
+        values=_span("period", period) | {
+            "period": period.describe(),
+            "n": _left(days_left)[1],
+            "named": named,
+            "procedure": procedure.name.lower(),
+            "clears": f"{clears:%d %B %Y}",
+        },
     )

@@ -82,13 +82,17 @@ def start_journey(
         room_category=room_category,
         room_rate_per_day=room_rate_per_day,
     )
+    cover = format_inr(policy.sum_insured)
     state.timeline.append(JourneyEvent(
         stage=JourneyStage.PRE_ADMISSION,
         title="Planning your care",
+        title_key="start",
         description=(
-            f"Cover of {format_inr(policy.sum_insured)} available."
-            + (f" Considering {hospital_name}." if hospital_name else "")
+            f"{cover} of cover. Looking at {hospital_name}."
+            if hospital_name else f"{cover} of cover."
         ),
+        note_key="start_hospital" if hospital_name else "start",
+        values={"cover": cover} | ({"hospital": hospital_name} if hospital_name else {}),
     ))
     return state
 
@@ -167,10 +171,16 @@ def advance(
     alerts = evaluate(state, policy)
     state.active_alerts = alerts
 
+    title, title_key = _transition_title(kind, target)
+    described, note_key, values = _stage_description(target, state, policy)
     state.timeline.append(JourneyEvent(
         stage=target,
-        title=_transition_title(kind, target),
-        description=note or _stage_description(target, state, policy),
+        title=title,
+        title_key=title_key,
+        description=note or described,
+        # A note the user typed is their own words and is never looked up.
+        note_key="" if note else note_key,
+        values={"stage": target.label} | values,
         alerts=alerts,
         kind=kind,
         skipped=skipped if kind is TransitionKind.SKIP else [],
@@ -198,12 +208,17 @@ def advance(
     return state
 
 
-def _transition_title(kind: TransitionKind, target: JourneyStage) -> str:
+def _transition_title(kind: TransitionKind, target: JourneyStage) -> tuple[str, str]:
+    """The heading for this move, and the key it is read under.
+
+    An ordinary move forward has no key: its title is the stage's own name,
+    which the interface already knows in every language it speaks.
+    """
     if kind is TransitionKind.BACK:
-        return f"Back to {target.label.lower()}"
+        return f"Back to {target.label.lower()}", "back"
     if kind is TransitionKind.SKIP:
-        return f"{target.label} (skipped ahead)"
-    return target.label
+        return f"{target.label} (skipped ahead)", "skipped"
+    return target.label, ""
 
 
 def record_cost(
@@ -420,13 +435,15 @@ def _room_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
             title="Your room is billing at a different rate",
             message=(
                 f"This stay was set up at {format_inr(booked)} a day, and the "
-                f"room charges recorded work out at {format_inr(observed)} a "
-                f"day. Both cannot be right."
+                f"charges recorded work out at {format_inr(observed)}. Both "
+                f"cannot be right."
             ),
             action=(
                 "If you moved room, this is expected. If not, ask the billing "
-                "desk which rate applies before more days are added."
+                "desk which rate applies."
             ),
+            key="room_rate_conflict",
+            values={"booked": format_inr(booked), "observed": format_inr(observed)},
             stage=state.stage,
         ))
 
@@ -452,23 +469,27 @@ def _room_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
     alerts.append(Alert(
         kind=AlertKind.ROOM_OVER_LIMIT,
         severity=AlertSeverity.URGENT,
-        title="Your room costs more than your policy covers",
+        title="Your room costs more than your cover",
         message=(
-            f"Your room is {format_inr(rate)} a day and your policy covers "
+            f"Your room is {format_inr(rate)} a day and you are covered for "
             f"{format_inr(cap)}. After {days} day{'s' if days != 1 else ''} "
             f"that is {format_inr(excess)} in room rent, plus about "
-            f"{format_inr(knock_on)} deducted from your surgeon, theatre and "
-            f"nursing charges."
+            f"{format_inr(knock_on)} off your surgeon, theatre and nursing."
             + (
-                " That second deduction applies even though those charges are "
-                "not the room, and it is the part most people never see coming."
+                " That second cut lands on charges that are not the room, and "
+                "it is the part most people never see coming."
                 if knock_on > 0 else ""
             )
         ),
         action=(
-            "Ask the hospital insurance desk about moving to a room within your "
-            "limit. It stops further deductions from tomorrow."
+            "Ask the insurance desk about a room within your limit. It stops "
+            "further cuts from tomorrow."
         ),
+        key="room_over_limit_knock_on" if knock_on > 0 else "room_over_limit",
+        values={
+            "rate": format_inr(rate), "cap": format_inr(cap), "days": str(days),
+            "excess": format_inr(excess), "knock_on": format_inr(knock_on),
+        },
         amount=round_inr(excess + knock_on),
         clause_ids=policy.room_limit.source_clause_ids,
         stage=state.stage,
@@ -500,14 +521,20 @@ def _sublimit_alerts(
             severity=AlertSeverity.URGENT if used >= 1 else AlertSeverity.ATTENTION,
             title=f"{sublimit.head.label} limit almost used",
             message=(
-                f"Your policy covers {format_inr(cap)} of "
-                f"{sublimit.head.label.lower()} and {format_inr(spent)} has been "
-                f"billed, {used:.0%} of the limit."
+                f"You are covered for {format_inr(cap)} of "
+                f"{sublimit.head.label.lower()} and {format_inr(spent)} is "
+                f"billed, {used:.0%} of it."
             ),
             action=(
-                "Anything beyond this you pay yourself. Ask the desk before "
-                "further tests are ordered."
+                "Anything beyond this is yours to pay. Ask the desk before "
+                "more tests are ordered."
             ),
+            values={
+                "head": sublimit.head.label,
+                "head_key": sublimit.head.value,
+                "cap": format_inr(cap), "spent": format_inr(spent),
+                "pct": f"{used:.0%}",
+            },
             amount=max(spent - cap, ZERO),
             clause_ids=sublimit.source_clause_ids,
             stage=state.stage,
@@ -527,10 +554,17 @@ def _cover_alerts(
             severity=AlertSeverity.URGENT,
             title="Your cover is almost used up",
             message=(
-                f"{format_inr(burn.consumed)} of your {format_inr(burn.sum_insured)} "
-                f"cover has been billed. {format_inr(burn.remaining)} remains."
+                f"{format_inr(burn.consumed)} of your "
+                f"{format_inr(burn.sum_insured)} cover is billed. "
+                f"{format_inr(burn.remaining)} is left."
             ),
             action="Ask about discharge planning and what you will owe directly.",
+            key="cover_almost_gone",
+            values={
+                "consumed": format_inr(burn.consumed),
+                "total": format_inr(burn.sum_insured),
+                "remaining": format_inr(burn.remaining),
+            },
             amount=burn.remaining,
             stage=state.stage,
         )]
@@ -543,10 +577,9 @@ def _cover_alerts(
             severity=AlertSeverity.ATTENTION,
             title="Costs are on track to pass your cover",
             message=(
-                f"Day-to-day charges are running at about {format_inr(rate)} a "
-                f"day, not counting the theatre and implant charges already "
-                f"billed. At that rate you cross your "
-                f"{format_inr(burn.sum_insured)} cover "
+                f"Daily charges are running at about {format_inr(rate)} a day, "
+                f"not counting theatre and implants already billed. At that "
+                f"rate you cross your {format_inr(burn.sum_insured)} cover "
                 + (
                     "today." if days == 0 else
                     f"in about {days} day{'s' if days != 1 else ''}."
@@ -555,9 +588,19 @@ def _cover_alerts(
             ),
             action=(
                 "Worth raising now rather than at discharge: ask about a "
-                "top-up policy, whether any second cover applies, and what the "
+                "top-up, whether a second cover applies, and what the "
                 "hospital's instalment desk offers."
             ),
+            key=(
+                "cover_on_track_today" if days == 0
+                else "cover_on_track_days" if days is not None
+                else "cover_on_track_soon"
+            ),
+            values={
+                "rate": format_inr(rate),
+                "total": format_inr(burn.sum_insured),
+                "days": str(days or 0),
+            },
             amount=max(burn.projected_total - burn.sum_insured, ZERO),
             stage=state.stage,
         )]
@@ -567,8 +610,10 @@ def _cover_alerts(
             kind=AlertKind.COVER_NEARLY_EXHAUSTED,
             severity=AlertSeverity.ATTENTION,
             title="Most of your cover is used",
-            message=f"{format_inr(burn.remaining)} of cover remains for this year.",
-            action="Keep this in mind if further treatment is needed.",
+            message=f"{format_inr(burn.remaining)} of cover is left this year.",
+            action="Keep this in mind if more treatment is needed.",
+            key="cover_most_used",
+            values={"remaining": format_inr(burn.remaining)},
             amount=burn.remaining,
             stage=state.stage,
         )]
@@ -593,10 +638,11 @@ def _non_payable_alerts(
         title="Charges your policy will not cover",
         message=(
             f"{format_inr(non_payable)} of the bill so far is for items no "
-            f"health policy reimburses, gloves, syringes, registration and "
-            f"similar. You pay these whatever else your policy covers."
+            f"policy repays: gloves, syringes, registration. You pay these "
+            f"whatever else is covered."
         ),
-        action="Ask for an itemised bill so you can check these are correct.",
+        action="Ask for an itemised bill so you can check them.",
+        values={"amount": format_inr(non_payable)},
         amount=non_payable,
         stage=state.stage,
     )]
@@ -609,13 +655,12 @@ def _stage_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
         alerts.append(Alert(
             kind=AlertKind.PRE_AUTH_DUE,
             severity=AlertSeverity.URGENT,
-            title="Pre-authorisation needs to be filed",
+            title="Pre-authorisation needs filing",
             message=(
-                "Cashless treatment needs your insurer's approval before the "
-                "procedure. Without it you would pay the hospital yourself and "
-                "claim it back later."
+                "Cashless needs your insurer's approval before the procedure. "
+                "Without it you pay the hospital and claim it back later."
             ),
-            action="Ask the hospital insurance desk to file the pre-authorisation now.",
+            action="Ask the insurance desk to file it now.",
             stage=state.stage,
         ))
 
@@ -629,17 +674,26 @@ def _stage_alerts(state: JourneyState, policy: NormalizedPolicy) -> list[Alert]:
 
 def _stage_description(
     stage: JourneyStage, state: JourneyState, policy: NormalizedPolicy
-) -> str:
+) -> tuple[str, str, dict[str, str]]:
+    """The line under the heading, its key, and what was written into it."""
     if stage is JourneyStage.ADMITTED:
         room = state.room_category.label if state.room_category else "a room"
-        return f"Admitted to {room}" + (
-            f" at {format_inr(state.room_rate_per_day)} a day."
-            if state.room_rate_per_day else "."
+        values = {"room": room} | (
+            {"room_key": state.room_category.value} if state.room_category else {}
         )
+        if state.room_rate_per_day:
+            rate = format_inr(state.room_rate_per_day)
+            return (
+                f"Admitted to {room} at {rate} a day.",
+                "admitted_rate",
+                values | {"rate": rate},
+            )
+        return f"Admitted to {room}.", "admitted", values
     if stage is JourneyStage.SETTLED:
-        return f"Total billed {format_inr(state.accrued_total)}."
+        total = format_inr(state.accrued_total)
+        return f"Total billed {total}.", "settled", {"total": total}
     if stage is JourneyStage.DISCHARGE_PLANNING:
-        return "Getting the paperwork ready for discharge."
+        return "Getting the paperwork ready.", "discharge", {}
     # Nothing useful to add beyond the title the entry already carries, and
     # repeating it under itself only reads as a rendering mistake.
-    return ""
+    return "", "", {}

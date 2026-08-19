@@ -60,7 +60,7 @@ def ids(items) -> set[str]:
 
 def test_the_room_cap_appears_as_the_figure_to_ask_for():
     items = checklist.items_for(a_stay(JourneyStage.PRE_ADMISSION), a_policy())
-    assert "at or under ₹5,000 a day" in texts(items)
+    assert "₹5,000 a day or less" in texts(items)
 
 
 def test_a_policy_with_no_room_cap_does_not_ask_for_one():
@@ -102,8 +102,11 @@ def test_the_post_hospitalisation_window_becomes_a_date():
     )
     items = checklist.items_for(stay, a_policy())
     post = next(i for i in items if i.item_id == "post_window")
-    assert "90 days" in post.text
     assert "08 November" in post.text
+    # The wording changes with the date, so the key has to as well: a
+    # sentence naming a day and one counting days are not one sentence.
+    assert post.string_key == "post_window_until"
+    assert post.values["days"] == "90"
 
 
 def test_a_policy_with_no_post_window_says_nothing_about_one():

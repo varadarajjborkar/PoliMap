@@ -833,12 +833,15 @@ def _option_payload(option, procedure_name: str) -> dict[str, Any]:
         "waterfall": [
             {
                 "kind": step.kind.value,
+                "key": step.string_key,
+                "values": step.values,
                 "label": step.label,
                 "amount": float(step.deducted),
                 "amount_display": format_inr(step.deducted),
                 "payable_after": float(step.payable_after),
-                "explanation": step.explanation,
                 "heads": [h.label for h in step.affected_heads],
+                "head_keys": [h.value for h in step.affected_heads],
+                "explanation": step.explanation,
             }
             for step in result.steps
         ],
@@ -849,17 +852,21 @@ def _option_payload(option, procedure_name: str) -> dict[str, Any]:
                 "amount": float(line.amount),
                 "amount_display": format_inr(line.amount),
                 "note": line.note,
+                "note_key": line.note_key,
+                "note_values": line.note_values,
             }
             for line in result.bill.lines
         ],
         "on_frontier": option.on_pareto_frontier,
         "score": option.score,
         "objectives": option.objectives.model_dump(),
-        "reasons": option.reasons,
-        "tradeoffs": option.tradeoffs,
-        "counterfactual": option.counterfactual,
-        "warnings": result.warnings,
-        "notes": result.notes,
+        "reasons": [r.model_dump() for r in option.reasons],
+        "tradeoffs": [t.model_dump() for t in option.tradeoffs],
+        "counterfactual": (
+            option.counterfactual.model_dump() if option.counterfactual else None
+        ),
+        "warnings": [w.model_dump() for w in result.warnings],
+        "notes": [n.model_dump() for n in result.notes],
     }
 
 
@@ -960,30 +967,30 @@ def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:
 
 
 _MORE_OPTIONS_ADVICE: dict[str, str] = {
-    "too_far": "Widening your search area would bring in the most hospitals.",
+    "too_far": "A wider search area would bring in the most hospitals.",
     "procedure_unavailable": (
-        "Most hospitals nearby do not perform this treatment. A wider search "
-        "area is the thing most likely to help."
+        "Few hospitals nearby do this treatment. A wider search area is most "
+        "likely to help."
     ),
     "specialty_unavailable": (
-        "This speciality is thinly covered near you. Try a wider search area."
+        "This speciality is thin near you. Try a wider search area."
     ),
     "not_cashless": (
         "Most hospitals nearby are outside your cashless network. Including "
-        "them would mean paying upfront and claiming it back."
+        "them means paying upfront and claiming back."
     ),
     "no_bed_available": (
-        "Beds are the constraint right now rather than cover. It is worth "
-        "calling the hospitals below before travelling."
+        "Beds are the constraint, not your cover. Worth calling the hospitals "
+        "below before travelling."
     ),
     "no_eligible_room": (
-        "Your room entitlement is ruling out most hospitals nearby. Accepting "
-        "a higher room category would open more up, at a cost."
+        "Your room entitlement is ruling out most hospitals nearby. A higher "
+        "room category would open more up, at a cost."
     ),
 }
 
 
-def _one_thing_to_change(result) -> str:
+def _one_thing_to_change(result) -> dict[str, str] | None:
     """The single change that would show the user more options.
 
     This replaced a breakdown of every exclusion cause with its count. Nobody
@@ -993,9 +1000,10 @@ def _one_thing_to_change(result) -> str:
     """
     summary = result.exclusion_summary()
     if not summary:
-        return ""
+        return None
     top = max(summary, key=lambda cause: summary[cause])
-    return _MORE_OPTIONS_ADVICE.get(str(top), "")
+    advice = _MORE_OPTIONS_ADVICE.get(str(top), "")
+    return {"key": str(top), "text": advice} if advice else None
 
 
 def _search_payload(result) -> dict[str, Any]:
@@ -1010,7 +1018,7 @@ def _search_payload(result) -> dict[str, Any]:
     in_city = sum(1 for h in datasets.hospitals if h.city == city) if city else 0
 
     return {
-        "message": result.message,
+        "message": result.message.model_dump() if result.message else None,
         "fully_satisfied": result.is_fully_satisfied,
         "considered": result.considered_count,
         "considered_in_city": in_city,
@@ -1072,13 +1080,15 @@ def _position_payload(state, policy) -> dict[str, Any] | None:
             {
                 "label": s.label,
                 "kind": s.kind.value,
+                "key": s.string_key,
+                "values": s.values,
                 "deducted": float(s.deducted),
                 "deducted_display": format_inr(s.deducted),
                 "explanation": s.explanation,
             }
             for s in result.steps
         ],
-        "warnings": result.warnings,
+        "warnings": [w.model_dump() for w in result.warnings],
     }
 
 
@@ -1114,6 +1124,11 @@ def _checklist_payload(session: Session) -> dict[str, Any]:
         "items": [
             {
                 "id": item.item_id,
+                # The sentence in English, and beside it what it was built
+                # from, so a reader in another language gets the same sentence
+                # rather than this one translated after the fact.
+                "key": item.string_key,
+                "values": item.values,
                 "text": item.text,
                 "why": item.why,
                 "urgent": item.urgent,
@@ -1208,6 +1223,8 @@ def _journey_payload(session: Session) -> dict[str, Any]:
         "alerts": [
             {
                 "kind": a.kind.value,
+                "key": a.string_key,
+                "values": a.values,
                 "severity": a.severity.value,
                 "title": a.title,
                 "message": a.message,
@@ -1223,7 +1240,10 @@ def _journey_payload(session: Session) -> dict[str, Any]:
                 "at": e.at.isoformat(),
                 "stage": e.stage.value,
                 "title": e.title,
+                "title_key": e.title_key,
                 "description": e.description,
+                "note_key": e.note_key,
+                "values": e.values,
                 "alert_count": len(e.alerts),
                 "kind": e.kind.value,
                 "skipped": [s.label for s in e.skipped],
@@ -1507,6 +1527,8 @@ def _bill_payload(session: Session) -> dict[str, Any] | None:
         "findings": [
             {
                 "kind": f.kind.value,
+                "key": f.string_key,
+                "values": f.values,
                 "label": f.label,
                 "severity": f.severity.value,
                 "headline": f.headline,
@@ -1526,6 +1548,8 @@ def _bill_payload(session: Session) -> dict[str, Any] | None:
             "waterfall": [
                 {
                     "kind": s.kind.value,
+                    "key": s.string_key,
+                    "values": s.values,
                     "label": s.label,
                     "deducted": float(s.deducted),
                     "deducted_display": format_inr(s.deducted),

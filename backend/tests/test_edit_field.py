@@ -266,7 +266,7 @@ def test_a_used_up_policy_with_restore_says_so():
                         amount=Decimal(200000))],
     )
     result = simulate(policy, bill)
-    assert any("restores the sum insured" in note for note in result.notes)
+    assert any("restores cover" in note.text for note in result.notes)
 
 
 def test_a_policy_without_restore_promises_nothing():

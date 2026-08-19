@@ -63,13 +63,18 @@ for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
     if (key.includes('.') || key === 'disclaimer') used.add(key)
   }
   for (const [, template] of text.matchAll(/\bt\(`([^`]+)`/g)) {
-    const stem = template.slice(0, template.indexOf('${'))
+    const at = template.indexOf('${')
+    const stem = template.slice(0, at)
+    // Anything after the expression counts too. `checklist.${id}` and
+    // `checklist.${id}.why` are one family read two ways, and dropping the
+    // tail would make the second look like the first and hide half the keys.
+    const tail = template.slice(template.indexOf('}', at) + 1)
     const values = TEMPLATES[stem]
     if (!values) {
       console.error(`unknown key template ${template} in ${path}`)
       process.exit(1)
     }
-    for (const value of values) used.add(stem + value)
+    for (const value of values) used.add(stem + value + tail)
   }
 }
 

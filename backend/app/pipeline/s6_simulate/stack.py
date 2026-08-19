@@ -26,6 +26,7 @@ from decimal import Decimal
 
 from app.pipeline.s6_simulate.waterfall import simulate
 from app.schemas.money import ZERO, format_inr, round_inr
+from app.schemas.phrasing import Phrase, phrase
 from app.schemas.policy import NormalizedPolicy
 from app.schemas.simulation import (
     BillLine,
@@ -58,11 +59,11 @@ class StackedResult:
     payable: Decimal
     out_of_pocket: Decimal
     cash_to_arrange_upfront: Decimal
-    order_note: str
+    order_note: Phrase
     """Which policy was put first, and what the other order would have cost."""
     alternative_out_of_pocket: Decimal | None = None
-    warnings: list[str] = None  # type: ignore[assignment]
-    notes: list[str] = None  # type: ignore[assignment]
+    warnings: list[Phrase] = None  # type: ignore[assignment]
+    notes: list[Phrase] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.warnings is None:
@@ -211,21 +212,28 @@ def settle_across(
     lead = best[0].label
     second = best[-1].label if len(best) > 1 else ""
     if other is None:
-        order_note = (
-            f"Claim from {lead} first, then {second} for the balance. It has to "
-            f"be that way round: a top-up pays only above a band the other "
-            f"policy has to cover first."
+        order_note = phrase(
+            "order.forced",
+            f"Claim from {lead} first, then {second} for the rest. It has to be "
+            f"that way round: a top-up pays only above a band the other policy "
+            f"covers first.",
+            lead=lead, second=second,
         )
     elif alternative is not None and alternative > out_of_pocket:
-        order_note = (
-            f"Claim from {lead} first, then {second} for the balance. Doing it "
-            f"the other way round would leave you paying "
-            f"{format_inr(alternative)} instead of {format_inr(out_of_pocket)}."
+        order_note = phrase(
+            "order.cheaper",
+            f"Claim from {lead} first, then {second} for the rest. The other "
+            f"way round would leave you paying {format_inr(alternative)} "
+            f"instead of {format_inr(out_of_pocket)}.",
+            lead=lead, second=second,
+            other=format_inr(alternative), this=format_inr(out_of_pocket),
         )
     else:
-        order_note = (
-            f"Claim from {lead} first, then {second} for the balance. Either "
-            f"order comes to the same figure here."
+        order_note = phrase(
+            "order.same",
+            f"Claim from {lead} first, then {second} for the rest. Either order "
+            f"comes to the same figure here.",
+            lead=lead, second=second,
         )
 
     # Upfront cash is not the sum of the legs. Under reimbursement a family
@@ -242,11 +250,12 @@ def settle_across(
 
     warnings = [w for leg in best for w in leg.result.warnings]
     notes = [n for leg in best for n in leg.result.notes]
-    notes.append(
-        "Under IRDAI rules the choice of which insurer to approach first is "
-        "yours. Tell each of them about the other: a claim settled without "
-        "disclosing the second policy can be reopened."
-    )
+    notes.append(phrase(
+        "note.which_insurer_first",
+        "Under IRDAI rules you choose which insurer to approach first. Tell "
+        "each about the other: a claim settled without disclosing the second "
+        "policy can be reopened.",
+    ))
 
     return StackedResult(
         legs=best,

@@ -688,7 +688,7 @@ def test_a_spared_member_is_told_why_rather_than_left_to_wonder():
 
     policy = make_policy(copay_pct=D(20), copay_above_age=61)
     result = simulate(policy, make_bill(D(50000)), patient_age=30)
-    assert any("aged 61 and above" in note for note in result.notes)
+    assert any("age 61" in note.text for note in result.notes)
 
 
 @pytest.fixture
@@ -781,7 +781,7 @@ def test_a_document_silent_on_day_care_says_it_is_silent():
     verdict = E.assess(policy, DAY_CARE, on=START + timedelta(days=900))
     assert verdict.verdict is E.Verdict.UNKNOWN
     assert not verdict.blocks
-    assert "day care list" in verdict.findings[0].detail
+    assert "day care" in verdict.findings[0].headline
 
 
 def test_day_care_and_a_waiting_period_are_both_reported():

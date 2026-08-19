@@ -159,10 +159,18 @@ class BillFinding(BaseModel):
     lines: list[int] = Field(default_factory=list)
     """Line numbers on the bill this concerns."""
 
+    key: str = ""
+    """Which wording this is, where the kind alone does not say."""
+    values: dict[str, str] = Field(default_factory=dict)
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def label(self) -> str:
         return self.kind.label
+
+    @property
+    def string_key(self) -> str:
+        return self.key or self.kind.value
 
 
 class BillReview(BaseModel):

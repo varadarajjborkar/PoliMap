@@ -308,7 +308,7 @@ def test_an_unknown_procedure_is_reported_not_crashed(corpus, policy):
     hospitals, procedures = corpus
     result = find_options(hospitals, procedures, policy, context(procedure_code="NOPE"))
     assert not result.options
-    assert "treatment" in result.message.lower()
+    assert "treatment" in result.message.text.lower()
 
 
 # --- explanation ----------------------------------------------------------
@@ -318,10 +318,13 @@ def test_each_option_explains_itself_in_plain_language(corpus, policy):
     hospitals, procedures = corpus
     for option in find_options(hospitals, procedures, policy, context()).options:
         assert option.reasons
-        for text in [*option.reasons, *option.tradeoffs]:
-            assert len(text) > 10
+        for said in [*option.reasons, *option.tradeoffs]:
+            assert len(said.text) > 10
+            # Every one of these is read in five languages, so every one of
+            # them has to be findable under a key.
+            assert said.key
             # Sentences may open with a currency symbol or a figure.
-            assert not (text[0].isalpha() and text[0].islower())
+            assert not (said.text[0].isalpha() and said.text[0].islower())
 
 
 def test_a_costed_alternative_is_offered_when_the_room_costs_money(corpus, policy):
@@ -347,9 +350,9 @@ def test_a_costed_alternative_is_offered_when_the_room_costs_money(corpus, polic
 
     counterfactuals = [o.counterfactual for o in result.options if o.counterfactual]
     assert counterfactuals, "no cheaper-room alternative offered"
-    assert any("save" in text for text in counterfactuals)
+    assert any("save" in said.text for said in counterfactuals)
     # The saving must be attributed to the cap, since that is what causes it.
-    assert any("a day your policy covers" in text for text in counterfactuals)
+    assert any("a day you are covered for" in said.text for said in counterfactuals)
 
 
 def test_no_alternative_is_invented_when_the_room_already_fits(corpus, policy):

@@ -132,7 +132,7 @@ def test_the_family_is_never_told_to_pay_first_and_claim_later():
         RoomCategory.GENERAL_WARD, is_network=False, with_band=False,
     )
 
-    prose = " ".join(result.warnings + result.notes).lower()
+    prose = " ".join(str(p) for p in result.warnings + result.notes).lower()
     assert "claim" not in prose or "nothing to claim" in prose
     assert "pay the full" not in prose
 
@@ -147,7 +147,7 @@ def test_consumables_are_not_declared_the_patients_problem():
 
     kinds = {step.kind for step in result.steps}
     assert DeductionKind.NON_PAYABLE not in kinds
-    assert not any("gloves" in w.lower() for w in result.warnings)
+    assert not any("gloves" in w.text.lower() for w in result.warnings)
 
 
 def test_no_room_cap_and_so_no_proportionate_deduction():
@@ -172,7 +172,7 @@ def test_a_room_above_the_ward_is_the_patients_choice_to_pay_for():
     )
 
     assert result.out_of_pocket > 0
-    assert any("upgrade" in w.lower() for w in result.warnings)
+    assert any("upgrade" in w.text.lower() for w in result.warnings)
     # The treatment itself stays covered; only the room moved.
     assert result.payable_by_insurer > 0
     assert DeductionKind.PROPORTIONATE not in {s.kind for s in result.steps}
@@ -192,8 +192,8 @@ def test_a_non_empanelled_hospital_says_so_and_sends_you_elsewhere():
     assert result.out_of_pocket == result.bill.total
     assert DeductionKind.SCHEME_NOT_EMPANELLED in {s.kind for s in result.steps}
 
-    prose = " ".join(result.warnings).lower()
-    assert "no claim to make" in prose
+    prose = " ".join(w.text for w in result.warnings).lower()
+    assert "nothing to claim back later" in prose
     assert "empanelled" in prose
 
 
@@ -205,8 +205,8 @@ def test_cghs_may_reimburse_where_the_package_schemes_cannot():
         RoomCategory.GENERAL_WARD, with_band=False,
     )
 
-    prose = " ".join(result.warnings).lower()
-    assert "prior approval" in prose
+    prose = " ".join(w.text for w in result.warnings).lower()
+    assert "only with approval beforehand" in prose
 
 
 # --- package pricing --------------------------------------------------------
@@ -239,7 +239,7 @@ def test_cover_spent_earlier_in_the_year_is_honoured():
 
     assert result.payable_by_insurer == Decimal("20000")
     assert result.out_of_pocket > 0
-    assert any("remains" in w for w in result.warnings)
+    assert any("is left" in w.text for w in result.warnings)
 
 
 @pytest.mark.parametrize("scheme", list(GovernmentScheme))

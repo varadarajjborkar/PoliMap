@@ -622,6 +622,23 @@ class WaitingPeriod(BaseModel):
             return f"{self.months} month{'s' if self.months != 1 else ''}"
         return f"{self.days} day{'s' if self.days != 1 else ''}"
 
+    def duration_parts(self) -> tuple[str, dict[str, str]]:
+        """The same span as a unit and its numbers, rather than as English.
+
+        "24 months" reads as English wherever it is dropped, and these spans sit
+        inside sentences that are read in four other languages. Handing over the
+        unit and the count instead lets the sentence be rebuilt rather than
+        half-translated around a phrase nobody wrote a word for.
+        """
+        if self.months and self.days:
+            return "months_days", {"n": str(self.months), "d": str(self.days)}
+        if self.months:
+            years, months = divmod(self.months, 12)
+            if years and not months:
+                return "years", {"n": str(years)}
+            return "months", {"n": str(self.months)}
+        return "days", {"n": str(self.days)}
+
 
 def add_months(start: date, months: int) -> date:
     """Calendar month arithmetic, clamped to the end of a short month.

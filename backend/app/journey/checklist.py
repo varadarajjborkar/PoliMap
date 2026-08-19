@@ -14,6 +14,11 @@ policy says nothing about a thing, the item for it is not shown, because an
 instruction that does not apply costs the reader the same attention as one that
 does.
 
+Kept short on purpose. This is read standing up, by somebody who has not slept,
+between two conversations they are dreading. Every sentence here has to earn
+the seconds it takes to read, so each item is one instruction and one reason,
+and anything that was only there for completeness is gone.
+
 Ticks are kept on the journey, so the list is a record of what was done rather
 than a poster that resets on every reload.
 """
@@ -24,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from app.schemas.journey import JourneyStage, JourneyState
-from app.schemas.money import format_inr
+from app.schemas.money import ZERO, format_inr
 from app.schemas.policy import ExpenseHead, NormalizedPolicy
 from app.schemas.procedure import Procedure
 from app.schemas.simulation import SettlementMode
@@ -42,6 +47,19 @@ class ChecklistItem:
     money rather than convenience."""
     done: bool = False
     tags: list[str] = field(default_factory=list)
+
+    key: str = ""
+    """What the reader's own language is looked up under, where it differs from
+    `item_id`. Two wordings of one instruction are one task and must share a
+    tick, so the id stays put and the key moves."""
+    values: dict[str, str] = field(default_factory=dict)
+    """The figures written into the sentence above, sent alongside it so the
+    same sentence can be rebuilt in another language rather than translated
+    after the numbers are already baked into it."""
+
+    @property
+    def string_key(self) -> str:
+        return self.key or self.item_id
 
 
 def items_for(
@@ -76,20 +94,20 @@ def _pre_admission(
     settlement: SettlementMode | None,
     procedure: Procedure | None,
 ) -> list[ChecklistItem]:
+    insurer = policy.meta.insurer_name or "your insurer"
     items = [
         ChecklistItem(
             "carry_card",
-            "Carry the policy document or e-card, and a photo ID for the patient",
-            "The insurance desk cannot start a cashless request without both.",
+            "Carry your policy card and the patient's photo ID",
+            "The desk cannot start a cashless claim without both.",
             urgent=True,
         ),
         ChecklistItem(
             "confirm_network",
-            f"Ask the hospital to confirm they are in "
-            f"{policy.meta.insurer_name or 'your insurer'}'s cashless network "
-            f"for this treatment",
-            "Network lists change, and the one place it matters is the counter.",
+            f"Ask the hospital if {insurer} cashless works here for this treatment",
+            "Network lists change. The counter is where it counts.",
             urgent=True,
+            values={"insurer": insurer},
         ),
     ]
 
@@ -97,28 +115,28 @@ def _pre_admission(
     if cap:
         items.append(ChecklistItem(
             "ask_for_room",
-            f"Ask for a room at or under {cap} a day",
-            "A costlier room does not only cost the difference: your insurer "
-            "then pays a reduced share of the surgeon, theatre and nursing "
-            "charges as well.",
+            f"Ask for a room at {cap} a day or less",
+            "A costlier room also cuts what you get on the surgeon, theatre "
+            "and nursing, not just the room.",
             urgent=True,
+            values={"cap": cap},
         ))
 
     if policy.pre_hospitalisation_days:
+        days = str(policy.pre_hospitalisation_days)
         items.append(ChecklistItem(
             "gather_pre_bills",
-            f"Gather bills from the last {policy.pre_hospitalisation_days} days: "
-            f"consultations, tests, medicines",
-            "Those are claimable as pre-hospitalisation expenses, and they are "
-            "the ones most often thrown away.",
+            f"Collect bills from the last {days} days: visits, tests, medicines",
+            "These are claimable, and the ones most often thrown away.",
+            values={"days": days},
         ))
 
     if not policy.covers_consumables:
         items.append(ChecklistItem(
             "expect_consumables",
-            "Expect to pay for gloves, syringes, and similar items yourself",
-            "This policy does not cover consumables. On a surgical admission "
-            "they commonly run to several thousand rupees.",
+            "Expect to pay for gloves, syringes and the like",
+            "This policy does not cover them. On surgery they often run to a "
+            "few thousand rupees.",
         ))
 
     return items
@@ -142,87 +160,85 @@ def _admitted(
     items = [
         ChecklistItem(
             "check_room_rate",
-            "Check the room rate written on the admission form",
-            "It is the single number that decides how much of the rest of the "
-            "bill your insurer pays. Correct it now if it is wrong; nobody "
-            "will revisit it at discharge.",
+            "Check the room rate on the admission form",
+            "This one number decides how much of the rest of the bill is paid. "
+            "Fix it now; nobody checks it at discharge.",
             urgent=True,
         ),
         ChecklistItem(
             "keep_receipts",
-            "Keep every receipt, including the pharmacy counter ones",
-            "Reimbursement is refused for anything without an original bill.",
+            "Keep every receipt, pharmacy ones too",
+            "Nothing is repaid without the original bill.",
         ),
         ChecklistItem(
             "daily_bill",
-            "Ask for an interim bill every day, and read it",
-            "A charge queried on the day it appears is corrected. The same "
-            "charge queried at discharge is defended.",
+            "Ask for the bill every day, and read it",
+            "A charge questioned the same day gets corrected. At discharge it "
+            "gets defended.",
             urgent=True,
         ),
         ChecklistItem(
             "ask_cost_first",
-            "Ask what each scan or test costs before agreeing to it",
-            "Investigations are where a bill grows fastest and where a "
-            "sub-limit is most often crossed without anybody saying so.",
+            "Ask what each test or scan costs before agreeing",
+            "Tests are where a bill grows fastest and a limit is crossed "
+            "without anyone saying so.",
         ),
         ChecklistItem(
             "watch_the_room",
-            "Ask before any move to a different room or to ICU",
-            "A change of room changes the daily rate, and with it the share "
-            "your insurer pays on everything room-linked.",
+            "Ask before any move to another room or to ICU",
+            "A new room means a new daily rate, and a new share on everything "
+            "priced by room.",
         ),
     ]
 
     cap = _room_cap(policy)
     if cap and state.room_rate_per_day:
+        rate = format_inr(state.room_rate_per_day)
         items.insert(1, ChecklistItem(
             "room_within_cap",
-            f"Confirm the room you are in bills at or under {cap} a day",
-            f"You were admitted at {format_inr(state.room_rate_per_day)}. "
-            f"Moving room is easiest on the first day and hardest on the last.",
+            f"Check your room bills at {cap} a day or less",
+            f"You were admitted at {rate}. Moving is easy on day one and hard "
+            f"on the last.",
             urgent=True,
+            values={"cap": cap, "rate": rate},
         ))
 
     limit = policy.sublimit_for(ExpenseHead.INVESTIGATIONS)
     if limit and limit.amount:
-        spent = state.accrued_by_head().get(ExpenseHead.INVESTIGATIONS)
+        cap_text = format_inr(limit.amount)
+        spent = format_inr(state.accrued_by_head().get(ExpenseHead.INVESTIGATIONS, ZERO))
         items.insert(0, ChecklistItem(
             "diagnostics_sublimit",
-            f"Tell the doctor your policy caps tests and scans at "
-            f"{format_inr(limit.amount)}",
-            (
-                f"You have used {format_inr(spent)} of it so far. "
-                if spent else ""
-            ) + "Anything above the cap is yours to pay in full.",
+            f"Tell the doctor your policy caps tests at {cap_text}",
+            f"Used so far: {spent}. Anything above the cap is yours to pay.",
             urgent=True,
+            values={"cap": cap_text, "spent": spent},
         ))
 
     if procedure is not None and procedure.requires_implant:
         items.append(ChecklistItem(
             "implant_invoice",
-            "Ask for the implant or device invoice and its sticker",
-            "Implants are claimed separately and are refused without the "
-            "manufacturer's invoice. There is no way to obtain it later.",
+            "Ask for the implant invoice and its sticker",
+            "Implants are claimed separately and refused without the maker's "
+            "invoice. There is no way to get it later.",
             urgent=True,
         ))
 
     if not policy.covers_consumables:
         items.append(ChecklistItem(
             "consumables_running",
-            "Ask the ward to keep the consumables list itemised",
-            "You are paying for these, so an itemised list is the only way to "
-            "check the count at discharge.",
+            "Ask the ward to itemise the consumables",
+            "You are paying for these, so a list is the only way to check them "
+            "at discharge.",
         ))
 
     if not state.pre_auth_filed:
         items.insert(0, ChecklistItem(
             "chase_preauth",
-            "Chase the pre-authorisation, by name, at the hospital insurance desk",
-            "A request sitting unread is the commonest reason a cashless "
-            "admission turns into a cash one. Ask what amount was approved, "
-            "not only whether it was: insurers frequently approve less than "
-            "the estimate, and the gap is yours.",
+            "Chase the pre-authorisation at the insurance desk, by name",
+            "An unread request is the commonest reason cashless turns into "
+            "cash. Ask how much was approved, not only whether: insurers often "
+            "approve less, and the gap is yours.",
             urgent=True,
         ))
 
@@ -245,35 +261,33 @@ def _discharge_planning(
         ChecklistItem(
             "discharge_summary",
             "Collect the discharge summary, signed and stamped",
-            "No claim is settled without it. Check it names the treatment and "
-            "the dates of admission and discharge.",
+            "No claim is paid without it. Check it names the treatment and "
+            "both dates.",
             urgent=True,
             tags=["paperwork"],
         ),
         ChecklistItem(
             "itemised_bill",
-            "Collect the final bill itemised, not the one-line total",
-            "A single figure cannot be checked against your policy, and an "
-            "insurer will query it. Ask for the breakdown before you pay.",
+            "Collect the itemised bill, not the one-line total",
+            "One figure cannot be checked against your policy, and the insurer "
+            "will query it.",
             urgent=True,
             tags=["paperwork"],
         ),
         ChecklistItem(
             "originals",
-            "Collect original reports, prescriptions and pharmacy receipts",
-            "Originals, not photocopies. Reimbursement claims are refused "
-            "without them, and the hospital keeps no second set.",
+            "Collect original reports, prescriptions and receipts",
+            "Originals, not copies. Claims are refused without them, and the "
+            "hospital keeps no second set.",
             urgent=True,
             tags=["paperwork"],
         ),
         ChecklistItem(
             "check_non_payables",
             "Check the bill for items your insurer never pays",
-            "Gloves, gowns, administration and record charges are on the IRDAI "
-            "non-payable list. They belong on your side of the bill, but they "
-            "are sometimes on the insurer's, and the hospital will correct it. "
-            "Photograph the itemised bill above and we will go through it line "
-            "by line with you.",
+            "Gloves, gowns and record charges are on the IRDAI non-payable "
+            "list and belong on your side. Photograph the bill above and we "
+            "will go through it line by line.",
             urgent=True,
         ),
     ]
@@ -281,44 +295,52 @@ def _discharge_planning(
     if state.room_rate_per_day and _room_cap(policy):
         items.append(ChecklistItem(
             "check_deduction",
-            "Check how the proportionate deduction was worked out",
-            "It applies to room-linked charges only: room, nursing, doctor "
-            "visits, surgeon, theatre. Since the IRDAI circular of May 2024 it "
-            "must not touch medicines, tests, implants or ICU. The bill check "
-            "above works it out on the bill you were actually handed.",
+            "Check how the proportionate cut was worked out",
+            "It applies to the room, nursing, doctor, surgeon and theatre "
+            "only. Since May 2024 it must not touch medicines, tests, implants "
+            "or ICU. The bill check above works it out for you.",
             urgent=True,
         ))
 
     if policy.post_hospitalisation_days:
-        items.append(ChecklistItem(
-            "post_window",
-            f"Keep every prescription and bill for the next "
-            f"{policy.post_hospitalisation_days} days"
-            + (
-                f", until {(state.admitted_at.date() + timedelta(days=policy.post_hospitalisation_days)):%d %B}"
-                if state.admitted_at else ""
-            ),
-            "Follow-up consultations, medicines and tests in that window are "
-            "claimable, and they are the part of a claim most often lost "
-            "simply because the receipts were thrown away.",
-            tags=["paperwork"],
-        ))
+        days = str(policy.post_hospitalisation_days)
+        why = (
+            "Follow-up visits, medicines and tests in that window are "
+            "claimable, and are most often lost to a thrown-away receipt."
+        )
+        if state.admitted_at:
+            until = f"{(state.admitted_at.date() + timedelta(days=policy.post_hospitalisation_days)):%d %B}"
+            items.append(ChecklistItem(
+                "post_window",
+                f"Keep every prescription and bill until {until}",
+                why,
+                key="post_window_until",
+                values={"days": days, "until": until},
+                tags=["paperwork"],
+            ))
+        else:
+            items.append(ChecklistItem(
+                "post_window",
+                f"Keep every prescription and bill for {days} more days",
+                why,
+                values={"days": days},
+                tags=["paperwork"],
+            ))
 
     if settlement is SettlementMode.REIMBURSEMENT:
         items.append(ChecklistItem(
             "claim_deadline",
-            "Ask your insurer the deadline for submitting the claim",
-            "Reimbursement claims have a filing window, commonly fifteen to "
-            "thirty days from discharge, and a late claim is refused on the "
-            "date alone.",
+            "Ask your insurer the deadline for filing the claim",
+            "Reimbursement has a window, often 15 to 30 days from discharge. "
+            "A late claim is refused on the date alone.",
             urgent=True,
         ))
     else:
         items.append(ChecklistItem(
             "final_approval",
-            "Wait for the final approval before signing the discharge bill",
-            "The last approval often differs from the pre-authorisation. What "
-            "you sign for is what you owe.",
+            "Wait for the final approval before signing the bill",
+            "The last approval often differs from the pre-auth, and what you "
+            "sign for is what you owe.",
         ))
 
     return items
@@ -334,20 +356,19 @@ def _settled(
         ChecklistItem(
             "settlement_letter",
             "Keep the settlement letter with the bills",
-            "It states what was paid and what was deducted, and it is what any "
-            "dispute is argued from.",
+            "It states what was paid and what was cut, and any dispute is "
+            "argued from it.",
         ),
         ChecklistItem(
             "check_deductions",
-            "Check each deduction on the settlement against your policy",
-            "A deduction that does not match a clause in your own document is "
-            "worth querying. Insurers do correct them.",
+            "Check each deduction against your policy",
+            "A cut that matches no clause in your own document is worth "
+            "querying. Insurers do correct them.",
         ),
         ChecklistItem(
             "note_remaining",
-            "Note what cover is left for the rest of the policy year",
-            "It is what any admission before your renewal date has to fit "
-            "inside.",
+            "Note what cover is left for this policy year",
+            "Any admission before your renewal has to fit inside it.",
         ),
     ]
 
