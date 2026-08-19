@@ -12,7 +12,6 @@ export default {
   'help.title': 'मदत',
   'help.close': 'मदत बंद करा',
   'help.new_chat': 'नवीन संवाद',
-  'help.recentre': 'मध्यभागी आणा',
   'help.thinking': 'पाहत आहोत',
   'help.placeholder': 'या स्क्रीनविषयी काहीही विचारा',
   'help.send': 'विचारा',

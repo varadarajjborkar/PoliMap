@@ -61,7 +61,6 @@ export default {
   'help.title': 'ಸಹಾಯ',
   'help.close': 'ಸಹಾಯ ಮುಚ್ಚಿ',
   'help.new_chat': 'ಹೊಸ ಸಂಭಾಷಣೆ',
-  'help.recentre': 'ಮಧ್ಯಕ್ಕೆ ತನ್ನಿ',
   'help.thinking': 'ನೋಡುತ್ತಿದ್ದೇವೆ',
   'help.placeholder': 'ಈ ಪರದೆಯ ಬಗ್ಗೆ ಏನು ಬೇಕಾದರೂ ಕೇಳಿ',
   'help.send': 'ಕೇಳಿ',

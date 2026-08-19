@@ -61,7 +61,6 @@ export default {
   'help.title': 'సహాయం',
   'help.close': 'సహాయం మూసివేయండి',
   'help.new_chat': 'కొత్త సంభాషణ',
-  'help.recentre': 'మధ్యకు తీసుకురండి',
   'help.thinking': 'చూస్తున్నాం',
   'help.placeholder': 'ఈ స్క్రీన్ గురించి ఏదైనా అడగండి',
   'help.send': 'అడగండి',

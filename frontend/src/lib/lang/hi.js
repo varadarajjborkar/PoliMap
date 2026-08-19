@@ -61,7 +61,6 @@ export default {
   'help.title': 'मदद',
   'help.close': 'मदद बंद करें',
   'help.new_chat': 'नई बातचीत',
-  'help.recentre': 'बीच में लाएँ',
   'help.thinking': 'देख रहे हैं',
   'help.placeholder': 'इस स्क्रीन के बारे में कुछ भी पूछें',
   'help.send': 'पूछें',

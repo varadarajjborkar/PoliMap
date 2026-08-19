@@ -131,7 +131,7 @@ function Panel({
   t, turns, opening, asking, draft, setDraft, onAsk, onClose, onStartOver,
   ticketing, setTicketing, onFile, endRef,
 }) {
-  const { style, onGrab, dragging, resettable, reset } = useDrag()
+  const { style, onGrab, dragging } = useDrag()
 
   return (
     <section
@@ -159,14 +159,6 @@ function Panel({
           </h2>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {resettable && (
-            <button
-              onClick={reset}
-              className="hidden rounded px-2 py-1 text-[0.75rem] text-muted hover:bg-surface hover:text-ink sm:block"
-            >
-              {t('help.recentre', 'Re-centre')}
-            </button>
-          )}
           <button
             onClick={onStartOver}
             className="rounded px-2.5 py-2 text-[0.75rem] text-muted hover:bg-surface hover:text-ink"
@@ -351,6 +343,12 @@ function useDrag() {
 
   const onGrab = useCallback((event) => {
     if (window.innerWidth < DRAG_FROM) return
+    // The handle is the whole header, and the buttons sit inside it. Capturing
+    // the pointer here sent the release to the header as well, so "New chat"
+    // and the close button never completed a click: they were pressed, the
+    // header took the pointer, and no click ever landed on them. A press that
+    // starts on a control is that control's, not the handle's.
+    if (event.target.closest('button')) return
     const panel = event.currentTarget.parentElement
     const box = panel.getBoundingClientRect()
     from.current = {
@@ -405,11 +403,7 @@ function useDrag() {
     ? { left: at.left, top: at.top, right: 'auto', bottom: 'auto' }
     : undefined
 
-  return {
-    style, onGrab, dragging,
-    resettable: Boolean(at),
-    reset: () => setAt(null),
-  }
+  return { style, onGrab, dragging }
 }
 
 function ChatIcon({ small = false }) {
