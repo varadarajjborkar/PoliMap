@@ -248,9 +248,8 @@ function Panel({
       <p className="hidden border-t border-line px-3 py-2 text-[0.6875rem] leading-relaxed text-muted sm:block">
         {t(
           'help.footer',
-          'Guidance only, never medical advice, and it cannot change anything '
-            + 'in your stay. Nothing here is kept once you close it.'
-        )}
+          'Guidance only, never medical advice, and it cannot change your stay. ' +
+            'Nothing here is kept once you close it.')}
       </p>
     </section>
   )

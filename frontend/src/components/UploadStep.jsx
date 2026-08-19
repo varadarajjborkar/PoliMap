@@ -44,7 +44,7 @@ export function UploadStep({
         t(
           'upload.too_many',
           'That is more than {limit} files. The pages listing your cover are ' +
-            'usually enough on their own.',
+            'usually enough.',
           { limit: MAX_FILES }
         )
       )
@@ -56,8 +56,8 @@ export function UploadStep({
       setRefused(
         t(
           'upload.too_large',
-          'Those come to {size} MB, and we can read up to {limit} MB. The ' +
-            'pages listing your cover are usually enough on their own.',
+          'Those come to {size} MB; we read up to {limit} MB. The pages listing ' +
+            'your cover are usually enough.',
           { size: (total / 1024 / 1024).toFixed(0), limit: MAX_UPLOAD_MB }
         )
       )
@@ -117,10 +117,8 @@ export function UploadStep({
         <p className="mx-auto mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-muted">
           {t(
             'upload.subtitle',
-            'Upload your health insurance policy and we will show you which ' +
-              'hospitals you are covered at, what room you are entitled to, ' +
-              'and what you would pay yourself.'
-          )}
+            'Upload your health policy. We will show which hospitals cover you, ' +
+              'what room you get, and what you would pay.')}
         </p>
       </div>
 
@@ -200,10 +198,8 @@ export function UploadStep({
                 <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
                   {t(
                     'upload.drop.hint',
-                    'PDFs and photos both work, and you can add several. A ' +
-                      'photo of each page taken on your phone is fine; we will ' +
-                      'read them and put them together.'
-                  )}
+                    'PDFs and photos both work, and you can add several. A phone photo of ' +
+                      'each page is fine; we put them together.')}
                 </p>
               </div>
 
@@ -293,9 +289,8 @@ function ManualForm({ insurerId, onSubmit, busy }) {
         label={t('manual.room', 'Room rent limit')}
         hint={t(
           'manual.room.hint',
-          'Most policies cap this. A room above your limit also reduces what ' +
-            'your insurer pays on other charges.'
-        )}
+          'Most policies cap this. A room above your limit also cuts what is ' +
+            'paid on other charges.')}
       >
         <Select value={values.room_limit_type} onChange={set('room_limit_type')}>
           <option value="flat">{t('manual.room.flat', 'A fixed amount per day')}</option>

@@ -29,18 +29,16 @@ function SchemeFacts({ policy }) {
           value={t('scheme.you_pay.value', 'Nothing')}
           note={t(
             'scheme.you_pay.note',
-            'Treatment is bought at a fixed package rate. There is no bill to ' +
-              'settle and nothing to claim back.'
-          )}
+            'Treatment is bought at a fixed package rate. No bill to settle, ' +
+              'nothing to claim back.')}
         />
         <Fact
           label={t('scheme.room', 'Room included')}
           value={policy.room_limit.description}
           note={t(
             'scheme.room.note',
-            'A higher room is yours to pay for, but it does not reduce what ' +
-              'the scheme covers on anything else.'
-          )}
+            'A higher room is yours to pay for, but it reduces nothing else the ' +
+              'scheme covers.')}
         />
         <Fact
           label={t('scheme.consumables', 'Consumables, implants, medicines, tests')}
@@ -58,9 +56,9 @@ function SchemeFacts({ policy }) {
         <p className="text-[0.875rem] leading-relaxed text-warn">
           {t(
             'scheme.empanelled_only',
-            'This only works at a hospital empanelled for {scheme}. Anywhere ' +
-              'else the scheme pays nothing, and there is no claim to make ' +
-              'afterwards. The hospitals we show you are filtered on this.',
+            'Only at a hospital empanelled for {scheme}. Anywhere else it pays ' +
+              'nothing, and there is no claim afterwards. The hospitals below are ' +
+              'filtered on this.',
             { scheme: policy.scheme_label }
           )}
         </p>
@@ -143,9 +141,8 @@ export function PolicySummary({
                 policy.sum_insured_remaining == null
                   ? t(
                       'policy.remaining.assumed',
-                      'We have assumed no claims yet this year. If you have ' +
-                        'already claimed, correct this: it changes every estimate.'
-                    )
+                      'We assume no claims yet this year. If you have claimed, correct it: ' +
+                        'it changes every estimate.')
                   : policy.restore_benefit
                     ? t(
                         'policy.remaining.restore',
@@ -168,9 +165,8 @@ export function PolicySummary({
                 policy.room_limit.daily_cap
                   ? t(
                       'policy.room.note',
-                      'A costlier room also reduces what your insurer pays on ' +
-                        'surgeon, theatre and nursing charges.'
-                    )
+                      'A costlier room also cuts what is paid on surgeon, theatre and ' +
+                        'nursing.')
                   : null
               }
             />
@@ -252,15 +248,13 @@ export function PolicySummary({
                 policy.covers_daycare === false
                   ? t(
                       'policy.daycare.no',
-                      'Cover needs a full day of admission. Cataract, dialysis ' +
-                        'and similar treatments would not be paid for.'
-                    )
+                      'Cover needs a full day of admission. Cataract, dialysis and the like ' +
+                        'would not be paid.')
                   : policy.covers_daycare == null
                     ? t(
                         'policy.daycare.unknown',
-                        'Your document does not say. Worth asking, because ' +
-                          'cover normally needs 24 hours of admission.'
-                      )
+                        'Your document does not say. Worth asking: cover normally needs 24 ' +
+                          'hours.')
                     : null
               }
             />
@@ -355,15 +349,12 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
           {second.is_top_up
             ? t(
                 'second.topup.how',
-                'A top-up pays what is left once the band above has been ' +
-                  'covered. We settle your first policy, then this one against ' +
-                  'the balance.'
-              )
+                'A top-up pays what is left once the band above it is covered. We ' +
+                  'settle your first policy, then this one against the balance.')
             : t(
                 'second.how',
-                'We settle one policy, then put the balance to the other, and ' +
-                  'tell you which order costs you less.'
-              )}
+                'We settle one policy, put the balance to the other, and say which ' +
+                  'order costs less.')}
         </p>
       </div>
     )
@@ -545,9 +536,8 @@ function WhoIsCovered({ policy }) {
               )
             : t(
                 'insured.ended',
-                'This policy year has ended. Check that it was renewed before ' +
-                  'relying on these figures.'
-              )}
+                'This policy year has ended. Check it was renewed before relying on ' +
+                  'these figures.')}
         </p>
       )}
     </div>
@@ -598,19 +588,16 @@ function WaitingPeriods({ policy }) {
         <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-warn">
           {t(
             'waiting.no_start',
-            'We could not read when this policy started, so we cannot tell you ' +
-              'whether these still apply. You will be asked once you pick a ' +
-              'treatment.'
-          )}
+            'We could not read the start date, so we cannot say if these still ' +
+              'apply. You will be asked once you pick a treatment.')}
         </p>
       )}
       {policy.period?.start && pending.length > 0 && (
         <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-muted">
           {t(
             'waiting.pending',
-            'A claim made before the date shown would be declined. We check ' +
-              'this against the treatment you choose.'
-          )}
+            'A claim before the date shown would be declined. We check this ' +
+              'against your treatment.')}
         </p>
       )}
     </div>
@@ -869,9 +856,8 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
               <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
                 {t(
                   'ask.free_text',
-                  'Write it however it appears on your document, in words or ' +
-                    'figures. We will read it back to you before using it.'
-                )}
+                  'Write it as it appears on your document, in words or figures. We ' +
+                    'will read it back first.')}
               </p>
             </div>
           )}

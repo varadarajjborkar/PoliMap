@@ -127,10 +127,9 @@ export function Disclaimer({ className = '' }) {
     <p className={`text-[0.75rem] leading-relaxed text-muted ${className}`}>
       {t(
         'disclaimer',
-        'Estimates are for guidance only, not a quote, not an approval, and ' +
-          'not medical advice. Confirm all amounts with your insurer and the ' +
-          'hospital insurance desk.'
-      )}
+        'Estimates for guidance only: not a quote, not an approval, not ' +
+          'medical advice. Confirm every amount with your insurer and the ' +
+          'hospital insurance desk.')}
     </p>
   )
 }

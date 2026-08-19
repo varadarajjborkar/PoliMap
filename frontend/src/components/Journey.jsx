@@ -136,9 +136,8 @@ export function Journey({
           <span className="text-[0.75rem] leading-relaxed text-muted">
             {t(
               'journey.download.why',
-              'Your cover, the estimate, what has been billed, and what is ' +
-                'still to do. One page to take to the insurance desk.'
-            )}
+              'Your cover, the estimate, what is billed, what is left to do. One ' +
+                'page for the insurance desk.')}
           </span>
         </div>
       </Card>
@@ -830,10 +829,8 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
           <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
             {t(
               'journey.skip.reassure',
-              'That is often exactly right. Plenty of admissions never involve ' +
-                'some of these. Your estimate stays accurate either way, and you ' +
-                'can come back to any stage later.'
-            )}
+              'That is often right. Many admissions skip some of these. Your ' +
+                'estimate stays accurate, and you can come back to any stage.')}
           </p>
 
           <label className="mt-4 flex items-start gap-2 text-[0.8125rem] text-muted">

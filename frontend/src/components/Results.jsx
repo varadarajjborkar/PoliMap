@@ -196,9 +196,8 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
             <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
               {t(
                 'eligibility.why_ask',
-                'No policy states this, and it changes the answer, so we have ' +
-                  'to ask. Your answer stays on this device.'
-              )}
+                'No policy states this and it changes the answer, so we ask. It stays ' +
+                  'on this device.')}
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               <Button

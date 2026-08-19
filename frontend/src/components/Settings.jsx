@@ -87,9 +87,8 @@ export function SettingsPanel({
               label={t('settings.language', 'Language')}
               hint={t(
                 'settings.language.hint',
-                'This changes the app\u2019s own words. Anything read out of your ' +
-                  'policy stays in the language the document is written in.'
-              )}
+                'This changes the app’s own words. Anything read out of your policy ' +
+                  'stays as the document wrote it.')}
               value={settings.language}
               onChange={(v) => set('language', v)}
               wrap
@@ -132,9 +131,7 @@ export function SettingsPanel({
               <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
                 {t(
                   'settings.tickets.none',
-                  'Nothing raised yet. Anything you send from the help desk '
-                    + 'appears here with its reference.'
-                )}
+                  'Nothing raised yet. Anything you send from the help desk appears here.')}
               </p>
             ) : (
               <ul className="space-y-2 pt-1">
@@ -150,9 +147,8 @@ export function SettingsPanel({
               <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
                 {t(
                   'settings.session.hint',
-                  'Your policy and the hospitals found for you are held only ' +
-                    'while this tab is open. Reloading the page starts over.'
-                )}
+                  'Your policy and the hospitals found for you are held only while this ' +
+                    'tab is open. Reloading starts over.')}
               </p>
               {confirmForget ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -191,9 +187,8 @@ export function SettingsPanel({
               label={t('settings.activity', 'Show the activity panel')}
               hint={t(
                 'settings.activity.hint',
-                'A live feed of every pipeline step as it runs, with timings. ' +
-                  'The same events the server writes to its log.'
-              )}
+                'A live feed of every pipeline step, with timings. The same events ' +
+                  'the server logs.')}
               checked={settings.showActivity}
               onChange={(v) => set('showActivity', v)}
             />

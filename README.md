@@ -213,7 +213,7 @@ line moved.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 413 keys, each resolving in all five. Not
+Every word it writes itself: 687 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -236,10 +236,19 @@ they were the larger part of what every visitor downloaded, four fifths of it a
 script that reader will never see; separated, the interface arrives at the
 weight of one language and English costs nothing at all.
 
-What is still English is what the server composes: the stage checklist, alerts,
-and the narrative explaining a deduction. Localising those needs the language to
-travel with the request and a catalogue behind the API, and until it does, that
-boundary is the whole of the gap.
+Some of what this app says can only be composed on the server, because that is
+where the policy and the bill are: "your room is ₹8,000 a day and you are
+covered for ₹5,000" is a sentence about two numbers that only exist after
+adjudication. Those sentences carry three things rather than one, the key that
+says which sentence it is, the English as composed, and the values written into
+it, and the reader's own language is looked up under the key with the numbers
+put back into it there. Waiting periods travel as a unit and a count rather than
+as "24 months", which is a phrase no table can reach inside.
+
+Those keys are written in Python, so the frontend check cannot find them; they
+are declared to it instead. The other half of that check runs from the side they
+are born on, exercising the paths that produce them and failing with the key and
+the language named when one has no line.
 
 ![The language picker, with the app in Kannada](docs/images/12-language.png)
 
@@ -343,7 +352,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 1021 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1029 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface

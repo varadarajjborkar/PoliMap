@@ -606,9 +606,8 @@ export default function App() {
                           )}
                           hint={t(
                             'reading.policy.hint',
-                            'Long documents and phone photos take longer. You ' +
-                              'can leave this open in the background.'
-                          )}
+                            'Long documents and phone photos take longer. You can leave this ' +
+                              'open.')}
                         />
                       )
                     }
@@ -629,10 +628,8 @@ export default function App() {
                   <Locked title={t('locked.policy', 'Your cover')}>
                     {t(
                       'locked.policy.why',
-                      'Once your policy is read, everything it says about what ' +
-                        'you are covered for appears here, and you can correct ' +
-                        'anything we got wrong.'
-                    )}
+                      'Once your policy is read, everything it says about your cover ' +
+                        'appears here, and you can correct anything we got wrong.')}
                   </Locked>
                 ),
                 search: policy ? (
@@ -676,9 +673,8 @@ export default function App() {
                   <Locked title={t('locked.search', 'Hospitals')}>
                     {t(
                       'locked.search.why',
-                      'We cost every hospital in range against your own policy, ' +
-                        'so this needs your cover first.'
-                    )}
+                      'We cost every hospital in range against your policy, so this needs ' +
+                        'your cover first.')}
                   </Locked>
                 ),
               }}
@@ -711,9 +707,8 @@ export default function App() {
                         )}
                         hint={t(
                           'reading.bill.hint',
-                          'A photograph takes longer than a PDF, because every ' +
-                            'line has to be recognised before it can be checked.'
-                        )}
+                          'A photo takes longer than a PDF: every line has to be recognised ' +
+                            'first.')}
                       />
                     )
                   }
@@ -763,10 +758,9 @@ function StayGone({ onHome, onNew }) {
       <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">
         {t(
           'gone.why',
-          'Stays are saved on the device they were created on. If this link ' +
-            'came from another phone or another browser, the admission it ' +
-            'points to is still there, not here.'
-        )}
+          'Stays are saved on the device they were made on. If this link came ' +
+            'from another phone or browser, the admission is still there, not ' +
+            'here.')}
       </p>
       <div className="mt-5 flex justify-center gap-2.5">
         <Button variant="secondary" onClick={onHome}>

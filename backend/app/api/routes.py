@@ -955,6 +955,8 @@ def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:
                 "verdict": finding.verdict.value,
                 "kind": finding.kind.value,
                 "kind_label": finding.title,
+                "key": finding.key,
+                "values": finding.values,
                 "headline": finding.headline,
                 "detail": finding.detail,
                 "clears_on": finding.clears_on.isoformat() if finding.clears_on else None,

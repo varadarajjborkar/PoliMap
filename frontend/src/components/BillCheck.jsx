@@ -85,12 +85,10 @@ function Upload({ busy, progress, onCheck }) {
         {t(
           'bill.what_we_do',
           'Ask for the itemised bill, not the one-line total, and photograph ' +
-            'it. We read it line by line and tell you what is worth raising ' +
-            'before you sign: items the regulator says are already inside ' +
-            'another charge, lines entered twice, figures that do not multiply ' +
-            'out, and the deduction your insurer will make that the billing ' +
-            'desk will not mention.'
-        )}
+            'it. We read every line and say what is worth raising before you ' +
+            'sign: charges already inside another, lines entered twice, figures ' +
+            'that do not multiply out, and the cut your insurer will make that ' +
+            'nobody mentions.')}
       </p>
 
       <input

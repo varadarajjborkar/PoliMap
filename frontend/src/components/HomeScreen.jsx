@@ -70,10 +70,8 @@ export function SignIn({ onSignIn }) {
         <p className="mt-4 border-t border-line pt-3.5 text-[0.875rem] leading-relaxed text-muted">
           {t(
             'signin.no_account',
-            'There is no password and no account. Nothing you enter is sent ' +
-              'anywhere to identify you, and a different name on this device ' +
-              'opens a different, separate set of stays.'
-          )}
+            'No password, no account. Nothing you type identifies you, and a ' +
+              'different name on this device opens a separate set of stays.')}
         </p>
       </Card>
 
