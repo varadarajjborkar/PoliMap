@@ -231,6 +231,11 @@ value, so rooms, settlement modes, expense heads and stages are keyed on the
 value and read in the reader's language; the same check mirrors those enums, so
 adding one server-side without a translation fails the build.
 
+Each language is its own file, fetched when somebody chooses it. Held together
+they were the larger part of what every visitor downloaded, four fifths of it a
+script that reader will never see; separated, the interface arrives at the
+weight of one language and English costs nothing at all.
+
 What is still English is what the server composes: the stage checklist, alerts,
 and the narrative explaining a deduction. Localising those needs the language to
 travel with the request and a catalogue behind the API, and until it does, that

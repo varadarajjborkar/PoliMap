@@ -73,10 +73,12 @@ for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
   }
 }
 
-const source = readFileSync(join(SRC, 'lib/i18n.js'), 'utf8')
+// One file per language, because that is how they are loaded: a reader gets
+// the one they chose and not the other four.
 const problems = []
 for (const code of ['hi', 'kn', 'mr', 'te']) {
-  const block = source.match(new RegExp(`^const ${code} = \\{(.*?)^\\}`, 'ms'))
+  const block = readFileSync(join(SRC, `lib/lang/${code}.js`), 'utf8')
+    .match(/^export default \{(.*?)^\}/ms)
   if (!block) {
     problems.push(`${code}: no table`)
     continue

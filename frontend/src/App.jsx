@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LanguageContext, useT } from './hooks/useLanguage'
+import { LanguageContext, useLanguage, useT } from './hooks/useLanguage'
 import { api, subscribeToEvents } from './api'
 import { ActivityLog } from './components/ActivityLog'
 import { SignIn, StayList } from './components/HomeScreen'
@@ -15,7 +15,6 @@ import { UploadStep } from './components/UploadStep'
 import {
   SETUP_STEPS, SIGNIN_PATH, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
-import { translator } from './lib/i18n'
 import { deleteAllTickets } from './lib/tickets'
 import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
@@ -46,6 +45,11 @@ const NO_CLAIM_FACTS = { pre_existing: null, accident: false }
 export default function App() {
   const { settings, set, reset } = useSettings()
   const { view, stayId, step, navigate } = useRoute()
+
+  // This component provides the language context, so it cannot read it: the
+  // provider sits below this point in the tree. It holds its own translator,
+  // and the whole tree below waits on the same one.
+  const { t, ready: languageReady } = useLanguage(settings.language)
 
   const [user, setUser] = useState(readUser)
   const [stays, setStays] = useState([])
@@ -461,16 +465,18 @@ export default function App() {
 
   // --- render ---------------------------------------------------------------
 
-  // This component provides the language context, so it cannot read it: the
-  // provider sits below this point in the tree. It builds its own translator.
-  const t = translator(settings.language)
+  // Nothing renders until the chosen language is in hand. Only ever true for
+  // a first load in a language other than English, and only for as long as
+  // one file takes to arrive; the alternative is a page that paints in
+  // English and rewrites itself in front of the reader.
+  if (!languageReady) return null
 
   // The name decides the screen and the address follows it, not the other way
   // round: reading the route here would flash the sign-in screen for a frame
   // whenever somebody arrives at /signin already signed in.
   if (!user) {
     return (
-      <LanguageContext.Provider value={settings.language}>
+      <LanguageContext.Provider value={t}>
         <SignIn onSignIn={signIn} />
       </LanguageContext.Provider>
     )
@@ -478,7 +484,7 @@ export default function App() {
 
   if (view === 'home') {
     return (
-      <LanguageContext.Provider value={settings.language}>
+      <LanguageContext.Provider value={t}>
         <StayList
           user={user}
           stays={stays}
@@ -556,7 +562,7 @@ export default function App() {
 
 
   return (
-    <LanguageContext.Provider value={settings.language}>
+    <LanguageContext.Provider value={t}>
       <Shell {...shell}>
         {busy === 'restore' || restoring ? (
           <div className="mx-auto max-w-2xl px-4 py-20 text-center motion-safe:animate-fade">
