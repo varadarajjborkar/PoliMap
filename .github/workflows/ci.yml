@@ -33,10 +33,34 @@ jobs:
       # Reading a photographed policy needs the Tesseract binary. Without the
       # -eng language pack, recognition returns empty text instead of failing,
       # which would look like a silent accuracy collapse.
+      #
+      # The runner points apt at an Azure mirror first, and on a bad day that
+      # mirror answers nothing at all. apt does not give up on it: it works
+      # through its retries on every index in turn before falling back to the
+      # canonical archive, and the whole job was being killed mid-update while
+      # it did. Nothing had failed, and the log said only that the operation was
+      # cancelled, which is the least useful thing it could have said.
+      #
+      # So the archive that answers is the one asked, the retries are bounded,
+      # and the step carries a deadline of its own. A mirror outage now fails
+      # here in five minutes, saying so, instead of taking the job's twenty and
+      # saying nothing.
       - name: Install Tesseract
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            echo 'http://archive.ubuntu.com/ubuntu/' \
+              | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          fi
+          for attempt in 1 2 3; do
+            sudo apt-get update -o Acquire::Retries=2 \
+              && sudo apt-get install -y --no-install-recommends \
+                   tesseract-ocr tesseract-ocr-eng \
+              && exit 0
+            echo "apt failed on attempt $attempt"
+            sleep 5
+          done
+          exit 1
 
       # Ruff is pinned like everything else in requirements.txt. An unpinned
       # linter turns the build red on someone else's release day, against code
