@@ -213,7 +213,7 @@ line moved.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 753 keys, each resolving in all five. Not
+Every word it writes itself: 770 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -381,7 +381,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 1051 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1052 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface
