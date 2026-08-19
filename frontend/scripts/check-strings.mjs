@@ -105,6 +105,26 @@ const TEMPLATES = {
     'no_bed_available', 'no_eligible_room', 'not_cashless',
     'procedure_unavailable', 'specialty_unavailable', 'too_far',
   ],
+  // The help desk's own sentences. Everything it wrote down travels with the
+  // key it is read under; a model's answer does not, because that one came back
+  // in the language it was asked in. `helpq.` is the question on a chip,
+  // `helpsay.` is anything the desk says that this repository wrote.
+  'helpq.': [
+    'bill_check', 'cashless', 'claim_papers', 'cover_left', 'no_document',
+    'non_payable', 'pre_existing', 'privacy', 'room_limit', 'second_policy',
+    'what_this_is', 'whose_name', 'which_document', 'wrong_figure',
+  ],
+  'helpsay.': [
+    'opening', 'unknown',
+    'refuse.action', 'refuse.clinical', 'refuse.other_peoples_data',
+    'refuse.ruling',
+    'answer.bill_check', 'answer.cashless', 'answer.claim_papers',
+    'answer.cover_left', 'answer.no_document', 'answer.non_payable',
+    'answer.pre_existing', 'answer.privacy', 'answer.room_limit',
+    'answer.second_policy', 'answer.what_this_is', 'answer.whose_name',
+    'answer.which_document', 'answer.wrong_figure',
+  ],
+  'ticket.': ['data', 'feedback', 'problem'],
   // What kind of thing was found on a bill, which is a name and not a
   // sentence. The sentences are under `finding.` below.
   'findkind.': [

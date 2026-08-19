@@ -523,7 +523,7 @@ export default function App() {
         {briefSettings}
         {/* Keyed on the name: another name is another person, and a
             conversation is not theirs to inherit. */}
-        <HelpDesk key={user} screen="home" user={user} />
+        <HelpDesk key={user} screen="home" user={user} language={settings.language} />
       </LanguageContext.Provider>
     )
   }
@@ -763,7 +763,7 @@ export default function App() {
         user={user}
       />
 
-      <HelpDesk key={user} screen={step} user={user} />
+      <HelpDesk key={user} screen={step} user={user} language={settings.language} />
     </LanguageContext.Provider>
   )
 }

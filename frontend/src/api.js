@@ -158,8 +158,46 @@ export const api = {
   // trusted not to look at it.
   helpOpening: (screen) =>
     request(`/api/help/opening?screen=${encodeURIComponent(screen || '')}`),
-  helpAsk: (message, screen) =>
-    request('/api/help/ask', json({ message, screen })),
+
+  // The answer as it is written, rather than after it is finished.
+  //
+  // One JSON object per line: `{delta}` for another piece of what is being
+  // written, and one `{reply}` at the end. The reply is the answer; a delta is
+  // a preview of one, and the two differ when the server stopped a draft part
+  // way, which is exactly when the preview has to be thrown away.
+  async helpAsk({ message, screen, language }, onDelta) {
+    const response = await fetch(
+      apiUrl('/api/help/ask/stream'),
+      json({ message, screen, language })
+    )
+    if (!response.ok || !response.body) {
+      throw new Error(`The help desk did not answer (${response.status}).`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let pending = ''
+    let reply = null
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      pending += decoder.decode(value, { stream: true })
+      // The last piece of a read is usually half a line, so it waits here for
+      // the rest of itself rather than being parsed as a broken one.
+      const lines = pending.split('\n')
+      pending = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        const message = JSON.parse(line)
+        if (message.delta) onDelta(message.delta)
+        if (message.reply) reply = message.reply
+      }
+    }
+
+    if (!reply) throw new Error('The help desk stopped part way through.')
+    return reply
+  },
   raiseTicket: (payload) => request('/api/help/ticket', json(payload)),
 }
 

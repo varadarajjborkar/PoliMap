@@ -10,7 +10,7 @@ of raising at the call site.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -160,6 +160,27 @@ class ModelRegistry:
             system=system,
             temperature=temperature,
             images=images,
+            max_tokens=max_tokens,
+        )
+
+    def stream(
+        self,
+        role: ModelRole,
+        *,
+        prompt: str,
+        system: str = "",
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
+        """A completion in the pieces it is written in. See `LLMProvider`."""
+        resolution = self.resolve(role)
+        if resolution is None:
+            raise LLMUnavailable(f"No model available for role {role.value}")
+        return resolution.provider.stream(
+            model=resolution.model,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
             max_tokens=max_tokens,
         )
 

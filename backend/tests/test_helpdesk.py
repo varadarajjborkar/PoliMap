@@ -15,6 +15,7 @@ reachable, and which is what CI runs with no key set.
 
 from __future__ import annotations
 
+import json
 from unittest import mock
 
 import pytest
@@ -407,3 +408,163 @@ def test_a_suggestion_naming_a_missing_answer_is_caught_at_load(tmp_path):
         with pytest.raises(ValueError, match="do not exist"):
             knowledge.suggestions_for("upload")
     _base.cache_clear()
+
+
+# --- the answer as it is written -------------------------------------------
+#
+# A model is never called here. The stream is driven by a fake one, because
+# what is being tested is not what a model writes, it is what is allowed out
+# of the pipe while it writes it and what happens to text already shown when a
+# later sentence turns out to be one we do not send.
+
+
+def _streamed(pieces, question="which document should I upload?"):
+    """Run the stream against a model that writes exactly `pieces`."""
+    with (
+        mock.patch.object(type(assistant.registry), "has_llm", property(lambda _: True)),
+        mock.patch.object(assistant.registry, "stream", return_value=iter(pieces)),
+    ):
+        return list(assistant.answer_stream(question, screen="upload"))
+
+
+def _deltas(chunks):
+    return "".join(c["delta"] for c in chunks if "delta" in c)
+
+
+def test_a_streamed_answer_arrives_in_pieces_and_then_whole():
+    pieces = ["The policy schedule ", "is the page with ", "your own figures on it."]
+    chunks = _streamed(pieces)
+
+    assert [c for c in chunks if "reply" in c] == [chunks[-1]], "one reply, and it is last"
+    reply = chunks[-1]["reply"]
+    assert reply.source is HelpSource.MODEL
+    assert reply.text == "".join(pieces)
+    assert _deltas(chunks) == reply.text, "what was shown is what was meant"
+
+
+def test_the_last_of_what_is_written_is_held_back():
+    """Nothing is released until enough has been written after it that anything
+    a rule would catch has already been written and checked."""
+    chunks = _streamed(["a" * 500])
+    hold = assistant.HOLD_BACK_CHARS
+    assert chunks[0]["delta"] == "a" * (500 - hold), "the tail stays in hand"
+    assert chunks[1]["delta"] == "a" * hold, "and is let go once it is vetted"
+
+
+def test_a_stream_that_strays_at_the_end_replaces_what_was_shown():
+    # The link is split across two pieces, which is what a real one looks like
+    # arriving. Half of it matches nothing, so only the hold-back keeps it off
+    # the screen until the other half proves what it was.
+    opening = "The policy schedule is the page with your own figures on it. " * 5
+    chunks = _streamed([opening, "Confirm at https:", "//not-us.example/login"])
+
+    reply = chunks[-1]["reply"]
+    assert reply.source is HelpSource.KNOWLEDGE, "back to what we wrote down"
+    assert "https" not in reply.text
+    assert "https" not in _deltas(chunks), "not even the half of it that matched nothing"
+    assert reply.key == "answer.which_document"
+
+
+def test_a_stream_that_fails_part_way_falls_back_rather_than_truncating():
+    def breaks():
+        yield "The policy schedule is the page with your own figures. " * 4
+        raise RuntimeError("connection reset")
+
+    with (
+        mock.patch.object(type(assistant.registry), "has_llm", property(lambda _: True)),
+        mock.patch.object(assistant.registry, "stream", return_value=breaks()),
+    ):
+        chunks = list(assistant.answer_stream("which document should I upload?"))
+
+    assert chunks[-1]["reply"].source is HelpSource.KNOWLEDGE
+
+
+def test_a_refused_question_is_refused_before_any_model_is_reached():
+    with mock.patch.object(assistant.registry, "stream") as stream:
+        chunks = list(assistant.answer_stream("should I have this surgery?"))
+    stream.assert_not_called()
+    assert chunks == [chunks[0]]
+    assert chunks[0]["reply"].key == "refuse.clinical"
+
+
+def test_with_no_model_the_stream_is_the_written_answer_in_one_piece():
+    with mock.patch.object(type(assistant.registry), "has_llm", property(lambda _: False)):
+        chunks = list(assistant.answer_stream("which document should I upload?"))
+    assert len(chunks) == 1
+    assert chunks[0]["reply"].key == "answer.which_document"
+
+
+# --- answering in the language it was asked in ------------------------------
+
+
+def test_every_written_answer_travels_with_its_key():
+    """The browser holds the translations, so an answer this repository wrote
+    has to say which answer it is. One that a model wrote must not: it is
+    already in the reader's language and a lookup would replace it."""
+    assert ask("which document should I upload?").key == "answer.which_document"
+    assert ask("should I have this surgery?").key == "refuse.clinical"
+    assert ask("what is the capital of France").key == "unknown"
+    assert assistant.opening("upload").key == "opening"
+    assert assistant._spoken("anything", None, "upload").key == ""
+
+
+@pytest.mark.parametrize("code, named", [
+    ("hi", "Hindi"), ("kn", "Kannada"), ("mr", "Marathi"),
+    ("te", "Telugu"), ("en", "English"), ("zz", "English"),
+])
+def test_the_model_is_told_which_language_to_land_in(code, named):
+    """Where an answer lands when the question does not say: English typed into
+    a Kannada interface is answered in Kannada."""
+    assert named in assistant._language_rule(code, "what is cashless")
+
+
+@pytest.mark.parametrize("question, script", [
+    ("room rent ka limit kitna hai", ""),
+    ("what counts as pre-existing", ""),
+    ("रूम रेंट की सीमा क्या है", "Devanagari"),
+    ("ರೂಮ್ ರೆಂಟ್ ಮಿತಿ 50% ಇದೆಯೇ", "Kannada"),
+    ("నా డేటా ఎక్కడికి వెళ్తుంది?", "Telugu"),
+    # A question in one script still carries English words and figures, so the
+    # answer is the script most of it is in rather than the first one seen.
+    ("IRDAI ಪಟ್ಟಿಯಲ್ಲಿ ಏನಿದೆ?", "Kannada"),
+])
+def test_the_script_is_read_off_the_question_rather_than_guessed(question, script):
+    assert assistant.script_of(question) == script
+
+
+def test_a_question_in_english_letters_is_answered_in_english_letters():
+    """The rule a model kept getting wrong on its own: it recognised the Hindi
+    in "kitna cover hoga" and answered a Hinglish typist in Devanagari."""
+    rule = assistant._language_rule("hi", "room rent ka limit kitna hai")
+    assert "Latin alphabet" in rule
+    assert "Do not use Devanagari" in rule
+    assert "Devanagari script" in assistant._language_rule("hi", "रूम रेंट की सीमा")
+
+
+def test_the_language_reaches_the_model_from_the_request(api):
+    with (
+        mock.patch.object(type(assistant.registry), "has_llm", property(lambda _: True)),
+        mock.patch.object(assistant.registry, "complete") as complete,
+    ):
+        complete.return_value = mock.Mock(text="Policy schedule is the one.")
+        api.post("/api/help/ask", json={
+            "message": "which document", "screen": "upload", "language": "kn",
+        })
+    assert "Kannada" in complete.call_args.kwargs["system"]
+
+
+def test_the_stream_comes_back_as_one_json_object_per_line(api):
+    with (
+        mock.patch.object(type(assistant.registry), "has_llm", property(lambda _: True)),
+        mock.patch.object(assistant.registry, "stream") as stream,
+    ):
+        stream.return_value = iter(["The policy schedule is the page. " * 8])
+        response = api.post("/api/help/ask/stream", json={
+            "message": "which document", "screen": "upload", "language": "hi",
+        })
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in response.text.splitlines() if line]
+    assert "delta" in lines[0]
+    assert "reply" in lines[-1]
+    assert lines[-1]["reply"]["source"] == "model"

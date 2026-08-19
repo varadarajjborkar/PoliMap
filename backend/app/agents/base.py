@@ -9,6 +9,7 @@ change rather than a code change.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -71,6 +72,31 @@ class LLMProvider(ABC):
         Implementations should use native grammar/JSON-schema constraints where
         the backend offers them, and fall back to parse-and-retry otherwise.
         """
+
+    def stream(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        system: str = "",
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
+        """The same completion, in the pieces it is written in.
+
+        Not abstract, because a stream of one piece is a valid stream and every
+        provider can produce one. Only the help desk asks for this, and only
+        because a person waiting for an answer in a hospital corridor should
+        watch it arrive rather than watch a spinner; nothing in the pipeline
+        streams, since a half-extracted clause is not useful to anybody.
+        """
+        yield self.complete(
+            model=model,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ).text
 
     def supports_vision(self, model: str) -> bool:
         return False

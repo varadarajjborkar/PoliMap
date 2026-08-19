@@ -19,6 +19,12 @@ import { Button, Spinner } from './Primitives'
 // Nothing is kept. Closing, starting a new chat or changing name loses the
 // conversation, which is the honest behaviour when there is nowhere private to
 // put a transcript that may name a hospital and a treatment.
+//
+// It answers in the language it was asked in, which in this country is often
+// one language written in another one's letters. Everything this app wrote
+// itself is looked up here by the key the server sends beside it; a model's
+// answer is not, because it came back already written in the right language and
+// looking it up would swap it for an answer to a different question.
 
 // Below this the panel is a sheet at the bottom of the screen. Dragging a
 // window around a phone is a way to lose it behind your own thumb.
@@ -30,7 +36,11 @@ const KINDS = [
   ['data', 'Something I cannot change myself'],
 ]
 
-export function HelpDesk({ screen, user }) {
+// What the server sends beside anything it wrote down: an opening, a refusal,
+// an answer out of the knowledge base. `said` is empty for a model's answer.
+const said = (t, key, text) => (key ? t(`helpsay.${key}`, text) : text)
+
+export function HelpDesk({ screen, user, language }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [turns, setTurns] = useState([])
@@ -50,25 +60,44 @@ export function HelpDesk({ screen, user }) {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
   }, [turns, asking])
 
+  // The answer is put on screen while it is still being written, and replaced
+  // by the finished one when it arrives. The two differ only when the server
+  // stopped a draft part way, and then replacing it is the whole point.
   const ask = useCallback(async (message) => {
     const question = message.trim()
     if (!question || asking) return
     setDraft('')
-    setTurns((current) => [...current, { role: 'you', text: question }])
+    setTurns((current) => [
+      ...current,
+      { role: 'you', text: question },
+      { role: 'desk', text: '', writing: true },
+    ])
     setAsking(true)
+
+    const onDelta = (piece) => {
+      setTurns((current) => current.map((turn, index) =>
+        index === current.length - 1 && turn.writing
+          ? { ...turn, text: turn.text + piece }
+          : turn
+      ))
+    }
+    const settle = (turn) => {
+      setTurns((current) => [...current.slice(0, -1), { role: 'desk', ...turn }])
+    }
+
     try {
-      const reply = await api.helpAsk(question, screen)
-      setTurns((current) => [...current, { role: 'desk', ...reply }])
+      settle(await api.helpAsk({ message: question, screen, language }, onDelta))
     } catch {
-      setTurns((current) => [...current, {
-        role: 'desk',
-        text: 'I could not reach the help desk just now. Your work is not '
-          + 'affected, and the app itself is still working.',
-      }])
+      settle({
+        text: t(
+          'help.unreachable',
+          'I could not reach the help desk just now. Your work is not affected, '
+            + 'and the app itself is still working.'),
+      })
     } finally {
       setAsking(false)
     }
-  }, [asking, screen])
+  }, [asking, screen, language, t])
 
   function startOver() {
     setTurns([])
@@ -81,8 +110,11 @@ export function HelpDesk({ screen, user }) {
     setTicketing(false)
     setTurns((current) => [...current, {
       role: 'desk',
-      text: `Logged as ${ticket.ticket_id}. You can see it under Settings, `
-        + `Your tickets. ${ticket.note}`,
+      text: t(
+        'help.logged',
+        'Logged as {id}. You can see it under Settings, Your tickets.',
+        { id: ticket.ticket_id }
+      ) + ' ' + t('help.logged.note', ticket.note),
       ticket: ticket.ticket_id,
     }])
     return ticket
@@ -177,7 +209,7 @@ function Panel({
 
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {turns.length === 0 && opening && (
-          <Bubble>{opening.text}</Bubble>
+          <Bubble>{said(t, opening.key, opening.text)}</Bubble>
         )}
 
         {turns.map((turn, index) => (
@@ -190,7 +222,11 @@ function Panel({
             </p>
           ) : (
             <div key={index} className="space-y-2">
-              <Bubble>{turn.text}</Bubble>
+              {(turn.text || !turn.writing) && (
+                <Bubble writing={turn.writing}>
+                  {said(t, turn.key, turn.text)}
+                </Bubble>
+              )}
               {turn.offer_ticket && !ticketing && (
                 <button
                   onClick={() => setTicketing(true)}
@@ -203,7 +239,11 @@ function Panel({
           )
         ))}
 
-        {asking && <Spinner label={t('help.thinking', 'Looking that up')} />}
+        {/* Only until the first words arrive. After that the answer writing
+            itself is a better sign of life than a spinner beside it. */}
+        {asking && !turns[turns.length - 1]?.text && (
+          <Spinner label={t('help.thinking', 'Looking that up')} />
+        )}
 
         {ticketing && (
           <TicketForm t={t} onCancel={() => setTicketing(false)} onFile={onFile} />
@@ -211,6 +251,7 @@ function Panel({
 
         {!ticketing && !asking && (
           <Chips
+            t={t}
             suggestions={
               (turns.length ? turns[turns.length - 1]?.suggestions : opening?.suggestions) ?? []
             }
@@ -247,25 +288,30 @@ function Panel({
   )
 }
 
-function Bubble({ children }) {
+function Bubble({ children, writing = false }) {
   return (
     <div className="max-w-[92%] whitespace-pre-line rounded-2xl rounded-bl-sm border border-line bg-canvas px-3 py-2 text-[0.8125rem] leading-relaxed">
       {children}
+      {/* A cursor where the next word will land, so a pause reads as thinking
+          rather than as a message that has stopped. */}
+      {writing && (
+        <span className="ml-0.5 inline-block h-3 w-1.5 translate-y-px bg-brand/70 motion-safe:animate-breathe" />
+      )}
     </div>
   )
 }
 
-function Chips({ suggestions, onPick }) {
+function Chips({ suggestions, onPick, t }) {
   if (!suggestions.length) return null
   return (
     <div className="flex flex-wrap gap-1.5 pt-1">
       {suggestions.map((suggestion) => (
         <button
           key={suggestion.key}
-          onClick={() => onPick(suggestion.question)}
+          onClick={() => onPick(t(`helpq.${suggestion.key}`, suggestion.question))}
           className="rounded-full border border-line px-2.5 py-1 text-left text-[0.75rem] text-muted transition hover:border-brand/40 hover:text-ink"
         >
-          {suggestion.question}
+          {t(`helpq.${suggestion.key}`, suggestion.question)}
         </button>
       ))}
     </div>
@@ -301,7 +347,7 @@ function TicketForm({ t, onCancel, onFile }) {
         className="w-full rounded-lg border border-line bg-surface px-2 py-2 text-base sm:py-1.5 sm:text-[0.8125rem]"
       >
         {KINDS.map(([value, label]) => (
-          <option key={value} value={value}>{label}</option>
+          <option key={value} value={value}>{t(`ticket.${value}`, label)}</option>
         ))}
       </select>
       <input

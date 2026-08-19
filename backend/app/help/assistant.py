@@ -23,14 +23,23 @@ pattern: this module is given no session, no policy and no document, and the
 route that calls it takes no session id. There is nothing here to leak, and
 nothing here to write. A model asked to reveal somebody's cover is being asked
 by a process that does not have it.
+
+Everything written down here is written in English, and travels with the key it
+is read under so the browser can say it in the reader's language. A model's
+answer does not: it is told to reply in whatever the question was asked in,
+including the way most of this country actually writes, which is one language
+in another language's letters. "Room rent ka limit kitna hai" is Hindi, and an
+answer in Devanagari is an answer in the wrong place.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -58,6 +67,83 @@ OPENING = (
     "and point you to the right place; I cannot change anything for you, and "
     "nothing here is medical advice."
 )
+
+
+# The five the interface itself is written in. Anything else falls back to
+# English, which is also what the app does.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "hi": "Hindi",
+    "kn": "Kannada",
+    "mr": "Marathi",
+    "te": "Telugu",
+}
+
+
+# Where each script this app is likely to be typed in lives in Unicode, and
+# what to call it when telling a model which one it is looking at.
+_SCRIPTS = (
+    ("Devanagari", 0x0900, 0x097F),
+    ("Bengali", 0x0980, 0x09FF),
+    ("Gurmukhi", 0x0A00, 0x0A7F),
+    ("Gujarati", 0x0A80, 0x0AFF),
+    ("Tamil", 0x0B80, 0x0BFF),
+    ("Telugu", 0x0C00, 0x0C7F),
+    ("Kannada", 0x0C80, 0x0CFF),
+    ("Malayalam", 0x0D00, 0x0D7F),
+)
+
+
+def script_of(question: str) -> str:
+    """Which script a question is written in, or "" for the Latin alphabet.
+
+    Decided here rather than left to the model, because this is the one part of
+    answering that a machine can settle exactly and a model kept getting wrong.
+    Told only to reply in the same script, a model reads "kitna cover hoga",
+    recognises the Hindi, and answers in Devanagari to somebody who was typing
+    in English letters. Counted rather than sniffed at the first character: a
+    question in Kannada still has a "50%" and an "IRDAI" in it.
+    """
+    counts = dict.fromkeys((name for name, _, _ in _SCRIPTS), 0)
+    for char in question:
+        point = ord(char)
+        for name, low, high in _SCRIPTS:
+            if low <= point <= high:
+                counts[name] += 1
+                break
+    top = max(counts, key=lambda name: counts[name])
+    return top if counts[top] else ""
+
+
+def _language_rule(language: str, question: str = "") -> str:
+    """What the model is told about which language to answer in.
+
+    Two instructions, and the second is the one that matters here. Reply in the
+    language the question was written in, and reply in the *script* it was
+    written in: somebody typing Hinglish is not asking for Devanagari, and a
+    reply in a script they were not using is a reply they have to decode.
+    """
+    chosen = LANGUAGE_NAMES.get(language, "English")
+    script = script_of(question)
+    where = (
+        f"The question is written in the {script} script, so write your whole "
+        f"reply in {script} too."
+        if script
+        else (
+            "The question is written in the Latin alphabet, so write your whole "
+            "reply in the Latin alphabet too. Do not use Devanagari, Kannada, "
+            "Telugu or any other script, even where the language itself is "
+            "Hindi, Marathi, Kannada or Telugu: 'room rent ka limit kitna hai' "
+            "is answered in that same Hinglish, in English letters."
+        )
+    )
+    return (
+        f"\n\n{where}\n"
+        "Reply in the same language the question is written in, mixing the two "
+        "the way the question mixed them and keeping the insurance words people "
+        f"already say in English. A question in plain English is answered in "
+        f"{chosen}."
+    )
 
 
 @dataclass(frozen=True)
@@ -111,7 +197,10 @@ def _suggestions(screen: str) -> list[Suggestion]:
 def opening(screen: str = "") -> HelpReply:
     """What the help desk says before anybody has asked anything."""
     return HelpReply(
-        text=OPENING, source=HelpSource.KNOWLEDGE, suggestions=_suggestions(screen)
+        text=OPENING,
+        key="opening",
+        source=HelpSource.KNOWLEDGE,
+        suggestions=_suggestions(screen),
     )
 
 
@@ -132,43 +221,155 @@ def refused_by(question: str) -> Rule | None:
     return next((r for r in rules().incoming if r.pattern.search(asked)), None)
 
 
-def answer(question: str, *, screen: str = "", use_model: bool = True) -> HelpReply:
+def _asked(question: str) -> str:
+    return (question or "").strip()[: rules().max_question_chars]
+
+
+def _refusal(rule: Rule, screen: str) -> HelpReply:
+    log.info("helpdesk refused", rule=rule.name)
+    return HelpReply(
+        text=rule.reply,
+        key=f"refuse.{rule.name}",
+        source=HelpSource.KNOWLEDGE,
+        suggestions=_suggestions(screen),
+    )
+
+
+def _written(match, screen: str) -> HelpReply:
+    """The answer as this repository wrote it, which is the fallback for all of
+    them: no model, a model that could not be reached, and a model whose draft
+    was not allowed out."""
+    if match is None:
+        return HelpReply(
+            text=DO_NOT_KNOW, key="unknown", source=HelpSource.UNKNOWN,
+            suggestions=_suggestions(screen), offer_ticket=True,
+        )
+    return HelpReply(
+        text=match.body, key=f"answer.{match.key}", source=HelpSource.KNOWLEDGE,
+        goes_to=match.goes_to, suggestions=_suggestions(screen),
+    )
+
+
+def _spoken(text: str, match, screen: str) -> HelpReply:
+    """A model's answer. No key: it is already in the reader's language."""
+    return HelpReply(
+        text=text,
+        source=HelpSource.MODEL,
+        goes_to=match.goes_to if match else "",
+        suggestions=_suggestions(screen),
+        offer_ticket=match is None,
+    )
+
+
+def answer(
+    question: str,
+    *,
+    screen: str = "",
+    language: str = "en",
+    use_model: bool = True,
+) -> HelpReply:
     """Answer one question, or say honestly that it cannot be answered."""
-    asked = (question or "").strip()[: rules().max_question_chars]
+    asked = _asked(question)
     if not asked:
         return opening(screen)
 
     refusal = refused_by(asked)
     if refusal is not None:
-        log.info("helpdesk refused", rule=refusal.name)
-        return HelpReply(
-            text=refusal.reply,
-            source=HelpSource.KNOWLEDGE,
-            suggestions=_suggestions(screen),
-        )
+        return _refusal(refusal, screen)
 
     match = knowledge.best_match(asked)
 
     if use_model and registry.has_llm:
-        drafted = _from_model(asked, match)
+        drafted = _from_model(asked, match, language)
         if drafted:
-            return HelpReply(
-                text=drafted,
-                source=HelpSource.MODEL,
-                goes_to=match.goes_to if match else "",
-                suggestions=_suggestions(screen),
-                offer_ticket=match is None,
-            )
+            return _spoken(drafted, match, screen)
 
-    if match is None:
-        return HelpReply(
-            text=DO_NOT_KNOW, source=HelpSource.UNKNOWN,
-            suggestions=_suggestions(screen), offer_ticket=True,
-        )
-    return HelpReply(
-        text=match.body, source=HelpSource.KNOWLEDGE, goes_to=match.goes_to,
-        suggestions=_suggestions(screen),
-    )
+    return _written(match, screen)
+
+
+# How far behind the model the reader is kept, in characters.
+#
+# Text is only released once this many characters sit behind it, so that
+# anything a rule would catch is caught while it is still held. Every pattern
+# in guardrails.yaml is far shorter than this, so a phrase cannot be half
+# released and half examined: by the time a character is sent, everything that
+# could turn it into a match has already been written and checked.
+HOLD_BACK_CHARS = 200
+
+
+def answer_stream(
+    question: str, *, screen: str = "", language: str = "en"
+) -> Iterator[dict[str, Any]]:
+    """The same answer, in the pieces it is written in.
+
+    Somebody standing in a hospital does not want to watch a spinner for eight
+    seconds, so the model's answer is passed on as it is written. The vetting is
+    not relaxed for it. Every check `answer` makes on a finished draft is made
+    here on the growing one, and text is released only from behind
+    `HOLD_BACK_CHARS`, so a rule that a sentence is about to trip trips before
+    that sentence has been shown to anybody.
+
+    Two kinds of thing come out of this: `delta`, another piece of what is being
+    written, and exactly one `reply`, which is the whole answer and the last
+    word on it. When a draft is stopped part way, the reply carries the written
+    answer instead and the browser replaces what it had. The reply is the
+    authority; a delta is a preview of one.
+    """
+    asked = _asked(question)
+    if not asked:
+        yield {"reply": opening(screen)}
+        return
+
+    refusal = refused_by(asked)
+    if refusal is not None:
+        yield {"reply": _refusal(refusal, screen)}
+        return
+
+    match = knowledge.best_match(asked)
+    if not registry.has_llm:
+        yield {"reply": _written(match, screen)}
+        return
+
+    draft = ""
+    released = 0
+    stopped = ""
+    try:
+        for piece in registry.stream(
+            ModelRole.NARRATE,
+            system=rules().system + _language_rule(language, asked),
+            prompt=_grounded(asked, match),
+            temperature=0.2,
+            max_tokens=400,
+        ):
+            draft += piece
+            stopped = _straying(draft)
+            if stopped:
+                break
+            # Softened over the whole draft rather than over each piece: a
+            # phrase split across two pieces is one phrase, and rewriting the
+            # halves separately would rewrite neither.
+            safe = guardrails.soften_promises(draft)
+            cut = max(0, len(safe) - HOLD_BACK_CHARS)
+            if cut > released:
+                yield {"delta": safe[released:cut]}
+                released = cut
+    except Exception as exc:
+        log.warning("helpdesk stream ended early", error=str(exc)[:120])
+        stopped = "unreachable"
+
+    if stopped:
+        log.warning("helpdesk draft dropped", rule=stopped)
+        yield {"reply": _written(match, screen)}
+        return
+
+    final = _vetted(draft.strip())
+    if not final:
+        yield {"reply": _written(match, screen)}
+        return
+
+    if len(final) > released:
+        yield {"delta": final[released:]}
+    yield {"reply": _spoken(final, match, screen)}
 
 
 # Markers around the question, so that a question saying "ignore the above" is
@@ -184,17 +385,19 @@ def _fenced(question: str) -> str:
     return f"{_FENCE_OPEN}\n{_FENCE_LIKE.sub(' ', question)}\n{_FENCE_CLOSE}"
 
 
-def _from_model(question: str, match) -> str:
-    """Let a model word the answer, from the knowledge base and nothing else."""
+def _grounded(question: str, match) -> str:
+    """The question, and the only ground the model is allowed to stand on."""
     hint = f"\n\nThe closest reference entry is [{match.key}]." if match else ""
+    return f"Reference:\n{knowledge.as_context()}\n\n{_fenced(question)}{hint}"
+
+
+def _from_model(question: str, match, language: str = "en") -> str:
+    """Let a model word the answer, from the knowledge base and nothing else."""
     try:
         response = registry.complete(
             ModelRole.NARRATE,
-            system=rules().system,
-            prompt=(
-                f"Reference:\n{knowledge.as_context()}\n\n"
-                f"{_fenced(question)}{hint}"
-            ),
+            system=rules().system + _language_rule(language, question),
+            prompt=_grounded(question, match),
             temperature=0.2,
             max_tokens=400,
         )
@@ -203,6 +406,27 @@ def _from_model(question: str, match) -> str:
         return ""
 
     return _vetted(response.text.strip())
+
+
+def _straying(draft: str) -> str:
+    """The rule this draft has already broken, if it has broken one.
+
+    Everything `_vetted` decides on a finished draft, decided on an unfinished
+    one. It can be asked after every piece because every check here is monotone:
+    text that matches a rule goes on matching it as more is written, so a draft
+    that is clean so far cannot have been dirty earlier.
+    """
+    if len(draft) > rules().max_reply_chars:
+        return "too_long"
+    for rule in rules().outgoing:
+        if rule.pattern.search(draft):
+            return rule.name
+    refusal = refused_by(draft)
+    if refusal is not None:
+        return f"incoming:{refusal.name}"
+    if guardrails.contains_clinical_advice(draft):
+        return "clinical"
+    return ""
 
 
 def _vetted(draft: str) -> str:
@@ -216,21 +440,9 @@ def _vetted(draft: str) -> str:
     if not draft:
         return ""
 
-    if len(draft) > rules().max_reply_chars:
-        log.warning("helpdesk draft dropped", rule="too_long", chars=len(draft))
-        return ""
-
-    for rule in rules().outgoing:
-        if rule.pattern.search(draft):
-            log.warning("helpdesk draft dropped", rule=rule.name)
-            return ""
-
-    # A question that got past the incoming rules can still produce an answer
-    # that trips them, which is the shape a successful injection takes: the
-    # request looks ordinary and the reply is the part that strayed.
-    refusal = refused_by(draft)
-    if refusal is not None:
-        log.warning("helpdesk draft dropped", rule=f"incoming:{refusal.name}")
+    strayed = _straying(draft)
+    if strayed:
+        log.warning("helpdesk draft dropped", rule=strayed)
         return ""
 
     # The same treatment every model-written sentence in this system gets.

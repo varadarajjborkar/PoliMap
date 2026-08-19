@@ -41,6 +41,17 @@ class Suggestion(BaseModel):
 class HelpReply(BaseModel):
     text: str
     source: HelpSource = HelpSource.KNOWLEDGE
+    key: str = ""
+    """What this answer is, where it is one this app wrote.
+
+    Everything written down here is written in English, and the person reading
+    it may not be. So a written answer travels with the name it is read under
+    and the browser says it in their language, the same way every other
+    sentence this app composed does.
+
+    A model's answer carries no key on purpose: it was written in the language
+    it was asked in, and looking it up would replace it with a different
+    answer to a different question."""
     goes_to: str = ""
     suggestions: list[Suggestion] = Field(default_factory=list)
     offer_ticket: bool = False

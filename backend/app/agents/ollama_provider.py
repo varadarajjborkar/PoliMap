@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Iterator
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -258,6 +259,60 @@ class OllamaProvider(LLMProvider):
             latency_ms=(time.perf_counter() - started) * 1000,
             prompt_chars=len(prompt),
         )
+
+    def stream(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        system: str = "",
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
+        """Completion in pieces, as the model writes them.
+
+        No retry loop, unlike `complete`. A retry after the first piece has
+        left the building would repeat text somebody has already read, so a
+        stream that breaks is a stream that ends: the caller has the failure
+        and can fall back to something written down, which is exactly what the
+        help desk does.
+        """
+        key = ResponseCache.make_key(
+            provider=self.name,
+            model=model,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            images=None,
+        )
+        if (hit := self._cache.get(key)) is not None:
+            yield hit
+            return
+
+        options: dict[str, Any] = {"temperature": temperature}
+        if max_tokens is not None:
+            options["num_predict"] = max_tokens
+
+        pieces: list[str] = []
+        try:
+            for chunk in self._get_client().chat(
+                model=model,
+                messages=self._build_messages(prompt, system, None),
+                stream=True,
+                options=options,
+            ):
+                piece = self._content(chunk)
+                if piece:
+                    pieces.append(piece)
+                    yield piece
+        except Exception as exc:
+            raise LLMUnavailable(f"Ollama stream from {model} failed: {exc}") from exc
+
+        # Cached on the whole answer, so the same question asked twice costs
+        # one call and the second one streams out of the cache in one piece.
+        if pieces:
+            self._cache.set(key, model, "".join(pieces))
 
     def complete_structured(
         self,

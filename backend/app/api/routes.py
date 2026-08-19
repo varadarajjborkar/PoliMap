@@ -1884,10 +1884,14 @@ def clear_session(session_id: str) -> dict[str, Any]:
 
 
 class HelpAsk(BaseModel):
-    """A question, and where in the app it was asked from."""
+    """A question, where in the app it was asked from, and in what language."""
 
     message: str = Field(default="", max_length=2000)
     screen: str = Field(default="", max_length=40)
+    language: str = Field(default="en", max_length=8)
+    """The interface's language, which is where an answer lands if the question
+    itself does not say. What the question is written in wins: somebody typing
+    Hinglish into a Kannada interface is asking in Hinglish."""
 
 
 @router.post("/help/ask")
@@ -1900,9 +1904,51 @@ async def help_ask(payload: HelpAsk) -> dict[str, Any]:
     to look.
     """
     reply: HelpReply = await asyncio.to_thread(
-        assistant.answer, payload.message, screen=payload.screen
+        assistant.answer,
+        payload.message,
+        screen=payload.screen,
+        language=payload.language,
     )
     return reply.model_dump(mode="json")
+
+
+@router.post("/help/ask/stream")
+async def help_ask_stream(payload: HelpAsk) -> StreamingResponse:
+    """The same answer, arriving as it is written.
+
+    One JSON object per line rather than server-sent events: this is a reply to
+    a question, so it is a POST, and `EventSource` only ever issues a GET. The
+    lines are `{"delta": "..."}` while the answer is being written and exactly
+    one `{"reply": {...}}` at the end, which is the whole answer and the one to
+    keep. A draft stopped by a guardrail arrives as a reply that does not match
+    what was streamed, and replacing it is the point.
+
+    The work is blocking, so the generator is pumped one item at a time off the
+    event loop.
+    """
+    chunks = assistant.answer_stream(
+        payload.message, screen=payload.screen, language=payload.language
+    )
+    done = object()
+
+    async def lines():
+        while True:
+            chunk = await asyncio.to_thread(next, chunks, done)
+            if chunk is done:
+                return
+            reply = chunk.get("reply")
+            payload_out = (
+                {"reply": reply.model_dump(mode="json")}
+                if reply is not None
+                else chunk
+            )
+            yield json.dumps(payload_out) + "\n"
+
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/help/opening")
