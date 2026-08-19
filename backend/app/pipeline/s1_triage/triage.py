@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from app.core.events import bus
 from app.schemas.document import IngestedDocument, Page
 from app.schemas.events import PipelineStage
+from app.schemas.phrasing import phrase
 from app.schemas.policy import DocumentSection
 
 STAGE = PipelineStage.TRIAGE
@@ -205,10 +206,11 @@ def triage(document: IngestedDocument) -> IngestedDocument:
                 "rather than this policy",
                 sections=labels, insurer=insurer or None,
             )
-            document.warnings.append(
-                "We could not find a policy schedule in this document. "
-                "Any figures shown may be standard terms rather than yours."
-            )
+            document.warnings.append(phrase(
+                "doc.no_schedule",
+                "We could not find a policy schedule here. Figures shown may be "
+                "standard terms rather than yours.",
+            ))
         else:
             step.ok(
                 f"{document.filename}: "

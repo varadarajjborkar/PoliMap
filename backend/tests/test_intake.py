@@ -287,7 +287,7 @@ def test_unreadable_upload_is_flagged_rather_than_answered():
     )
     _warn_if_poor(doc)
     assert doc.warnings
-    assert "could not read" in doc.warnings[0].lower()
+    assert "could not read" in doc.warnings[0].text.lower()
 
 
 # --- end to end -----------------------------------------------------------

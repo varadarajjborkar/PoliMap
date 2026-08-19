@@ -173,7 +173,7 @@ export function Journey({
                 <div className="px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className={`text-[0.9375rem] font-semibold ${style.text}`}>
-                      {alert.title}
+                      {t(`alert.${alert.key}`, alert.title, alert.values)}
                     </h3>
                     {alert.amount_display && (
                       <span className={`shrink-0 text-[0.9375rem] font-semibold tabular-nums ${style.text}`}>
@@ -181,10 +181,12 @@ export function Journey({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 text-[0.875rem] leading-relaxed">{alert.message}</p>
+                  <p className="mt-1.5 text-[0.875rem] leading-relaxed">
+                    {t(`alert.${alert.key}.msg`, alert.message, alert.values)}
+                  </p>
                   {alert.action && (
                     <p className="mt-2 text-[0.875rem] font-medium leading-relaxed">
-                      → {alert.action}
+                      → {t(`alert.${alert.key}.do`, alert.action, alert.values)}
                     </p>
                   )}
                   {alert.kind === 'pre_auth_due' && !journey.pre_auth_filed && (
@@ -223,7 +225,14 @@ export function Journey({
           {[...journey.timeline].reverse().map((event) => (
             <li key={event.id} className="px-5 py-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[0.875rem] font-medium">{event.title}</span>
+                <span className="text-[0.875rem] font-medium">
+                  {event.title_key
+                    ? t(`timeline.${event.title_key}`, event.title, {
+                        ...event.values,
+                        stage: t(`journey.stage.${event.stage}`, event.values.stage),
+                      })
+                    : t(`journey.stage.${event.stage}`, event.title)}
+                </span>
                 <span className="shrink-0 text-[0.75rem] text-muted">
                   {new Date(event.at).toLocaleString('en-IN', {
                     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -232,7 +241,14 @@ export function Journey({
               </div>
               {event.description && (
                 <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                  {event.description}
+                  {event.note_key
+                    ? t(`timelinenote.${event.note_key}`, event.description, {
+                        ...event.values,
+                        room: event.values.room_key
+                          ? t(`room.${event.values.room_key}`, event.values.room)
+                          : event.values.room,
+                      })
+                    : event.description}
                 </p>
               )}
               {event.skipped?.length > 0 && (
@@ -586,13 +602,15 @@ function Position({ position, accrued }) {
                 {position.steps.map((step, index) => (
                   <li key={index}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[0.875rem] font-medium">{step.label}</span>
+                      <span className="text-[0.875rem] font-medium">
+                        {t(`waterfall.${step.kind}`, step.label)}
+                      </span>
                       <span className="shrink-0 text-[0.875rem] tabular-nums text-danger">
                         &minus;{step.deducted_display}
                       </span>
                     </div>
                     <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                      {step.explanation}
+                      {t(`waterfall.${step.key}.why`, step.explanation, step.values)}
                     </p>
                   </li>
                 ))}

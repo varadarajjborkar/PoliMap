@@ -1,0 +1,263 @@
+"""Every sentence the server writes can be read in every language it speaks.
+
+The interface's own words are checked on the frontend, by a script that reads
+the JSX and the language tables together. These sentences are not in the JSX:
+they are composed here, where the policy and the bill are, and they travel with
+the key they are read under. Nothing on that side can see where those keys come
+from, so nothing on that side can notice one going missing.
+
+This is the other half of that check, run from the side the keys are born on.
+It exercises the paths that produce them and asserts each key it sees has a
+line in every language file. A sentence added here without one renders English
+for a reader who chose Kannada, silently and forever, and that is exactly the
+failure this project keeps saying it is against.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from app.bill.check import review
+from app.journey import checklist, tracker
+from app.pipeline.s6_simulate import eligibility, waterfall
+from app.schemas.bill import BilledItem, ReadBill
+from app.schemas.journey import JourneyStage, JourneyState
+from app.schemas.policy import (
+    ExpenseHead,
+    NormalizedPolicy,
+    PolicyMeta,
+    RoomCategory,
+    RoomLimit,
+    SubLimit,
+    WaitingKind,
+    WaitingPeriod,
+)
+from app.schemas.procedure import CostSplit, Procedure, Specialty
+from app.schemas.simulation import BillLine, EstimatedBill
+
+LANGS = Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "lang"
+CODES = ("hi", "kn", "mr", "te")
+
+
+def _table(code: str) -> set[str]:
+    body = (LANGS / f"{code}.js").read_text()
+    return set(re.findall(r"^\s*'([a-zA-Z][a-zA-Z0-9._]*)':", body, re.M))
+
+
+@pytest.fixture(scope="module")
+def tables() -> dict[str, set[str]]:
+    return {code: _table(code) for code in CODES}
+
+
+def _assert_reads(keys: set[str], prefix: str, tables: dict[str, set[str]]) -> None:
+    missing = sorted(
+        f"{code}: {prefix}{key}"
+        for code in CODES
+        for key in keys
+        if f"{prefix}{key}" not in tables[code]
+    )
+    assert not missing, "no translation for:\n  " + "\n  ".join(missing)
+
+
+def _policy(**over) -> NormalizedPolicy:
+    fields = dict(
+        sum_insured=Decimal(500000),
+        meta=PolicyMeta(insurer_name="Test Insurer", start_date=date(2026, 1, 1)),
+        room_limit=RoomLimit(basis="flat_per_day", amount_per_day=Decimal(5000)),
+        copay_pct=Decimal(10),
+        copay_above_age=61,
+        deductible=Decimal(0),
+        covers_consumables=False,
+        pre_hospitalisation_days=30,
+        post_hospitalisation_days=60,
+        sublimits=[SubLimit(head=ExpenseHead.INVESTIGATIONS, amount=Decimal(5000))],
+        restore_benefit=True,
+    )
+    return NormalizedPolicy(**(fields | over))
+
+
+def _procedure(**over) -> Procedure:
+    fields = dict(
+        code="P1", name="Test treatment", specialty=Specialty.CARDIOLOGY,
+        base_rate_non_nabh=Decimal(100000), base_rate_nabh=Decimal(120000),
+        cost_split=CostSplit(fractions={ExpenseHead.SURGEON_FEE: 1.0}),
+    )
+    return Procedure(**(fields | over))
+
+
+def _bill() -> EstimatedBill:
+    return EstimatedBill(
+        hospital_id="H1", procedure_code="P1",
+        room_category=RoomCategory.SINGLE_PRIVATE,
+        los_days=4, icu_days=1, room_rate_per_day=Decimal(9000),
+        lines=[
+            BillLine(head=ExpenseHead.ROOM_RENT, amount=Decimal(27000)),
+            BillLine(head=ExpenseHead.ICU_CHARGES, amount=Decimal(12000)),
+            BillLine(head=ExpenseHead.SURGEON_FEE, amount=Decimal(60000)),
+            BillLine(head=ExpenseHead.INVESTIGATIONS, amount=Decimal(20000)),
+            BillLine(head=ExpenseHead.CONSUMABLES, amount=Decimal(6000)),
+            BillLine(head=ExpenseHead.NON_MEDICAL, amount=Decimal(2000)),
+        ],
+    )
+
+
+def test_every_checklist_item_reads_in_every_language(tables):
+    """All four stages, and the items that only appear on some policies."""
+    keys: set[str] = set()
+    for stage in (
+        JourneyStage.PRE_ADMISSION, JourneyStage.ADMITTED,
+        JourneyStage.DISCHARGE_PLANNING, JourneyStage.SETTLED,
+    ):
+        state = JourneyState(
+            stage=stage,
+            room_category=RoomCategory.SINGLE_PRIVATE,
+            room_rate_per_day=Decimal(9000),
+            admitted_at=datetime(2026, 8, 1, tzinfo=UTC),
+        )
+        procedure = _procedure(requires_implant=True)
+        for item in checklist.items_for(state, _policy(), procedure=procedure):
+            keys.add(item.string_key)
+            keys.add(item.string_key + ".why")
+    _assert_reads(keys, "checklist.", tables)
+
+
+def test_every_deduction_reads_in_every_language(tables):
+    """Both wordings of the two deductions that have two."""
+    keys: set[str] = set()
+    for policy in (_policy(), _policy(covers_consumables=True, copay_above_age=None)):
+        result = waterfall.simulate(
+            policy, _bill(), room_category=RoomCategory.SINGLE_PRIVATE,
+            patient_age=70, is_network=False,
+        )
+        for step in result.steps:
+            keys.add(step.kind.value)
+            keys.add(step.string_key + ".why")
+    _assert_reads(keys, "waterfall.", tables)
+
+
+def test_every_warning_and_note_reads_in_every_language(tables):
+    said: set[str] = set()
+    for policy in (
+        _policy(),
+        _policy(covers_consumables=True, copay_above_age=None),
+        _policy(sum_insured=Decimal(20000)),
+        _policy(room_limit=RoomLimit(basis="category_only",
+                                     category_ceiling=RoomCategory.TWIN_SHARING)),
+    ):
+        result = waterfall.simulate(
+            policy, _bill(), room_category=RoomCategory.SINGLE_PRIVATE,
+            patient_age=30, is_network=False,
+        )
+        said |= {p.key for p in [*result.warnings, *result.notes]}
+    _assert_reads(said, "", tables)
+
+
+def test_every_alert_reads_in_every_language(tables):
+    state = JourneyState(
+        stage=JourneyStage.ADMITTED,
+        room_category=RoomCategory.SINGLE_PRIVATE,
+        room_rate_per_day=Decimal(9000),
+        admitted_at=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    policy = _policy()
+    for head, amount in (
+        (ExpenseHead.ROOM_RENT, "27000"), (ExpenseHead.SURGEON_FEE, "60000"),
+        (ExpenseHead.INVESTIGATIONS, "6000"), (ExpenseHead.NON_MEDICAL, "3000"),
+    ):
+        tracker.record_cost(state, head, Decimal(amount), policy)
+
+    keys: set[str] = set()
+    for alert in tracker.evaluate(state, policy):
+        keys.add(alert.string_key)
+        keys.add(alert.string_key + ".msg")
+        keys.add(alert.string_key + ".do")
+    assert keys, "the scenario produced no alerts, so this proves nothing"
+    _assert_reads(keys, "alert.", tables)
+
+
+def test_every_timeline_entry_reads_in_every_language(tables):
+    policy = _policy()
+    state = tracker.start_journey(policy, hospital_name="Test Hospital")
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, policy)
+    tracker.advance(state, JourneyStage.ADMITTED, policy)
+    tracker.advance(state, JourneyStage.SETTLED, policy, force=True)
+
+    titles = {e.title_key for e in state.timeline if e.title_key}
+    notes = {e.note_key for e in state.timeline if e.note_key}
+    assert titles and notes
+    _assert_reads(titles, "timeline.", tables)
+    _assert_reads(notes, "timelinenote.", tables)
+
+
+def test_every_eligibility_finding_reads_in_every_language(tables):
+    """Each waiting kind, at each of the three ways a wait is described."""
+    procedure = _procedure(is_daycare=True)
+    keys: set[str] = set()
+    for months, days in ((0, 30), (24, 0), (48, 0)):
+        for kind, applies in (
+            (WaitingKind.INITIAL, "any"),
+            (WaitingKind.PRE_EXISTING, "pre-existing diseases"),
+            (WaitingKind.SPECIFIC_AILMENT, "test"),
+        ):
+            policy = _policy(
+                covers_daycare=False,
+                waiting_periods=[WaitingPeriod(
+                    months=months, days=days, kind=kind, applies_to=applies,
+                )],
+            )
+            for pre_existing in (None, True):
+                found = eligibility.assess(
+                    policy, procedure, on=date(2026, 2, 1),
+                    pre_existing=pre_existing,
+                )
+                for finding in found.findings:
+                    keys.add(finding.key)
+                    keys.add(finding.key + ".detail")
+    keys.discard("")
+    keys.discard(".detail")
+    _assert_reads(keys, "elig.", tables)
+
+
+def test_every_bill_finding_reads_in_every_language(tables):
+    read = ReadBill(
+        gross_total=Decimal(99999),
+        items=[
+            BilledItem(line_no=1, description="Gloves", amount=Decimal(500)),
+            BilledItem(line_no=2, description="Room rent", amount=Decimal(27000),
+                       qty=Decimal(3), rate=Decimal(9000)),
+            BilledItem(line_no=3, description="Surgeon fee", amount=Decimal(60000)),
+            BilledItem(line_no=4, description="Surgeon fee", amount=Decimal(60000)),
+            BilledItem(line_no=5, description="Tests", amount=Decimal(20000),
+                       qty=Decimal(2), rate=Decimal(5000)),
+            BilledItem(line_no=6, description="Consumables", amount=Decimal(6000)),
+            BilledItem(line_no=7, description="Something unknown", amount=Decimal(900)),
+        ],
+    )
+    checked = review(
+        read, _policy(),
+        hospital_name="Test Hospital",
+        room_category=RoomCategory.SINGLE_PRIVATE,
+        patient_age=70,
+    )
+    kinds = {f.kind.value for f in checked.findings}
+    keys: set[str] = set()
+    for finding in checked.findings:
+        keys.add(finding.string_key)
+        keys.add(finding.string_key + ".detail")
+        keys.add(finding.string_key + ".ask")
+    assert kinds and keys
+    _assert_reads(kinds, "findkind.", tables)
+    _assert_reads(keys, "finding.", tables)
+
+
+def test_the_language_files_agree_with_each_other(tables):
+    """A key in one and not another is the same silence, one language along."""
+    reference = tables["hi"]
+    for code in CODES[1:]:
+        assert tables[code] == reference, f"{code} and hi hold different keys"

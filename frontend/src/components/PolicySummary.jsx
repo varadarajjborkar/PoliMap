@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
+import { said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // What we read from the policy, and the things we could not settle.
@@ -95,7 +96,7 @@ export function PolicySummary({
             </h3>
             <ul className="mt-2 space-y-1 text-[0.875rem] leading-relaxed text-warn">
               {policy.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+                <li key={warning.key}>{said(t, warning)}</li>
               ))}
             </ul>
           </div>

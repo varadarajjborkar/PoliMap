@@ -33,6 +33,7 @@ from app.core.logging import get_logger
 from app.schemas.bill import BillReview
 from app.schemas.journey import JourneyState
 from app.schemas.match import MatchResult
+from app.schemas.phrasing import Phrase
 from app.schemas.policy import NormalizedPolicy
 
 log = get_logger(__name__)
@@ -47,7 +48,7 @@ class Session:
     document_name: str = ""
     read_quality: float = 1.0
     needed_ocr: bool = False
-    warnings: list[str] = field(default_factory=list)
+    warnings: list[Phrase] = field(default_factory=list)
     match: MatchResult | None = None
     journey: JourneyState | None = None
     insurer_id: str = ""
@@ -93,7 +94,7 @@ class Session:
                 "document_name": self.document_name,
                 "read_quality": self.read_quality,
                 "needed_ocr": self.needed_ocr,
-                "warnings": self.warnings,
+                "warnings": [w.model_dump() for w in self.warnings],
                 "insurer_id": self.insurer_id,
                 "clarification_rounds": self.clarification_rounds,
                 "pre_existing": self.pre_existing,
@@ -125,7 +126,7 @@ class Session:
             document_name=data.get("document_name", ""),
             read_quality=data.get("read_quality", 1.0),
             needed_ocr=data.get("needed_ocr", False),
-            warnings=list(data.get("warnings", [])),
+            warnings=[Phrase.model_validate(w) for w in data.get("warnings", [])],
             insurer_id=data.get("insurer_id", ""),
             clarification_rounds=data.get("clarification_rounds", 0),
             pre_existing=data.get("pre_existing"),

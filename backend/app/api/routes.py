@@ -208,7 +208,7 @@ def _policy_payload(session: Session) -> dict[str, Any]:
         "document": session.document_name,
         "read_quality": session.read_quality,
         "needed_ocr": session.needed_ocr,
-        "warnings": session.warnings,
+        "warnings": [w.model_dump() for w in session.warnings],
         "confidence": policy.confidence,
         "insurer_name": policy.meta.insurer_name,
         "plan_name": policy.meta.plan_name,
@@ -1499,7 +1499,7 @@ def _bill_payload(session: Session) -> dict[str, Any] | None:
         "advance_display": (
             format_inr(bill.advance_paid) if bill.advance_paid else ""
         ),
-        "notes": bill.notes,
+        "notes": [n.model_dump() for n in bill.notes],
         "questionable": float(review.questionable),
         "questionable_display": format_inr(review.questionable),
         "worth_asking": review.worth_asking,

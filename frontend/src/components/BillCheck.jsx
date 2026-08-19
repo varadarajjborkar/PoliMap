@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
+import { said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Spinner } from './Primitives'
 
 // The final bill, read and checked.
@@ -162,7 +163,7 @@ function Checked({ bill, busy, onDrop }) {
         <ul className="space-y-1 px-5 py-3">
           {bill.notes.map((note, index) => (
             <li key={index} className="text-[0.75rem] leading-relaxed text-muted">
-              {note}
+              {said(t, note)}
             </li>
           ))}
         </ul>
@@ -193,16 +194,17 @@ function Checked({ bill, busy, onDrop }) {
 }
 
 function Finding({ finding }) {
+  const t = useT()
   const style = SEVERITY[finding.severity] ?? SEVERITY.info
   return (
     <li className={`px-5 py-4 ${style.bg}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className={`text-[0.75rem] font-medium ${style.text}`}>
-            {finding.label}
+            {t(`findkind.${finding.kind}`, finding.label)}
           </span>
           <p className="mt-0.5 text-[0.875rem] font-medium leading-relaxed">
-            {finding.headline}
+            {t(`finding.${finding.key}`, finding.headline, finding.values)}
           </p>
         </div>
         {finding.amount_display && (
@@ -214,7 +216,7 @@ function Finding({ finding }) {
 
       {finding.detail && (
         <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-          {finding.detail}
+          {t(`finding.${finding.key}.detail`, finding.detail, finding.values)}
         </p>
       )}
 
@@ -222,13 +224,13 @@ function Finding({ finding }) {
           set apart from the explanation rather than buried under it. */}
       {finding.ask && (
         <p className="mt-2 border-l-2 border-current/30 pl-3 text-[0.8125rem] leading-relaxed">
-          {finding.ask}
+          {t(`finding.${finding.key}.ask`, finding.ask, finding.values)}
         </p>
       )}
 
       {finding.lines.length > 0 && (
         <p className="mt-2 text-[0.75rem] text-muted">
-          Line{finding.lines.length > 1 ? 's' : ''} {finding.lines.join(', ')}
+          {t('bill.lines_at', 'Lines {lines}', { lines: finding.lines.join(', ') })}
         </p>
       )}
     </li>
@@ -272,7 +274,9 @@ function Settlement({ settlement }) {
         <ul className="mt-3 space-y-2">
           {settlement.waterfall.map((step, index) => (
             <li key={index} className="flex items-baseline justify-between gap-3">
-              <span className="text-[0.8125rem]">{step.label}</span>
+              <span className="text-[0.8125rem]">
+                {t(`waterfall.${step.kind}`, step.label)}
+              </span>
               <span className="shrink-0 text-[0.8125rem] tabular-nums text-muted">
                 {step.deducted_display}
               </span>

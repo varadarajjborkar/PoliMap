@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
+import { said, spans } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
 import { TreatmentPicker } from './TreatmentPicker'
 
@@ -159,7 +160,8 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
           <p className={`text-[0.9375rem] font-semibold ${blocking ? 'text-danger' : 'text-warn'}`}>
             {blocking
               ? t('eligibility.declined', 'Your insurer would decline this claim')
-              : eligibility.headline}
+              : t(`elig.${eligibility.findings[0]?.key}`, eligibility.headline,
+                  eligibility.findings[0]?.values)}
           </p>
           <p className="mt-1 text-[0.875rem] leading-relaxed">
             {blocking
@@ -176,9 +178,11 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
             .filter((finding) => finding.verdict !== 'covered')
             .map((finding, index) => (
               <li key={index} className="rounded-lg bg-surface/70 px-3 py-2">
-                <p className="text-[0.8125rem] font-medium">{finding.headline}</p>
+                <p className="text-[0.8125rem] font-medium">
+                  {t(`elig.${finding.key}`, finding.headline, spans(t, finding.values))}
+                </p>
                 <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                  {finding.detail}
+                  {t(`elig.${finding.key}.detail`, finding.detail, spans(t, finding.values))}
                 </p>
               </li>
             ))}
@@ -186,7 +190,9 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
 
         {question && (
           <div className="rounded-lg border border-line bg-surface px-3 py-3">
-            <p className="text-[0.875rem] font-medium">{question.question}</p>
+            <p className="text-[0.875rem] font-medium">
+              {t(`eligask.${question.key}`, question.question, question.values)}
+            </p>
             <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
               {t(
                 'eligibility.why_ask',
@@ -252,7 +258,7 @@ export function Results({ results, onStartJourney, starting }) {
     <div className="space-y-4">
       <Card>
         <div className="px-5 py-4">
-          <p className="text-[0.9375rem] font-medium">{results.message}</p>
+          <p className="text-[0.9375rem] font-medium">{said(t, results.message)}</p>
           <p className="mt-1 text-[0.875rem] text-muted">
             {results.city
               ? t('results.looked_at.city', 'We looked at {count} hospitals in {city}.', {
@@ -267,7 +273,8 @@ export function Results({ results, onStartJourney, starting }) {
           </p>
           {results.one_thing_to_change && (
             <p className="mt-1 text-[0.875rem] text-muted">
-              {results.one_thing_to_change}
+              {t(`advice.${results.one_thing_to_change.key}`,
+                 results.one_thing_to_change.text)}
             </p>
           )}
 
@@ -278,8 +285,10 @@ export function Results({ results, onStartJourney, starting }) {
               </p>
               {results.relaxations.map((relaxation) => (
                 <div key={relaxation.kind} className="text-[0.8125rem] leading-relaxed text-warn">
-                  <span className="font-medium">{relaxation.description}</span>{' '}
-                  {relaxation.consequence}
+                  <span className="font-medium">
+                    {t(`relax.${relaxation.kind}`, relaxation.description)}
+                  </span>{' '}
+                  {t(`relax.${relaxation.kind}.also`, relaxation.consequence)}
                 </div>
               ))}
             </div>
@@ -456,28 +465,37 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
         </div>
 
         {option.reasons.map((reason) => (
-          <p key={reason} className="text-[0.875rem] leading-relaxed">
-            <span className="text-brand">✓</span> {reason}
+          <p key={reason.key} className="text-[0.875rem] leading-relaxed">
+            <span className="text-brand">✓</span> {said(t, reason)}
           </p>
         ))}
         {option.tradeoffs.map((tradeoff) => (
-          <p key={tradeoff} className="text-[0.875rem] leading-relaxed text-muted">
-            <span>−</span> {tradeoff}
+          <p key={tradeoff.key} className="text-[0.875rem] leading-relaxed text-muted">
+            <span>−</span> {said(t, tradeoff)}
           </p>
         ))}
 
         {option.counterfactual && (
           <p className="rounded-lg bg-brand-soft px-3 py-2 text-[0.875rem] leading-relaxed text-brand">
-            {option.counterfactual}
+            {said(t, {
+              ...option.counterfactual,
+              values: {
+                ...option.counterfactual.values,
+                room: t(
+                  `room.${option.counterfactual.values.room_key}`,
+                  option.counterfactual.values.room
+                ).toLowerCase(),
+              },
+            })}
           </p>
         )}
 
         {option.warnings?.map((warning) => (
           <p
-            key={warning}
+            key={warning.key}
             className="rounded-lg bg-warn-soft px-3 py-2 text-[0.8125rem] leading-relaxed text-warn"
           >
-            {warning}
+            {said(t, warning)}
           </p>
         ))}
       </div>
@@ -536,15 +554,21 @@ function Waterfall({ option }) {
         {option.waterfall.map((step, index) => (
           <div key={index}>
             <Row
-              label={step.label}
+              label={t(`waterfall.${step.kind}`, step.label)}
               amount={`− ${step.amount_display}`}
               width={bill > 0 ? (step.payable_after / bill) * 100 : 0}
               tone="deduct"
             />
             <p className="mt-1 pl-1 text-[0.75rem] leading-relaxed text-muted">
-              {step.explanation}
+              {t(`waterfall.${step.key}.why`, step.explanation, step.values)}
               {step.heads?.length > 0 && (
-                <span className="text-muted"> ({step.heads.join(', ')})</span>
+                <span className="text-muted">
+                  {' ('}
+                  {step.head_keys
+                    .map((head, at) => t(`head.${head}`, step.heads[at]))
+                    .join(', ')}
+                  {')'}
+                </span>
               )}
             </p>
           </div>
@@ -566,8 +590,19 @@ function Waterfall({ option }) {
           {option.bill_lines.map((line, index) => (
             <li key={index} className="flex justify-between gap-4 text-[0.8125rem]">
               <span className="text-muted">
-                {line.label}
-                {line.note && <span className="text-[0.6875rem]"> ({line.note})</span>}
+                {t(`head.${line.head}`, line.label)}
+                {line.note && (
+                  <span className="text-[0.6875rem]">
+                    {' ('}
+                    {t(`billnote.${line.note_key}`, line.note, {
+                      ...line.note_values,
+                      room: line.note_values?.room_key
+                        ? t(`room.${line.note_values.room_key}`, line.note_values.room)
+                        : line.note_values?.room,
+                    })}
+                    {')'}
+                  </span>
+                )}
               </span>
               <span className="shrink-0 tabular-nums">{line.amount_display}</span>
             </li>

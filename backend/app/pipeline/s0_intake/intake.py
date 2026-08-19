@@ -42,6 +42,7 @@ from app.schemas.document import (
     Word,
 )
 from app.schemas.events import EventStatus, PipelineStage
+from app.schemas.phrasing import phrase
 from app.schemas.policy import BoundingBox
 
 log = get_logger(__name__)
@@ -407,24 +408,28 @@ def _warn_if_poor(document: IngestedDocument) -> None:
     handed a confident answer derived from nothing.
     """
     if not document.is_usable:
-        document.warnings.append(
-            "We could not read enough text from this file. "
-            "Try a clearer photo, or enter your details manually."
-        )
+        document.warnings.append(phrase(
+            "doc.unreadable",
+            "We could not read enough of this file. Try a clearer photo, or "
+            "type your details in.",
+        ))
         return
 
     if document.quality_score < 0.60:
-        document.warnings.append(
-            "This document was hard to read, so some details may be wrong. "
-            "Please check the figures we show you."
-        )
+        document.warnings.append(phrase(
+            "doc.hard_to_read",
+            "This was hard to read, so some details may be wrong. Please check "
+            "the figures.",
+        ))
 
     unreadable = [p.page_index + 1 for p in document.pages if not p.is_legible]
     if unreadable and len(unreadable) < document.page_count:
-        document.warnings.append(
+        document.warnings.append(phrase(
+            "doc.unreadable_pages",
             f"We could not read page{'s' if len(unreadable) > 1 else ''} "
-            f"{', '.join(map(str, unreadable))}."
-        )
+            f"{', '.join(map(str, unreadable))}.",
+            pages=", ".join(map(str, unreadable)),
+        ))
 
 
 def ingest_bytes(

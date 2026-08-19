@@ -64,6 +64,37 @@ export function loadStrings(code) {
   return pending.get(code)
 }
 
+// A sentence the server composed, read in the reader's language.
+//
+// The server sends three things for each of these: the key that says which
+// sentence it is, the English as it composed it, and the values it wrote in.
+// Everything here does is put them in the order `t` takes them.
+//
+// The keys are listed in scripts/check-strings.mjs rather than found in the
+// source, because they are written in Python. That list is what makes a
+// sentence the server can send but no language can say fail the build.
+export function said(t, phrase, prefix = '') {
+  if (!phrase) return ''
+  return t(prefix + phrase.key, phrase.text, phrase.values)
+}
+
+// A waiting period, said in the reader's language.
+//
+// The server sends "24 months" already written, because a sentence with no
+// translation still has to read. Beside it, it sends the same span as a unit
+// and a count, which is the only form a table can reach: no translation can
+// get inside an English phrase already dropped into the middle of a sentence.
+export function spans(t, values) {
+  if (!values?.period_unit) return values
+  return {
+    ...values,
+    period: t(`dur.${values.period_unit}`, values.period, {
+      n: values.period_n,
+      d: values.period_d,
+    }),
+  }
+}
+
 // Takes the table rather than the code, because by the time anything renders
 // the table has already been fetched and there is nothing left to look up.
 export function translator(table) {

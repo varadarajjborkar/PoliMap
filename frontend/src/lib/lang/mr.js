@@ -527,4 +527,440 @@ export default {
 
   disclaimer:
     'हे अंदाज केवळ मार्गदर्शनासाठी आहेत. हे कोटेशन नाही, मंजुरी नाही, आणि वैद्यकीय सल्लाही नाही. सर्व रकमा तुमच्या विमा कंपनीकडून आणि रुग्णालयाच्या विमा काउंटरवर तपासून घ्या.',
+
+  // --- what the server writes -----------------------------------------------
+  //
+  // Composed in Python, where the policy and the bill are, and sent with the
+  // key it is read under and the figures written into it. The English arrives
+  // beside it, so a key with no line here still reads.
+
+  // What to do at this stage of this admission.
+  'checklist.carry_card':
+    'तुमचे पॉलिसी कार्ड आणि रुग्णाचे फोटो ओळखपत्र सोबत ठेवा',
+  'checklist.carry_card.why':
+    'दोन्हींशिवाय काउंटर कॅशलेस दावा सुरू करू शकत नाही.',
+  'checklist.confirm_network':
+    'या उपचारासाठी इथे {insurer} कॅशलेस चालते का ते रुग्णालयाला विचारा',
+  'checklist.confirm_network.why':
+    'नेटवर्कची यादी बदलत राहते. महत्त्वाचे काउंटरवर ठरते.',
+  'checklist.ask_for_room': 'दिवसाला {cap} किंवा त्याहून कमी असलेली खोली मागा',
+  'checklist.ask_for_room.why':
+    'महाग खोली फक्त खोलीच नाही, सर्जन, ऑपरेशन थिएटर आणि नर्सिंगवर मिळणारी रक्कमही कमी करते.',
+  'checklist.gather_pre_bills':
+    'गेल्या {days} दिवसांची बिले जमा करा: डॉक्टर, तपासण्या, औषधे',
+  'checklist.gather_pre_bills.why':
+    'यांचा दावा करता येतो, आणि हीच सर्वाधिक फेकून दिली जातात.',
+  'checklist.expect_consumables':
+    'हातमोजे, सिरिंज अशा गोष्टींचा खर्च स्वतःचा समजा',
+  'checklist.expect_consumables.why':
+    'ही पॉलिसी हे देत नाही. शस्त्रक्रियेत हे अनेकदा काही हजार रुपयांपर्यंत जातात.',
+  'checklist.check_room_rate': 'दाखल फॉर्मवर लिहिलेला खोलीचा दर तपासा',
+  'checklist.check_room_rate.why':
+    'हाच एक आकडा ठरवतो की उरलेल्या बिलाचे किती मिळेल. आताच दुरुस्त करा; डिस्चार्जच्या वेळी कोणी बघत नाही.',
+  'checklist.keep_receipts': 'प्रत्येक पावती ठेवा, औषधाच्या दुकानाचीही',
+  'checklist.keep_receipts.why': 'मूळ बिलाशिवाय काहीही परत मिळत नाही.',
+  'checklist.daily_bill': 'दररोज बिल मागा, आणि ते वाचा',
+  'checklist.daily_bill.why':
+    'त्याच दिवशी विचारलेला खर्च दुरुस्त होतो. डिस्चार्जच्या दिवशी विचारल्यास त्याचे समर्थन होते.',
+  'checklist.ask_cost_first':
+    'प्रत्येक तपासणीचा खर्च आधी विचारा, मग होकार द्या',
+  'checklist.ask_cost_first.why':
+    'बिल सर्वात वेगाने तपासण्यांनी वाढते, आणि मर्यादा तिथेच गुपचूप ओलांडली जाते.',
+  'checklist.watch_the_room':
+    'दुसऱ्या खोलीत किंवा आयसीयूमध्ये हलवण्यापूर्वी विचारा',
+  'checklist.watch_the_room.why':
+    'नवीन खोली म्हणजे नवा दैनिक दर, आणि खोलीशी जोडलेल्या प्रत्येक खर्चावर नवा वाटा.',
+  'checklist.room_within_cap':
+    'तुमच्या खोलीचे बिल दिवसाला {cap} किंवा कमी आहे का पाहा',
+  'checklist.room_within_cap.why':
+    'तुमची भरती {rate} दराने झाली होती. खोली बदलणे पहिल्या दिवशी सोपे, शेवटच्या दिवशी कठीण.',
+  'checklist.diagnostics_sublimit':
+    'तपासण्यांवर तुमची पॉलिसी {cap} ची मर्यादा ठेवते हे डॉक्टरांना सांगा',
+  'checklist.diagnostics_sublimit.why':
+    'आतापर्यंत वापर: {spent}. मर्यादेवरचे सर्व तुमचे.',
+  'checklist.implant_invoice': 'इम्प्लांटचे बिल आणि त्याचा स्टिकर मागा',
+  'checklist.implant_invoice.why':
+    'इम्प्लांटचा दावा वेगळा असतो आणि उत्पादकाच्या बिलाशिवाय नाकारला जातो. नंतर ते कुठेही मिळत नाही.',
+  'checklist.consumables_running':
+    'वापरल्या जाणाऱ्या साहित्याची सविस्तर यादी ठेवायला वॉर्डला सांगा',
+  'checklist.consumables_running.why':
+    'यांचे पैसे तुम्ही देत आहात, त्यामुळे डिस्चार्जच्या वेळी तपासण्याचा हाच एक मार्ग.',
+  'checklist.chase_preauth':
+    'विमा काउंटरवर पूर्वमंजुरीचा नाव घेऊन पाठपुरावा करा',
+  'checklist.chase_preauth.why':
+    'न वाचलेला अर्ज हेच कॅशलेसचे रोखीत रूपांतर होण्याचे सर्वात सामान्य कारण. फक्त मंजुरी नाही, किती रक्कम मंजूर झाली ते विचारा: विमा कंपन्या अनेकदा कमी मंजूर करतात, आणि फरक तुमचा असतो.',
+  'checklist.discharge_summary': 'डिस्चार्ज सारांश घ्या, सही आणि शिक्क्यासह',
+  'checklist.discharge_summary.why':
+    'याशिवाय कोणताही दावा मिळत नाही. त्यात उपचार आणि दोन्ही तारखा आहेत का पाहा.',
+  'checklist.itemised_bill':
+    'प्रत्येक वस्तूचे तपशीलवार बिल घ्या, एका ओळीची बेरीज नाही',
+  'checklist.itemised_bill.why':
+    'एक आकडा तुमच्या पॉलिसीशी ताडून पाहता येत नाही, आणि विमा कंपनी त्यावर प्रश्न उपस्थित करेल.',
+  'checklist.originals': 'मूळ अहवाल, चिठ्ठ्या आणि पावत्या घ्या',
+  'checklist.originals.why':
+    'मूळ, प्रत नाही. यांशिवाय दावे नाकारले जातात, आणि रुग्णालय दुसरी प्रत ठेवत नाही.',
+  'checklist.check_non_payables': 'विमा कधीच देत नाही अशा गोष्टी बिलात पाहा',
+  'checklist.check_non_payables.why':
+    'हातमोजे, गाऊन आणि रेकॉर्ड शुल्क IRDAI च्या न-देय यादीत आहेत आणि तुमच्या बाजूला येतात. वर बिलाचा फोटो द्या, आम्ही ओळ-ओळ पाहू.',
+  'checklist.check_deduction': 'प्रमाणशीर कपात कशी काढली ते तपासा',
+  'checklist.check_deduction.why':
+    'ही फक्त खोली, नर्सिंग, डॉक्टर, सर्जन आणि थिएटरवर लागते. मे 2024 पासून ती औषधे, तपासण्या, इम्प्लांट किंवा आयसीयूला स्पर्श करू शकत नाही. वरची बिल तपासणी हे तुमच्यासाठी काढते.',
+  'checklist.post_window': 'प्रत्येक चिठ्ठी आणि बिल आणखी {days} दिवस जपून ठेवा',
+  'checklist.post_window.why':
+    'त्या काळातील भेटी, औषधे आणि तपासण्यांचा दावा करता येतो, आणि फेकलेल्या पावतीमुळे हेच सर्वाधिक गमावले जाते.',
+  'checklist.post_window_until':
+    '{until} पर्यंत प्रत्येक चिठ्ठी आणि बिल जपून ठेवा',
+  'checklist.post_window_until.why':
+    'त्या काळातील भेटी, औषधे आणि तपासण्यांचा दावा करता येतो, आणि फेकलेल्या पावतीमुळे हेच सर्वाधिक गमावले जाते.',
+  'checklist.claim_deadline':
+    'दावा पाठवण्याची शेवटची तारीख विमा कंपनीला विचारा',
+  'checklist.claim_deadline.why':
+    'परतफेडीच्या दाव्याला मुदत असते, बहुधा डिस्चार्जपासून 15 ते 30 दिवस. उशिरा पाठवलेला दावा फक्त तारखेमुळे नाकारला जातो.',
+  'checklist.final_approval': 'बिलावर सही करण्यापूर्वी अंतिम मंजुरीची वाट पाहा',
+  'checklist.final_approval.why':
+    'अंतिम मंजुरी बहुधा पूर्वमंजुरीपेक्षा वेगळी असते, आणि तुम्ही ज्यावर सही करता तेच तुम्हाला द्यावे लागते.',
+  'checklist.settlement_letter': 'सेटलमेंट पत्र बिलांसोबत ठेवा',
+  'checklist.settlement_letter.why':
+    'त्यात काय दिले आणि काय कापले ते लिहिलेले असते, आणि प्रत्येक वाद त्यातूनच लढला जातो.',
+  'checklist.check_deductions': 'प्रत्येक कपात तुमच्या पॉलिसीशी ताडून पाहा',
+  'checklist.check_deductions.why':
+    'तुमच्या कागदपत्रातील कोणत्याही अटीशी न जुळणारी कपात विचारण्यासारखी आहे. विमा कंपन्या त्या दुरुस्त करतात.',
+  'checklist.note_remaining': 'या पॉलिसी वर्षात किती कव्हर उरले ते नोंदवा',
+  'checklist.note_remaining.why':
+    'नूतनीकरणापूर्वीची प्रत्येक भरती याच्यातच बसायला हवी.',
+
+  // The deduction chain, and what one line of a bill is.
+  'waterfall.non_payable': 'कधीच न मिळणाऱ्या गोष्टी',
+  'waterfall.non_payable.why': 'हातमोजे, सिरिंज आणि नोंदणी कधीच मिळत नाहीत.',
+  'waterfall.non_payable_consumables': 'कधीच न मिळणाऱ्या गोष्टी',
+  'waterfall.non_payable_consumables.why':
+    'हातमोजे, सिरिंज आणि नोंदणी कधीच मिळत नाहीत, आणि वापरसाहित्यासाठी तुमच्याकडे नसलेला अ‍ॅड-ऑन लागतो.',
+  'waterfall.sublimit': 'एका श्रेणीच्या मर्यादेवर',
+  'waterfall.sublimit.why':
+    '{head} ची मर्यादा {cap} आहे. अंदाज {billed} चा आहे.',
+  'waterfall.room_rent_cap': 'खोली तुमच्या कव्हरपेक्षा वर',
+  'waterfall.room_rent_cap.why':
+    'तुमची खोली दिवसाला {rate} आहे आणि कव्हर {cap} आहे. फरक तुम्ही द्याल.',
+  'waterfall.proportionate': 'प्रमाणशीर कपात',
+  'waterfall.proportionate.why':
+    'तुमची खोली तुमच्या श्रेणीपेक्षा वर आहे, त्यामुळे खोलीवरून ठरणाऱ्या खर्चांवर फक्त {pct} मिळते: सर्जन, थिएटर आणि नर्सिंग. आयसीयू, औषधे, तपासण्या आणि इम्प्लांट अस्पर्श राहतात.',
+  'waterfall.procedure_cap': 'या उपचाराच्या मर्यादेवर',
+  'waterfall.procedure_cap.why':
+    'तुमची पॉलिसी या उपचाराची मर्यादा {cap} ठेवते.',
+  'waterfall.copay': 'तुमचा सह-भरणा वाटा',
+  'waterfall.copay.why': 'प्रत्येक मंजूर दाव्याचा {pct}% तुम्ही देता.',
+  'waterfall.copay_age': 'तुमचा सह-भरणा वाटा',
+  'waterfall.copay_age.why':
+    'प्रत्येक मंजूर दाव्याचा {pct}% तुम्ही देता, हा {age} वर्षे व त्यावरील वयासाठीचा सह-भरणा आहे.',
+  'waterfall.deductible': 'तुमची वजावट रक्कम',
+  'waterfall.deductible.why':
+    'ही टॉप-अप पॉलिसी आहे. ती फक्त {amount} वरचे देते, तेवढे तुमचे किंवा दुसऱ्या पॉलिसीचे.',
+  'waterfall.sum_insured_exhausted': 'उरलेल्या कव्हरपेक्षा वर',
+  'waterfall.sum_insured_exhausted.why':
+    'या वर्षी फक्त {remaining} कव्हर उरले आहे, आणि दावा त्यापेक्षा वर आहे.',
+  'waterfall.scheme_package_rate': 'योजनेच्या पॅकेजमध्ये समाविष्ट',
+  'waterfall.scheme_package_rate.why':
+    '{scheme} हा उपचार ठरलेल्या {rate} मध्ये विकत घेते. रुग्णालय स्वतःच्या {price} मधील फरक तुमच्याकडून घेऊ शकत नाही. साहित्य, इम्प्लांट, औषधे, तपासण्या आणि जेवण सर्व पॅकेजमध्ये आहे.',
+  'waterfall.scheme_not_empanelled': 'इथे योजना चालत नाही',
+  'waterfall.scheme_not_empanelled.why':
+    '{hospital} {scheme} मध्ये नोंदणीकृत नाही, त्यामुळे योजना इथे काहीच देत नाही.',
+  'waterfall.second_policy': 'तुमच्या दुसऱ्या पॉलिसीने दिले',
+  'waterfall.second_policy.why':
+    'पहिल्या पॉलिसीनंतर उरलेले तुमच्या दुसऱ्या पॉलिसीने दिले.',
+  'billnote.nights': '{room} मध्ये {n} रात्री',
+  'billnote.icu_days': 'अतिदक्षतेत {n} दिवस',
+  'billnote.tier_scaled': 'खोलीच्या प्रकारावरून ठरते',
+  'billnote.non_medical': 'नोंदणी, रेकॉर्ड, अटेंडंट',
+  'bill.lines_at': 'ओळी {lines}',
+
+  // What needs attention now, and what has happened so far.
+  'alert.room_rate_conflict': 'तुमच्या खोलीचे बिल वेगळ्या दराने होत आहे',
+  'alert.room_rate_conflict.msg':
+    'ही भरती दिवसाला {booked} दराने ठरली होती, आणि नोंदलेले खर्च {observed} येतात. दोन्ही बरोबर असू शकत नाहीत.',
+  'alert.room_rate_conflict.do':
+    'खोली बदलली असेल तर हे बरोबर. नसेल तर कोणता दर लागू आहे ते बिलिंग काउंटरवर विचारा.',
+  'alert.room_over_limit': 'तुमची खोली तुमच्या कव्हरपेक्षा महाग आहे',
+  'alert.room_over_limit.msg':
+    'तुमची खोली दिवसाला {rate} आहे आणि कव्हर {cap} आहे. {days} दिवसांत ते {excess} खोलीभाडे, आणि सर्जन, थिएटर व नर्सिंगमधून सुमारे {knock_on} आणखी.',
+  'alert.room_over_limit.do':
+    'तुमच्या मर्यादेतील खोलीबद्दल विमा काउंटरवर विचारा. उद्यापासून पुढील कपात थांबते.',
+  'alert.room_over_limit_knock_on': 'तुमची खोली तुमच्या कव्हरपेक्षा महाग आहे',
+  'alert.room_over_limit_knock_on.msg':
+    'तुमची खोली दिवसाला {rate} आहे आणि कव्हर {cap} आहे. {days} दिवसांत ते {excess} खोलीभाडे, आणि सर्जन, थिएटर व नर्सिंगमधून सुमारे {knock_on} आणखी. ती दुसरी कपात खोली नसलेल्या खर्चांवर पडते, आणि हाच भाग बहुतेकांना दिसत नाही.',
+  'alert.room_over_limit_knock_on.do':
+    'तुमच्या मर्यादेतील खोलीबद्दल विमा काउंटरवर विचारा. उद्यापासून पुढील कपात थांबते.',
+  'alert.sublimit_nearly_used': '{head} ची मर्यादा जवळपास संपली',
+  'alert.sublimit_nearly_used.msg':
+    '{head} साठी तुमचे कव्हर {cap} आहे आणि {spent} चे बिल झाले आहे, म्हणजे {pct}.',
+  'alert.sublimit_nearly_used.do':
+    'यापेक्षा वरचे सर्व तुमचे. आणखी तपासण्यांआधी काउंटरवर विचारा.',
+  'alert.cover_almost_gone': 'तुमचे कव्हर जवळपास संपले आहे',
+  'alert.cover_almost_gone.msg':
+    'तुमच्या {total} कव्हरपैकी {consumed} चे बिल झाले आहे. {remaining} उरले आहे.',
+  'alert.cover_almost_gone.do':
+    'डिस्चार्जची तयारी आणि थेट तुम्हाला काय द्यावे लागेल ते विचारा.',
+  'alert.cover_on_track_today':
+    'खर्च तुमच्या कव्हरपुढे जाण्याच्या मार्गावर आहे',
+  'alert.cover_on_track_today.msg':
+    'दैनंदिन खर्च दिवसाला सुमारे {rate} चालू आहेत, आधीच बिल झालेले थिएटर आणि इम्प्लांट वगळून. या वेगाने तुमचे {total} कव्हर आजच ओलांडले जाते.',
+  'alert.cover_on_track_today.do':
+    'डिस्चार्जच्या वेळी नाही, आताच मांडण्यासारखे: टॉप-अप, दुसरे कव्हर, आणि रुग्णालयाच्या हप्ता काउंटरबद्दल विचारा.',
+  'alert.cover_on_track_days': 'खर्च तुमच्या कव्हरपुढे जाण्याच्या मार्गावर आहे',
+  'alert.cover_on_track_days.msg':
+    'दैनंदिन खर्च दिवसाला सुमारे {rate} चालू आहेत, आधीच बिल झालेले थिएटर आणि इम्प्लांट वगळून. या वेगाने तुमचे {total} कव्हर सुमारे {days} दिवसांत ओलांडले जाईल.',
+  'alert.cover_on_track_days.do':
+    'डिस्चार्जच्या वेळी नाही, आताच मांडण्यासारखे: टॉप-अप, दुसरे कव्हर, आणि रुग्णालयाच्या हप्ता काउंटरबद्दल विचारा.',
+  'alert.cover_on_track_soon': 'खर्च तुमच्या कव्हरपुढे जाण्याच्या मार्गावर आहे',
+  'alert.cover_on_track_soon.msg':
+    'दैनंदिन खर्च दिवसाला सुमारे {rate} चालू आहेत, आधीच बिल झालेले थिएटर आणि इम्प्लांट वगळून. या वेगाने तुमचे {total} कव्हर याच भरतीत ओलांडले जाईल.',
+  'alert.cover_on_track_soon.do':
+    'डिस्चार्जच्या वेळी नाही, आताच मांडण्यासारखे: टॉप-अप, दुसरे कव्हर, आणि रुग्णालयाच्या हप्ता काउंटरबद्दल विचारा.',
+  'alert.cover_most_used': 'तुमचे बहुतांश कव्हर वापरले गेले आहे',
+  'alert.cover_most_used.msg': 'या वर्षी {remaining} कव्हर उरले आहे.',
+  'alert.cover_most_used.do': 'पुढे आणखी उपचार लागल्यास हे लक्षात ठेवा.',
+  'alert.non_payable_accumulating': 'तुमची पॉलिसी न देणारे खर्च',
+  'alert.non_payable_accumulating.msg':
+    'आतापर्यंतच्या बिलात {amount} अशा गोष्टींचे आहे ज्या कोणतीही पॉलिसी देत नाही: हातमोजे, सिरिंज, नोंदणी. बाकी काहीही कव्हर असो, हे तुम्ही देता.',
+  'alert.non_payable_accumulating.do':
+    'ही तपासता यावीत म्हणून तपशीलवार बिल मागा.',
+  'alert.pre_auth_due': 'पूर्वमंजुरी पाठवायची आहे',
+  'alert.pre_auth_due.msg':
+    'कॅशलेससाठी शस्त्रक्रियेपूर्वी विमा कंपनीची मंजुरी लागते. तिच्याशिवाय तुम्ही रुग्णालयाला देऊन नंतर दावा कराल.',
+  'alert.pre_auth_due.do': 'ते आताच पाठवायला विमा काउंटरला सांगा.',
+  'timeline.start': 'उपचाराचे नियोजन',
+  'timeline.back': 'पुन्हा {stage} वर',
+  'timeline.skipped': '{stage} (पुढे उडी मारून)',
+  'timelinenote.start': '{cover} चे कव्हर.',
+  'timelinenote.start_hospital': '{cover} चे कव्हर. {hospital} पाहत आहोत.',
+  'timelinenote.admitted': '{room} मध्ये दाखल.',
+  'timelinenote.admitted_rate': '{room} मध्ये दाखल, दिवसाला {rate}.',
+  'timelinenote.discharge': 'डिस्चार्जची कागदपत्रे तयार होत आहेत.',
+  'timelinenote.settled': 'एकूण बिल {total}.',
+
+  // What stands between this policy and this claim.
+  'dur.days': '{n} दिवस',
+  'dur.months': '{n} महिने',
+  'dur.years': '{n} वर्षे',
+  'dur.months_days': '{n} महिने आणि {d} दिवस',
+  'elig.scheme': 'कोणतीही प्रतीक्षा कालावधी नाही',
+  'elig.scheme.detail':
+    'योजनेचे कव्हर कार्ड मिळाल्याच्या दिवसापासून सुरू होते.',
+  'elig.no_start_date':
+    'तुमच्या पॉलिसीची सुरुवातीची तारीख आम्हाला वाचता आली नाही',
+  'elig.no_start_date.detail':
+    'इथे प्रतीक्षा कालावधी {period} पर्यंत जातो. सुरुवातीच्या तारखेशिवाय ते अजूनही लागू आहेत का सांगता येत नाही.',
+  'eligask.no_start_date': 'ही पॉलिसी कधी सुरू झाली?',
+  'elig.daycare_excluded': 'कव्हर नाही: हे एका दिवसापेक्षा कमी वेळात होते',
+  'elig.daycare_excluded.detail':
+    '{procedure} साठी सहसा 24 तासांपेक्षा कमी वेळ लागतो. या पॉलिसीला पूर्ण दिवसाची भरती लागते आणि डे-केअर वगळलेले आहे, त्यामुळे कव्हर कितीही जुने असो, दावा नाकारला जाईल.',
+  'elig.daycare_unknown': 'डे-केअर कव्हर आहे का पाहा',
+  'elig.daycare_unknown.detail':
+    '{procedure} साठी सहसा 24 तासांपेक्षा कमी वेळ लागतो, आणि सामान्य कव्हरला पूर्ण दिवस लागतो. इथे काहीही एक बाजू सांगत नाही. दाखल होण्यापूर्वी विमा कंपनीला विचारा.',
+  'elig.initial_accident': 'अपघाती दुखापत म्हणून कव्हर',
+  'elig.initial_accident.detail':
+    'पहिले {period} फक्त अपघाती दुखापत कव्हर करतात, आणि हे तेच आहे.',
+  'elig.initial_days': '{n} दिवस कव्हर नाही',
+  'elig.initial_months': 'सुमारे {n} महिने कव्हर नाही',
+  'elig.initial_years': 'सुमारे {n} वर्षे कव्हर नाही',
+  'elig.initial_days.detail':
+    'ही पॉलिसी {start} रोजी सुरू झाली. पहिले {period} ती फक्त अपघाती दुखापत कव्हर करते, त्यामुळे {clears} पूर्वीची नियोजित भरती नाकारली जाते.',
+  'elig.named_days': '{n} दिवस कव्हर नाही',
+  'elig.named_months': 'सुमारे {n} महिने कव्हर नाही',
+  'elig.named_years': 'सुमारे {n} वर्षे कव्हर नाही',
+  'elig.named_days.detail':
+    'ही पॉलिसी {named} ला सुरुवातीपासून {period} थांबवते, त्यामुळे {procedure} {clears} पासून कव्हर आहे.',
+  'elig.pre_existing_ask': 'हे आधीपासून आहे की नाही यावर अवलंबून',
+  'elig.pre_existing_ask.detail':
+    'पॉलिसी सुरू होण्यापूर्वीचे आजार {period} थांबतात, म्हणजे {clears} पर्यंत. जो प्रथम सुरुवातीनंतर दिसला, तो आताच कव्हर आहे.',
+  'eligask.pre_existing_ask': 'ही पॉलिसी सुरू होण्यापूर्वी हा आजार होता का?',
+  'elig.pre_existing_days': 'आधीपासून असलेले: {n} दिवस कव्हर नाही',
+  'elig.pre_existing_months': 'आधीपासून असलेले: सुमारे {n} महिने कव्हर नाही',
+  'elig.pre_existing_years': 'आधीपासून असलेले: सुमारे {n} वर्षे कव्हर नाही',
+  'elig.pre_existing_days.detail':
+    'पॉलिसी सुरू होण्यापूर्वीचा आजार {clears} पासून कव्हर होतो.',
+  'elig.initial_months.detail':
+    'ही पॉलिसी {start} रोजी सुरू झाली. पहिले {period} ती फक्त अपघाती दुखापत कव्हर करते, त्यामुळे {clears} पूर्वीची नियोजित भरती नाकारली जाते.',
+  'elig.initial_years.detail':
+    'ही पॉलिसी {start} रोजी सुरू झाली. पहिले {period} ती फक्त अपघाती दुखापत कव्हर करते, त्यामुळे {clears} पूर्वीची नियोजित भरती नाकारली जाते.',
+  'elig.named_months.detail':
+    'ही पॉलिसी {named} ला सुरुवातीपासून {period} थांबवते, त्यामुळे {procedure} {clears} पासून कव्हर आहे.',
+  'elig.named_years.detail':
+    'ही पॉलिसी {named} ला सुरुवातीपासून {period} थांबवते, त्यामुळे {procedure} {clears} पासून कव्हर आहे.',
+  'elig.pre_existing_months.detail':
+    'पॉलिसी सुरू होण्यापूर्वीचा आजार {clears} पासून कव्हर होतो.',
+  'elig.pre_existing_years.detail':
+    'पॉलिसी सुरू होण्यापूर्वीचा आजार {clears} पासून कव्हर होतो.',
+
+  // A bill, read and checked against the policy.
+  'findkind.uncertain_read': 'वाचनात अनिश्चित',
+  'findkind.optional_item': 'कव्हर नाही',
+  'findkind.subsumed': 'आधीच समाविष्ट',
+  'findkind.duplicate': 'दोनदा नोंद',
+  'findkind.line_arithmetic': 'गणित जुळत नाही',
+  'findkind.total_mismatch': 'बेरीज जुळत नाही',
+  'findkind.unplaced': 'वर्गीकरण करता आले नाही',
+  'findkind.room_above_cap': 'खोली मर्यादेवर',
+  'findkind.proportionate': 'प्रमाणशीर कपात',
+  'findkind.sublimit': 'श्रेणीची मर्यादा',
+  'findkind.consumables': 'वापरसाहित्य',
+  'finding.uncertain_read': 'या फोटोतील प्रत्येक आकडा आम्हाला वाचता आला नाही',
+  'finding.uncertain_read.detail':
+    'आमच्या ओळी {lines} होतात आणि बिल {total} सांगते. यांचे जुळायला हवे, म्हणजे किमान एक आकडा चुकीचा वाचला गेला आहे.',
+  'finding.uncertain_read.ask':
+    'खालच्या ओळी आधी कागदाशी ताडून पाहा. सरळ, चांगल्या प्रकाशात काढलेला फोटो किंवा बिलिंग काउंटरने ईमेल केलेली PDF अचूक वाचली जाते.',
+  'finding.uncertain_read_no_total':
+    'या फोटोतील प्रत्येक आकडा आम्हाला वाचता आला नाही',
+  'finding.uncertain_read_no_total.detail':
+    'आमच्या ओळी {lines} होतात, आणि ताडून पाहण्यासाठी बिलाची स्वतःची बेरीज आम्हाला मिळाली नाही.',
+  'finding.uncertain_read_no_total.ask':
+    'खालच्या ओळी आधी कागदाशी ताडून पाहा. सरळ, चांगल्या प्रकाशात काढलेला फोटो किंवा बिलिंग काउंटरने ईमेल केलेली PDF अचूक वाचली जाते.',
+  'finding.listing.optional': '{items}: {amount}',
+  'finding.listing.optional.detail': 'कोणत्याही आरोग्य पॉलिसीत कव्हर नाही.',
+  'finding.listing.optional.ask':
+    'ही तुमच्या बाजूची आहेत. फक्त ओळ बरोबर वाचली आहे का पाहा.',
+  'finding.listing.in_room': '{items}: {amount}',
+  'finding.listing.in_room.detail': 'खोलीच्या शुल्कात आधीच समाविष्ट.',
+  'finding.listing.in_room.ask':
+    'हे खोलीच्या शुल्कात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
+  'finding.listing.in_procedure': '{items}: {amount}',
+  'finding.listing.in_procedure.detail':
+    'शस्त्रक्रियेच्या शुल्कात आधीच समाविष्ट.',
+  'finding.listing.in_procedure.ask':
+    'हे शस्त्रक्रियेच्या शुल्कात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
+  'finding.listing.in_treatment': '{items}: {amount}',
+  'finding.listing.in_treatment.detail': 'उपचाराच्या खर्चात आधीच समाविष्ट.',
+  'finding.listing.in_treatment.ask':
+    'हे उपचाराच्या खर्चात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
+  'finding.duplicate': '{item} {n} वेळा आले आहे, प्रत्येक वेळी {amount}',
+  'finding.duplicate.detail': 'ओळी {lines}.',
+  'finding.duplicate.ask':
+    'हे दोनदा नोंदले गेले का ते विचारा. दोन वेगळ्या दिवसांचा तोच खर्च सामान्य आहे, त्यामुळे उत्तर होय असू शकते, पण विचारायला काहीच जात नाही.',
+  'finding.line_arithmetic_over':
+    '{item}: {qty} × {rate} ने {expected} होते, {billed} नाही',
+  'finding.line_arithmetic_over.detail':
+    'गुणाकार केल्यावर येते त्यापेक्षा {difference} जास्त.',
+  'finding.line_arithmetic_over.ask':
+    'तिघांपैकी कोणता आकडा बरोबर आहे ते विचारा. चुकीच्या दराने लावलेली संख्या ही सर्वात सामान्य बिलिंग चूक आहे.',
+  'finding.line_arithmetic_under':
+    '{item}: {qty} × {rate} ने {expected} होते, {billed} नाही',
+  'finding.line_arithmetic_under.detail':
+    'गुणाकार केल्यावर येते त्यापेक्षा {difference} कमी.',
+  'finding.line_arithmetic_under.ask':
+    'तिघांपैकी कोणता आकडा बरोबर आहे ते विचारा. चुकीच्या दराने लावलेली संख्या ही सर्वात सामान्य बिलिंग चूक आहे.',
+  'finding.total_mismatch': 'ओळी {lines} होतात, बिल {total} सांगते',
+  'finding.total_mismatch.detail': '{difference} चा फरक.',
+  'finding.total_mismatch.ask':
+    'बेरीज तुमच्यासमोर करायला सांगा. एकतर एखादी ओळ सुटली आहे किंवा बेरीज चुकीची आहे, आणि सही करण्यापूर्वी दोन्ही सोडवण्यासारखी आहेत.',
+  'finding.unplaced': '{n} ओळींचे वर्गीकरण करता आले नाही, {amount}',
+  'finding.unplaced.detail': '{items}.',
+  'finding.unplaced.ask':
+    'अंदाज लावण्याऐवजी ही खालच्या हिशेबातून वगळली आहेत, त्यामुळे ते आकडे पूर्ण बिलापेक्षा इतके कमी आहेत.',
+  'finding.consumables': 'या बिलात वापरसाहित्य: {amount}',
+  'finding.consumables.detail':
+    'अ‍ॅड-ऑन घेतल्याशिवाय पॉलिसी वापरसाहित्य वगळतात, त्यामुळे बाकी काहीही असो, हा भाग तुमचा आहे.',
+  'finding.consumables.ask':
+    'ओळ खरोखर वापरसाहित्य आहे, औषध नाही हे पाहा, कारण औषधे तुमची पॉलिसी देते.',
+  'finding.room_rent_cap': 'खोली तुमच्या कव्हरपेक्षा वर: {amount}',
+  'finding.room_rent_cap.detail':
+    'तुमची खोली दिवसाला {rate} आहे आणि कव्हर {cap} आहे. फरक तुम्ही द्याल.',
+  'finding.room_rent_cap.ask':
+    'हे बिलावर नाही आणि काउंटर ते मांडणार नाही. विमा कंपनी सेटलमेंटच्या वेळी कापते, त्यामुळे हे तुम्हाला जुळवायचे आहे.',
+  'finding.proportionate': 'प्रमाणशीर कपात: {amount}',
+  'finding.proportionate.detail':
+    'तुमची खोली तुमच्या श्रेणीपेक्षा वर आहे, त्यामुळे खोलीवरून ठरणाऱ्या खर्चांवर फक्त {pct} मिळते: सर्जन, थिएटर आणि नर्सिंग. आयसीयू, औषधे, तपासण्या आणि इम्प्लांट अस्पर्श राहतात.',
+  'finding.proportionate.ask':
+    'हे कसे काढले ते पाहा. मे 2024 पासून ती फक्त खोलीशी जोडलेल्या खर्चांवर लागते: खोली, नर्सिंग, डॉक्टर, सर्जन, थिएटर. औषधे, तपासण्या, इम्प्लांट किंवा आयसीयूही कापले असतील तर प्रश्न विचारा.',
+  'finding.sublimit': 'श्रेणीच्या मर्यादेवर: {amount}',
+  'finding.sublimit.detail':
+    '{head} ची मर्यादा {cap} आहे. अंदाज {billed} चा आहे.',
+  'finding.sublimit.ask':
+    'मर्यादा आणि ती कशावर मोजली जाते ते विमा कंपनीकडून निश्चित करा. त्यावरचे उरलेले तुमचे.',
+
+  // Warnings, notes, and how one hospital was chosen over another.
+  'warn.proportionate':
+    'ही खोली खोलीच्या फरकाशिवाय सुमारे {amount} ची प्रमाणशीर कपातही आणते.',
+  'warn.room_category':
+    'तुमचे कव्हर {covered} चे आहे आणि तुम्ही {chosen} निवडले आहे. संबंधित खर्च कापले जाण्याची शक्यता आहे. विमा काउंटरवर विचारा.',
+  'warn.cover_used_up':
+    'हा उपचार तुमच्याकडे उरलेले {remaining} पूर्ण खर्च करेल.',
+  'warn.not_cashless':
+    'तुमच्यासाठी हे कॅशलेस रुग्णालय नाही. इथे पूर्ण {total} तुम्ही द्याल आणि नंतर {payable} परत मागाल.',
+  'warn.scheme_cover_short':
+    'या वर्षी तुमचे {scheme} कव्हर फक्त {remaining} उरले आहे, आणि हा उपचार {rate} चा आहे. फरक रुग्णालय तुमच्याकडून मागेल.',
+  'warn.scheme_upgrade':
+    'तुम्ही {chosen} निवडले; {scheme} मध्ये {covered} येते. वरचा भाग तुमचा, संपूर्ण भरतीसाठी सुमारे {amount}. दुसरे काहीही कापले जात नाही.',
+  'warn.scheme_unusable':
+    '{scheme} इथे चालत नाही, आणि नंतर मागायलाही काही नाही: ती फक्त नोंदणीकृत रुग्णालयांना देते. पूर्ण {total} तुमचे असेल. {scheme} स्वीकारणारे रुग्णालय निवडा.',
+  'warn.scheme_unusable_reimbursable':
+    '{scheme} इथे चालत नाही. काही खर्च परत मिळू शकतात, पण आधी मंजुरी घेऊनच. दाखल होण्यापूर्वी निश्चित करा.',
+  'note.consumables_covered': 'तुमची पॉलिसी वापरसाहित्यही देते.',
+  'note.copay_not_applicable':
+    '{pct}% सह-भरणा {age} व्या वर्षापासून सुरू होतो, त्यामुळे इथे लागू नाही.',
+  'note.restore':
+    'ही पॉलिसी वर्षातून एकदा कव्हर पुन्हा भरते, ज्यामुळे पुढच्या भरतीसाठी {amount} परत येते. याच भरतीसाठी वापरता येईल का ते विमा कंपनीला विचारा; पॉलिसी वेगवेगळ्या असतात.',
+  'note.which_insurer_first':
+    'IRDAI च्या नियमानुसार आधी कोणत्या विमा कंपनीकडे जायचे हे तुम्ही ठरवता. दोघांनाही एकमेकांबद्दल सांगा: दुसरी पॉलिसी लपवून मिळालेला दावा पुन्हा उघडला जाऊ शकतो.',
+  'note.scheme_room_free': '{room} विनाशुल्क समाविष्ट आहे.',
+  'note.scheme_nothing_to_pay':
+    'इथे काहीही द्यायचे नाही, आणि नंतर मागायलाही काही नाही.',
+  'note.scheme_window_after':
+    'डिस्चार्जनंतर {after} दिवसांचे उपचार समाविष्ट आहेत.',
+  'note.scheme_window_both':
+    'डिस्चार्जनंतर {after} दिवस आणि भरतीपूर्वी {before} दिवसांचे उपचार समाविष्ट आहेत.',
+  'order.forced':
+    'आधी {lead} कडून दावा करा, मग उरलेल्यासाठी {second}. हाच क्रम चालेल: टॉप-अप फक्त दुसरी पॉलिसी आधी भरणाऱ्या मर्यादेवरचे देते.',
+  'order.cheaper':
+    'आधी {lead} कडून दावा करा, मग उरलेल्यासाठी {second}. उलटा क्रम तुम्हाला {this} ऐवजी {other} द्यायला लावला असता.',
+  'order.same':
+    'आधी {lead} कडून दावा करा, मग उरलेल्यासाठी {second}. इथे दोन्ही क्रम एकाच रकमेवर येतात.',
+  'reason.cheapest': 'सापडलेल्या पर्यायांत सर्वात स्वस्त.',
+  'reason.nearest': 'सर्वात जवळ, सुमारे {n} मिनिटे.',
+  'reason.best_equipped': 'सापडलेल्या पर्यायांत सर्वोत्तम सुविधा.',
+  'reason.cashless': 'कॅशलेस: विमा कंपनी थेट रुग्णालयाला देते.',
+  'reason.accredited': '{accreditation}.',
+  'reason.balanced':
+    'खर्च आणि अंतराचा समतोल: तुम्हाला {amount}, {km} किमी दूर.',
+  'tradeoff.pay_first': 'इथे तुम्ही {amount} द्याल आणि नंतर परत मागाल.',
+  'tradeoff.costlier': 'सापडलेल्या सर्वात स्वस्तापेक्षा {amount} जास्त.',
+  'tradeoff.further': '{km} किमी दूर, सर्वात जवळच्यापेक्षा पुढे.',
+  'counterfactual.saving': 'इथे {room} घेतल्यास सुमारे {amount} वाचले असते.',
+  'counterfactual.within_cap':
+    'इथे {room} घेतल्यास सुमारे {amount} वाचले असते, कारण ते तुम्हाला कव्हर असलेल्या दिवसाच्या {cap} च्या आत राहते.',
+  'search.no_treatment': 'आधी उपचार निवडा.',
+  'search.none': 'आम्हाला योग्य रुग्णालय सापडले नाही.',
+  'search.none_offering': 'इथे कोणतेही रुग्णालय {procedure} करत नाही.',
+  'search.no_estimate': 'रुग्णालये सापडली, पण त्यांचा खर्च अंदाजता आला नाही.',
+  'search.starved':
+    '{procedure} साठी तुमच्या सर्व अटींवर कोणतेही रुग्णालय उतरले नाही. सर्वात सामान्य कारण {reason} होते, {n} रुग्णालयांत. शोधाची व्याप्ती वाढवून पाहा.',
+  'search.found': '{n} पर्याय सापडले. तुमचा सर्वात कमी अंदाज {amount} आहे.',
+  'search.found_relaxed':
+    '{n} पर्याय सापडले. तुमचा सर्वात कमी अंदाज {amount} आहे. हे मिळवण्यासाठी तुमच्या काही अटी सैल कराव्या लागल्या.',
+  'advice.too_far': 'शोधाची व्याप्ती वाढवल्यास सर्वाधिक रुग्णालये येतील.',
+  'advice.procedure_unavailable':
+    'जवळपास कमी रुग्णालये हा उपचार करतात. व्याप्ती वाढवणे सर्वात उपयुक्त.',
+  'advice.specialty_unavailable':
+    'हा विभाग तुमच्या आसपास कमी आहे. व्याप्ती वाढवून पाहा.',
+  'advice.not_cashless':
+    'आसपासची बहुतेक रुग्णालये तुमच्या कॅशलेस नेटवर्कबाहेर आहेत. त्यांचा समावेश म्हणजे आधी देऊन नंतर परत मागणे.',
+  'advice.no_bed_available':
+    'अडचण बेडची आहे, तुमच्या कव्हरची नाही. जाण्यापूर्वी खालच्या रुग्णालयांना फोन करणे बरे.',
+  'advice.no_eligible_room':
+    'तुमची खोली-पात्रता आसपासची बहुतेक रुग्णालये वगळत आहे. वरची श्रेणी मान्य केल्यास आणखी पर्याय उघडतील, पण खर्चासह.',
+  'relax.wider_radius': 'आम्ही मोठ्या परिसरात शोधले.',
+  'relax.wider_radius.also': 'तुम्हाला आणखी दूर जावे लागेल.',
+  'relax.room_category': 'आम्ही तुमच्या पात्रतेवरील खोल्याही घेतल्या.',
+  'relax.room_category.also':
+    'पात्रतेवरील खोली उरलेल्या खर्चांवर मिळणारी रक्कमही कमी करते. खाली दाखवलेला खर्च ते आधीच धरून आहे.',
+  'relax.bed_availability': 'आत्ता बेड रिकामा नसलेली रुग्णालयेही घेतली.',
+  'relax.bed_availability.also': 'आधी फोन करा: पोहोचल्यावर बेड रिकामा नसेलही.',
+  'relax.non_network': 'तुमच्या कॅशलेस नेटवर्कबाहेरची रुग्णालयेही घेतली.',
+  'relax.non_network.also':
+    'तिथे पूर्ण बिल तुम्ही द्याल आणि नंतर परत मागाल, म्हणजे पूर्ण रक्कम आधी जमवावी लागेल.',
+  'doc.unreadable':
+    'या फाइलमधून आम्हाला पुरेसे वाचता आले नाही. स्पष्ट फोटो काढा, किंवा तुमची माहिती स्वतः भरा.',
+  'doc.hard_to_read':
+    'हे वाचायला कठीण होते, त्यामुळे काही तपशील चुकीचे असू शकतात. आकडे तपासा.',
+  'doc.unreadable_pages': 'आम्हाला पृष्ठ {pages} वाचता आले नाही.',
+  'doc.no_schedule':
+    'इथे पॉलिसी शेड्यूल सापडले नाही. दाखवलेले आकडे तुमचे नसून सर्वसाधारण अटी असू शकतात.',
 }

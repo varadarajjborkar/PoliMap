@@ -46,7 +46,105 @@ const TEMPLATES = {
   'settlement.': [
     'cashless', 'reimbursement', 'scheme_package',
   ],
+
+  // --- what the server writes ---------------------------------------------
+  //
+  // These sentences are composed in Python, where the policy and the bill are,
+  // and arrive with the key they are read under. So the keys are listed rather
+  // than found: nothing in this directory names them one by one, and without
+  // this list a language could be missing every one and still pass.
+  //
+  // Each mirrors something in backend/app. A key added there without a line
+  // here renders English; a line here the interface never asks for fails on
+  // the next run, because no language will have been given a use for it.
+  'checklist.': [
+    'ask_cost_first', 'ask_for_room', 'carry_card', 'chase_preauth',
+    'check_deduction', 'check_deductions', 'check_non_payables',
+    'check_room_rate', 'claim_deadline', 'confirm_network',
+    'consumables_running', 'daily_bill', 'diagnostics_sublimit',
+    'discharge_summary', 'expect_consumables', 'final_approval',
+    'gather_pre_bills', 'implant_invoice', 'itemised_bill', 'keep_receipts',
+    'note_remaining', 'originals', 'post_window', 'post_window_until',
+    'room_within_cap', 'settlement_letter', 'watch_the_room',
+  ],
+  // The deduction's name, and under the same stem the sentence beneath it.
+  // Two wordings of one deduction are two keys: a co-payment banded on age and
+  // one that is not are the same money and different sentences.
+  'waterfall.': [
+    'copay', 'copay_age', 'deductible', 'non_payable',
+    'non_payable_consumables', 'procedure_cap', 'proportionate',
+    'room_rent_cap', 'scheme_not_empanelled', 'scheme_package_rate',
+    'second_policy', 'sublimit', 'sum_insured_exhausted',
+  ],
+  'alert.': [
+    'cover_almost_gone', 'cover_most_used', 'cover_on_track_days',
+    'cover_on_track_soon', 'cover_on_track_today', 'non_payable_accumulating',
+    'pre_auth_due', 'room_over_limit', 'room_over_limit_knock_on',
+    'room_rate_conflict', 'sublimit_nearly_used',
+  ],
+  // A move forward is titled with the stage's own name, which the interface
+  // already knows, so only the two moves that are not have a title here.
+  'timeline.': ['back', 'skipped', 'start'],
+  'timelinenote.': [
+    'admitted', 'admitted_rate', 'discharge', 'settled', 'start',
+    'start_hospital',
+  ],
+  'billnote.': ['icu_days', 'nights', 'non_medical', 'tier_scaled'],
+  'elig.': [
+    'daycare_excluded', 'daycare_unknown', 'initial_accident', 'initial_days',
+    'initial_months', 'initial_years', 'named_days', 'named_months',
+    'named_years', 'no_start_date', 'pre_existing_ask', 'pre_existing_days',
+    'pre_existing_months', 'pre_existing_years', 'scheme',
+  ],
+  // The two findings that a single answer from the user would settle.
+  'eligask.': ['no_start_date', 'pre_existing_ask'],
+  'relax.': [
+    'bed_availability', 'non_network', 'room_category', 'wider_radius',
+  ],
+  'advice.': [
+    'no_bed_available', 'no_eligible_room', 'not_cashless',
+    'procedure_unavailable', 'specialty_unavailable', 'too_far',
+  ],
+  // What kind of thing was found on a bill, which is a name and not a
+  // sentence. The sentences are under `finding.` below.
+  'findkind.': [
+    'consumables', 'duplicate', 'line_arithmetic', 'optional_item',
+    'proportionate', 'room_above_cap', 'sublimit', 'subsumed',
+    'total_mismatch', 'uncertain_read', 'unplaced',
+  ],
+  'finding.': [
+    'consumables', 'duplicate', 'line_arithmetic_over',
+    'line_arithmetic_under', 'listing.in_procedure', 'listing.in_room',
+    'listing.in_treatment', 'listing.optional', 'proportionate',
+    'room_rent_cap', 'sublimit', 'total_mismatch', 'uncertain_read',
+    'uncertain_read_no_total', 'unplaced',
+  ],
 }
+
+// Sentences whose key already names its own family, so the call site passes it
+// through whole rather than building it. Same contract as the templates above.
+const SERVER_KEYS = [
+  'counterfactual.saving', 'counterfactual.within_cap',
+  'doc.hard_to_read', 'doc.no_schedule', 'doc.unreadable',
+  'doc.unreadable_pages',
+  // A waiting period as a unit and a count. "24 months" is a phrase no table
+  // can reach inside, so the span travels in parts and is rebuilt in lib/i18n.
+  'dur.days', 'dur.months', 'dur.months_days', 'dur.years',
+  'note.consumables_covered', 'note.copay_not_applicable', 'note.restore',
+  'note.scheme_nothing_to_pay', 'note.scheme_room_free',
+  'note.scheme_window_after', 'note.scheme_window_both',
+  'note.which_insurer_first',
+  'order.cheaper', 'order.forced', 'order.same',
+  'reason.accredited', 'reason.balanced', 'reason.best_equipped',
+  'reason.cashless', 'reason.cheapest', 'reason.nearest',
+  'search.found', 'search.found_relaxed', 'search.no_estimate',
+  'search.no_treatment', 'search.none', 'search.none_offering',
+  'search.starved',
+  'tradeoff.costlier', 'tradeoff.further', 'tradeoff.pay_first',
+  'warn.cover_used_up', 'warn.not_cashless', 'warn.proportionate',
+  'warn.room_category', 'warn.scheme_cover_short', 'warn.scheme_unusable',
+  'warn.scheme_unusable_reimbursable', 'warn.scheme_upgrade',
+]
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -55,7 +153,7 @@ function walk(dir) {
   })
 }
 
-const used = new Set()
+const used = new Set(SERVER_KEYS)
 for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
   const text = readFileSync(path, 'utf8')
   for (const [, key] of text.matchAll(/\bt\(\s*'([a-z][a-z0-9._]*)'/g)) {

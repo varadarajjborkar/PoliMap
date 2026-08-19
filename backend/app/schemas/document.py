@@ -15,6 +15,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, computed_field
 
+from app.schemas.phrasing import Phrase
 from app.schemas.policy import BoundingBox, DocumentSection
 
 
@@ -131,7 +132,7 @@ class IngestedDocument(BaseModel):
     input_kind: InputKind
     pages: list[Page] = Field(default_factory=list)
     session_id: str | None = None
-    warnings: list[str] = Field(default_factory=list)
+    warnings: list[Phrase] = Field(default_factory=list)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -21,6 +21,7 @@ from app.api.store import (
 )
 from app.core import artifacts
 from app.schemas.journey import JourneyStage, JourneyState
+from app.schemas.phrasing import phrase
 from app.schemas.policy import NormalizedPolicy, RoomLimit, RoomLimitBasis
 
 
@@ -237,14 +238,14 @@ def test_session_delete_also_purges_images(tmp_path, monkeypatch):
 def test_session_json_round_trip_is_lossless():
     session = Session(session_id="deadbeef0001")
     session.policy = make_policy()
-    session.warnings = ["Read from a photograph"]
+    session.warnings = [phrase("doc.hard_to_read", "Read from a photograph")]
     session.needed_ocr = True
     session.read_quality = 0.81
 
     restored = Session.from_json(session.to_json())
 
     assert restored.session_id == session.session_id
-    assert restored.warnings == ["Read from a photograph"]
+    assert restored.warnings == session.warnings
     assert restored.needed_ocr is True
     assert restored.read_quality == pytest.approx(0.81)
     assert restored.policy.room_limit.amount_per_day == Decimal("5000")

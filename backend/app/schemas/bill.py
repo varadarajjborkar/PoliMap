@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, computed_field
 
 from app.schemas.journey import AlertSeverity
 from app.schemas.money import ZERO, Rupees, round_inr
+from app.schemas.phrasing import Phrase
 from app.schemas.policy import ExpenseHead
 from app.schemas.simulation import SimulationResult
 
@@ -62,7 +63,7 @@ class ReadBill(BaseModel):
     discount: Rupees = Field(default=ZERO)
     advance_paid: Rupees = Field(default=ZERO)
 
-    notes: list[str] = Field(default_factory=list)
+    notes: list[Phrase] = Field(default_factory=list)
     """What the reader could not do, in words the user can act on."""
 
     from_text_layer: bool = True
