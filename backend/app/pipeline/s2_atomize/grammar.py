@@ -27,6 +27,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from app.pipeline.s2_atomize import layout
 from app.pipeline.s2_atomize import patterns as P
 from app.schemas.document import Page
 from app.schemas.policy import (
@@ -43,7 +44,6 @@ VALUE_WINDOW = 2
 
 MIN_PLAUSIBLE_SUM_INSURED = Decimal(25000)
 MAX_PLAUSIBLE_SUM_INSURED = Decimal(100000000)
-MAX_PLAUSIBLE_ROOM_RATE = Decimal(200000)
 
 
 @dataclass
@@ -101,6 +101,34 @@ def find_labelled(
             break
 
     return results
+
+
+def find_in_page(
+    page: Page,
+    label_re: re.Pattern[str],
+    *,
+    window: int = VALUE_WINDOW,
+    value_test: Callable[[str], bool] | None = None,
+) -> list[LabelledMatch]:
+    """`find_labelled` over a page, falling back to its rebuilt visual rows.
+
+    The page's own text comes first and wins outright: where reading it as text
+    pairs a label with a value, that is the publisher's own line structure and
+    nothing here improves on it.
+
+    The fallback exists for a photographed table, where OCR hands back every
+    label and then every value and the pairing is destroyed. Rebuilding the
+    rows from word positions restores it (see `layout`). Used only when the
+    first pass found nothing at all, so a page that reads correctly cannot be
+    changed by it, and a wrong pairing can never displace a right one.
+    """
+    found = find_labelled(page.text, label_re, window=window, value_test=value_test)
+    if found:
+        return found
+    rows = layout.rows_text(page)
+    if not rows:
+        return []
+    return find_labelled(rows, label_re, window=window, value_test=value_test)
 
 
 def _has_amount(text: str) -> bool:
@@ -294,7 +322,7 @@ def extract_sum_insured(page: Page) -> list[Clause]:
     pattern explicitly refuses restoration and bonus rows.
     """
     clauses: list[Clause] = []
-    for match in find_labelled(page.text, SUM_INSURED_RE, value_test=_has_amount):
+    for match in find_in_page(page, SUM_INSURED_RE, value_test=_has_amount):
         amount = P.parse_amount(match.value_text)
         if amount is None:
             continue
@@ -311,36 +339,17 @@ def extract_sum_insured(page: Page) -> list[Clause]:
 
 
 def _room_params(value_text: str) -> dict[str, Any] | None:
-    """Interpret a room-limit value in any of the forms policies use."""
-    if P.states_no_limit(value_text):
-        return {"basis": "no_limit"}
+    """Interpret a room-limit value in any of the forms policies use.
 
-    pct = P.parse_pct_of_sum_insured(value_text)
-    # Anchored on the "subject to a maximum of" wording, so the ceiling is read
-    # rather than whichever figure happens to come first or last.
-    amount = P.parse_capped_amount(value_text) if pct is not None else P.parse_amount(value_text)
-    category = P.parse_room_category(value_text)
-
-    if pct is not None and amount is not None:
-        # "1% of Sum Insured, subject to a maximum of Rs. 5,000", both bind,
-        # and the lower one wins at evaluation time.
-        return {
-            "basis": "pct_with_max",
-            "pct_of_si": str(pct),
-            "amount_inr": str(amount),
-        }
-    if pct is not None:
-        return {"basis": "pct_of_si", "pct_of_si": str(pct)}
-    if amount is not None and amount <= MAX_PLAUSIBLE_ROOM_RATE:
-        return {"basis": "flat", "amount_inr": str(amount), "per_day": P.is_per_day(value_text)}
-    if category is not None:
-        return {"basis": "category", "category": category}
-    return None
+    The reading itself lives in `patterns`, so the model extractor interprets
+    the same sentence the same way rather than keeping a second opinion.
+    """
+    return P.read_room_limit(value_text)
 
 
 def extract_room_limit(page: Page) -> list[Clause]:
     clauses: list[Clause] = []
-    for match in find_labelled(page.text, ROOM_RENT_RE, value_test=_has_amount_or_pct):
+    for match in find_in_page(page, ROOM_RENT_RE, value_test=_has_amount_or_pct):
         # ICU rows also mention charges; they are handled by their own rule.
         if ICU_RE.search(match.label):
             continue
@@ -364,7 +373,7 @@ def extract_room_limit(page: Page) -> list[Clause]:
 
 def extract_icu_limit(page: Page) -> list[Clause]:
     clauses: list[Clause] = []
-    for match in find_labelled(page.text, ICU_RE, value_test=_has_amount_or_pct):
+    for match in find_in_page(page, ICU_RE, value_test=_has_amount_or_pct):
         params = _room_params(match.value_text)
         if params is None:
             continue
@@ -380,7 +389,7 @@ def extract_icu_limit(page: Page) -> list[Clause]:
 
 def extract_copay(page: Page) -> list[Clause]:
     clauses: list[Clause] = []
-    for match in find_labelled(page.text, COPAY_RE, value_test=_has_percent):
+    for match in find_in_page(page, COPAY_RE, value_test=_has_percent):
         if P.states_no_limit(match.value_text):
             pct = Decimal(0)
         else:
@@ -405,7 +414,7 @@ def extract_copay(page: Page) -> list[Clause]:
 
 def extract_deductible(page: Page) -> list[Clause]:
     clauses: list[Clause] = []
-    for match in find_labelled(page.text, DEDUCTIBLE_RE, value_test=_has_amount):
+    for match in find_in_page(page, DEDUCTIBLE_RE, value_test=_has_amount):
         amount = P.parse_amount(match.value_text)
         if amount is None:
             continue
@@ -425,8 +434,8 @@ def extract_hospitalisation_windows(page: Page) -> list[Clause]:
         (PRE_HOSP_RE, ClauseKind.PRE_HOSPITALISATION),
         (POST_HOSP_RE, ClauseKind.POST_HOSPITALISATION),
     ):
-        for match in find_labelled(
-            page.text, label_re, value_test=lambda t: P.parse_days(t) is not None
+        for match in find_in_page(
+            page, label_re, value_test=lambda t: P.parse_days(t) is not None
         ):
             days = P.parse_days(match.value_text)
             if days is None or days > 400:
@@ -531,7 +540,7 @@ def extract_flags(page: Page) -> list[Clause]:
     """Yes/no benefits stated as prose in the schedule."""
     clauses: list[Clause] = []
 
-    for match in find_labelled(page.text, CONSUMABLES_RE):
+    for match in find_in_page(page, CONSUMABLES_RE):
         covered = not P.states_no_limit(match.value_text) and not re.search(
             r"not\s+cover|excluded", match.value_text, re.IGNORECASE
         )
@@ -542,7 +551,7 @@ def extract_flags(page: Page) -> list[Clause]:
             )
         )
 
-    for match in find_labelled(page.text, DAYCARE_RE):
+    for match in find_in_page(page, DAYCARE_RE):
         covered = not re.search(
             r"not\s+covered|not\s+payable|excluded|\bnil\b|not\s+applicable",
             match.value_text, re.IGNORECASE,
@@ -554,7 +563,7 @@ def extract_flags(page: Page) -> list[Clause]:
             )
         )
 
-    for match in find_labelled(page.text, RESTORE_RE):
+    for match in find_in_page(page, RESTORE_RE):
         available = not re.search(
             r"not\s+applicable|not\s+available|\bnil\b", match.value_text, re.IGNORECASE
         )
@@ -576,7 +585,7 @@ def extract_meta(page: Page) -> list[Clause]:
         (UIN_RE, "uin"),
     ]
     for label_re, field in specs:
-        for match in find_labelled(page.text, label_re):
+        for match in find_in_page(page, label_re):
             # A running header puts several fields on one line: "Policy No.
             # BHA/2026/IND/4029929 | Page 1". Everything past the first bar
             # belongs to the next field, and the full stop belongs to the label

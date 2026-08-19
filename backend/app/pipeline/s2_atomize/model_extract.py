@@ -106,7 +106,7 @@ Rules you must follow:
 - "verbatim" must be copied character-for-character from the extract below. Never paraphrase, reword, or reconstruct it. It is checked against the source and discarded if it does not match.
 - Report only what this extract actually states. Do not add standard or typical terms.
 - "condition" carries the qualifier attached to the figure: per day, per eye, per policy year, subject to a maximum, after a waiting period, for members above a stated age, only on a named plan. A limit reported without its condition is misleading, so look for it deliberately.
-- Where a figure is stated as one thing "subject to a maximum of" another, report both, as separate entries.
+- A figure stated as one thing "subject to a maximum of" another is ONE term, not two. "1% of Sum Insured per day, subject to a maximum of Rs. 5,000 per day" is a single room limit. Report it once, quote the whole phrase including the maximum, and put the maximum in "condition". The same applies to "capped at", "not exceeding", "limited to", "up to a maximum of", and "whichever is lower". Reporting the two halves separately states a limit the policy does not have.
 - For a percentage of sum insured, use unit "percent_of_sum_insured" and put just the number in "value" (e.g. "1").
 - For a rupee amount, use unit "rupees" and put digits only in "value" (e.g. "500000").
 - Do not report the premium, GST, or agent code. Those are not coverage terms.
@@ -117,7 +117,7 @@ Rules you must follow:
 """
 
 
-def _params_for(clause: ModelClause) -> dict[str, Any] | None:
+def _params_for(clause: ModelClause, page_text: str = "") -> dict[str, Any] | None:
     """Turn a model's value and unit into typed parameters.
 
     Values are re-parsed from the quoted text wherever possible, so the figure
@@ -128,21 +128,25 @@ def _params_for(clause: ModelClause) -> dict[str, Any] | None:
     unit = clause.unit
     raw = clause.value.strip()
 
+    # A room or ICU limit is read by the same code the rules use, from the
+    # quote rather than from the unit the model chose. A capped percentage is
+    # one entitlement, and which half of the sentence the model happened to
+    # label the value must not decide whether the other half survives.
+    if kind in ("room_rent_cap", "icu_cap"):
+        composite = P.read_room_limit(_qualified_text(clause, page_text))
+        if composite is not None:
+            return composite
+
     if unit == "rupees":
         amount = P.parse_amount(clause.verbatim) or P.parse_amount(f"Rs. {raw}")
         if amount is None:
             return None
-        if kind in ("room_rent_cap", "icu_cap"):
-            return {"basis": "flat", "amount_inr": str(amount),
-                    "per_day": P.is_per_day(clause.verbatim)}
         return {"amount_inr": str(amount)}
 
     if unit == "percent_of_sum_insured":
         pct = P.parse_pct_of_sum_insured(clause.verbatim) or _decimal(raw)
         if pct is None:
             return None
-        if kind in ("room_rent_cap", "icu_cap"):
-            return {"basis": "pct_of_si", "pct_of_si": str(pct)}
         return {"pct_of_si": str(pct)}
 
     if unit == "percent":
@@ -180,6 +184,28 @@ def _params_for(clause: ModelClause) -> dict[str, Any] | None:
         return None
 
     return None
+
+
+def _qualified_text(clause: ModelClause, page_text: str) -> str:
+    """The quote, plus the qualifier the model attached to it, if provable.
+
+    A model asked for a limit and its condition separately will sometimes put
+    "subject to a maximum of Rs. 5,000" in the condition rather than leaving it
+    in the quote. The ceiling is part of the term either way and worth reading.
+
+    But `condition` is a field the model writes freely, and it is not the
+    quote. Taking a figure out of it unchecked is precisely the hole this whole
+    layer exists to close: a number that never appeared in the document would
+    reach the ledger with a grounded quote standing next to it, vouching for
+    something it does not say. So the condition is held to the same rule as the
+    quote, and dropped unless the document contains it too.
+    """
+    condition = clause.condition.strip()
+    if not condition or condition.lower() in clause.verbatim.lower():
+        return clause.verbatim
+    if not grounding.check(condition, page_text).grounded:
+        return clause.verbatim
+    return f"{clause.verbatim}, {condition}"
 
 
 def _decimal(raw: str) -> Decimal | None:
@@ -290,7 +316,7 @@ def _extract_text(
             )
             continue
 
-        params = _params_for(candidate)
+        params = _params_for(candidate, page.text)
         if not params:
             rejected += 1
             continue

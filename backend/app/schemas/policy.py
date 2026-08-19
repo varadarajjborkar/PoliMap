@@ -498,7 +498,14 @@ class RoomLimit(BaseModel):
         if self.amount_per_day is not None:
             candidates.append(self.amount_per_day)
         if self.pct_of_si is not None:
-            candidates.append(apply_pct(sum_insured, self.pct_of_si))
+            share = apply_pct(sum_insured, self.pct_of_si)
+            # A percentage of an unknown cover is not a cap of nothing, it is
+            # not a cap at all. Letting the zero win the comparison turns "1%
+            # of Sum Insured, subject to a maximum of Rs. 5,000" into a room
+            # entitlement of nothing at all, on a policy whose only real fault
+            # is that the cover figure was not read.
+            if share > 0 or not candidates:
+                candidates.append(share)
         return min(candidates) if candidates else None
 
     def describe(self, sum_insured: Decimal) -> str:

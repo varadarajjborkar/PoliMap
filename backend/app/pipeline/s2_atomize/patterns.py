@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 LAKH = Decimal(100000)
 CRORE = Decimal(10000000)
@@ -163,10 +164,39 @@ def all_amounts(text: str) -> list[Decimal]:
 
 
 MAXIMUM_RE = re.compile(
-    r"(?:subject\s+to\s+a\s+)?max(?:imum)?\s+(?:of\s+)?|"
-    r"(?:but\s+)?not\s+exceeding\s+|up\s+to\s+(?:a\s+max\w*\s+of\s+)?",
+    # "subject to a maximum of", "max.", "maximum of"
+    r"(?:subject\s+to\s+(?:a\s+)?)?max(?:imum)?\.?\s+(?:of\s+)?|"
+    # "capped at", "subject to a cap of"
+    r"(?:subject\s+to\s+a\s+)?cap(?:ped)?\s+(?:at|of|to)\s+|"
+    # "not exceeding", "not more than", "limited to", "restricted to"
+    r"(?:but\s+)?not\s+(?:exceeding|more\s+than)\s+|"
+    r"(?:limited|restricted)\s+to\s+|"
+    # "up to", "up to a maximum of"
+    r"up\s?to\s+(?:a\s+max\w*\s+of\s+)?",
     re.IGNORECASE,
 )
+
+WHICHEVER_LOWER_RE = re.compile(
+    r"whichever\s+is\s+(?:lower|less|lesser|the\s+lower)|"
+    r"whichever\s+is\s+(?:higher|more|greater)|"
+    r"lower\s+of\s+the\s+two",
+    re.IGNORECASE,
+)
+"""Both directions, because recognising that two figures were written as one
+term is what matters here. Which of them binds is decided by the compiler from
+the figures themselves, not from the wording."""
+
+
+def has_max_qualifier(text: str) -> bool:
+    """Whether `text` ties a second figure to the first as its ceiling.
+
+    The test for "these two numbers are one term". Two figures with no such
+    wording between them are two terms, and merging them would invent a limit
+    the document does not state.
+    """
+    if not text:
+        return False
+    return bool(MAXIMUM_RE.search(text) or WHICHEVER_LOWER_RE.search(text))
 
 
 def parse_capped_amount(text: str) -> Decimal | None:
@@ -364,6 +394,53 @@ PER_DAY_RE = re.compile(r"per\s*day|/\s*day|daily|per\s+diem", re.IGNORECASE)
 
 def is_per_day(text: str) -> bool:
     return bool(PER_DAY_RE.search(text))
+
+
+MAX_PLAUSIBLE_ROOM_RATE = Decimal(200000)
+"""Above this a figure on a room-rent line is something else: an annual cap, a
+sum insured, a policy number that survived OCR as digits."""
+
+
+def read_room_limit(text: str) -> dict[str, Any] | None:
+    """Interpret a room or ICU limit in any of the forms policies use.
+
+    One reader for both extractors. The rules and the model used to interpret
+    the same sentence in two different places, and the model's copy did not
+    know that a percentage and the ceiling attached to it are one term, so it
+    reported the two halves as rival answers and the verification loop settled
+    a contradiction that did not exist.
+
+    "1% of Sum Insured per day, subject to a maximum of Rs. 5,000" is a single
+    entitlement: whichever of the two binds lower on this policy's own sum
+    insured. It stays one clause carrying both figures, and stays that way
+    until the compiler resolves it.
+    """
+    if not text:
+        return None
+    if states_no_limit(text):
+        return {"basis": "no_limit"}
+
+    pct = parse_pct_of_sum_insured(text)
+    # Anchored on the words that introduce a ceiling rather than on whichever
+    # figure comes last, because a limit line often ends with a clause
+    # reference or a per-day qualifier carrying digits of its own.
+    amount = parse_capped_amount(text) if pct is not None else parse_amount(text)
+    category = parse_room_category(text)
+
+    if pct is not None and amount is not None and has_max_qualifier(text):
+        return {
+            "basis": "pct_with_max",
+            "pct_of_si": str(pct),
+            "amount_inr": str(amount),
+            "per_day": is_per_day(text),
+        }
+    if pct is not None:
+        return {"basis": "pct_of_si", "pct_of_si": str(pct)}
+    if amount is not None and amount <= MAX_PLAUSIBLE_ROOM_RATE:
+        return {"basis": "flat", "amount_inr": str(amount), "per_day": is_per_day(text)}
+    if category is not None:
+        return {"basis": "category", "category": category}
+    return None
 
 
 def normalise_whitespace(text: str) -> str:

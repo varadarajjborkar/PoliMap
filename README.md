@@ -88,7 +88,7 @@ So every figure above traces back to the passage it was read from:
 
 ![Where each figure came from](docs/images/03-evidence.png)
 
-### 3. An adversarial verification loop, because the measurement demanded one
+### 3. A rule is read as a rule, not as the numbers in it
 
 Wrong values are the dangerous failure: a missed field prompts a question, and a
 confidently incorrect figure prompts nothing. So the model's output is attacked
@@ -99,30 +99,46 @@ Measured across 160 fields, 10 policies, 6 document conditions:
 
 | Configuration                    |    Accuracy | **Wrong values** | Missing |
 | -------------------------------- | ----------: | ---------------: | ------: |
-| Rules only                       |       88.7% |                2 |      16 |
-| Rules + verification             |       88.7% |                2 |      16 |
-| **Rules + model**                |   **95.6%** |            **4** |   **3** |
-| Rules + model + verification     |       95.0% |                5 |       3 |
+| Rules only                       |       94.4% |                2 |       7 |
+| Rules + verification             |       94.4% |                2 |       7 |
+| Rules + model                    |       96.9% |                3 |       2 |
+| **Rules + model + verification** |   **96.9%** |            **3** |   **2** |
 
-Reading each document in sections rather than one truncated pass per page is
-what moved this: the model now carries the pipeline, worth **6.9 points** where
-it was previously worth nothing at all, and missed fields fell from 16 to 3.
+The measurement is worth more than the score, because twice now it has been the
+thing that found the bug.
 
-The honest reading of the other two rows is that **verification no longer earns
-its place.** It is inert without the model and slightly harmful with it, and the
-cause is specific rather than mysterious. Two policies in the corpus write the
-room limit as *"1% of Sum Insured per day, subject to a maximum of Rs. 5,000/-
-per day"*. The compiler models that correctly, taking whichever of the two binds
-lower. Section-wise reading splits the sentence across the cut, so the model
-proposes the percentage and the maximum as **two rival clauses**, and the loop
-does exactly what it is built to do: it detects a contradiction, and settles it
-by picking one half of a clause that was never a contradiction. Both remaining
-wrong values are that same sentence.
+**A limit and its qualifier are one rule.** Two policies here write the room
+limit as *"1% of Sum Insured per day, subject to a maximum of Rs. 5,000/- per
+day"*. That is one entitlement, worth whichever of the two binds lower against
+this policyholder's own cover: ₹3,000 on a ₹3,00,000 policy, where the ₹5,000
+never bites. Extraction handed back the percentage and the ceiling as two
+clauses, so verification concluded correctly that only one of them could be the
+term, and resolved a contradiction that was never there by discarding half the
+rule. It kept the ₹5,000 on one policy and the uncapped 2% on the other, wrong
+in opposite directions, and a wrong room cap is not a wrong line on a summary:
+it sets the proportionate deduction applied to the surgeon, theatre and nursing
+charges. The reading is now one shared function that both extractors call, it
+knows the vocabulary (*capped at*, *not exceeding*, *whichever is lower*), and a
+conservative pass rejoins the halves if they ever arrive apart.
 
-So the fix belongs upstream, in never splitting a qualified limit from its
-qualifier, and not in the adjudicator that is reasoning correctly about bad
-input. Until then the table above is what the code actually does, which is the
-point of measuring it.
+**A photographed table still has rows.** OCR reads a two-column benefit table by
+block, so it can return every label and then every value: read as text, "Room
+Rent Limit" is followed by "Intensive Care Unit (ICU) Limit", and the schedule
+is lost. Searching further down the page is the obvious repair and the wrong
+one, because the next figure below the room label *is* the ICU limit. The rows
+are rebuilt from the word boxes OCR already produced, and only where reading the
+page as text found nothing, so a page that reads correctly cannot be harmed by
+it. That alone is most of the rules-only column above.
+
+**What verification is worth, honestly.** Nothing on this corpus, now. It is
+exactly neutral in both pairs. It was worth a point when extraction was noisier,
+and it is what turns an unresolved conflict into a plain-language question
+rather than a silent guess, so it stays. But the row that carries this system is
+the grounded reading, not the argument about it.
+
+The three that remain wrong are two consumables flags and one room entitlement
+stated as a category with no figure, misread from a dark photograph as a
+percentage.
 
 ### 4. It never returns an empty page
 
@@ -197,15 +213,28 @@ line moved.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Deliberately scoped: navigation, stage names, the bill check and the disclaimer
-are translated; anything read out of somebody's policy is not. A clause
+Every word it writes itself: 413 keys, each resolving in all five. Not
+translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
 
 Call sites pass the English beside the key, so a missing translation renders
-English rather than a raw key. That fallback is invisible on screen, so a check
-runs with the linter and fails the build on any key that does not resolve in
-every language, or any translation no call site can reach.
+English rather than a raw key. That fallback is invisible on screen, which is
+exactly how a language rots back into English one key at a time, so a check runs
+with the linter and fails the build on any key that does not resolve in every
+language, or any translation no call site can reach.
+
+Sentences take their values as placeholders rather than by concatenation,
+because the order a figure and its noun appear in is not the same in every one
+of these languages. Enum labels arrive from the server in English beside their
+value, so rooms, settlement modes, expense heads and stages are keyed on the
+value and read in the reader's language; the same check mirrors those enums, so
+adding one server-side without a translation fails the build.
+
+What is still English is what the server composes: the stage checklist, alerts,
+and the narrative explaining a deduction. Localising those needs the language to
+travel with the request and a catalogue behind the API, and until it does, that
+boundary is the whole of the gap.
 
 ![The language picker, with the app in Kannada](docs/images/12-language.png)
 
@@ -309,7 +338,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 978 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1021 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface
@@ -337,7 +366,7 @@ role on your account.
 flowchart TD
     S0["S0 INTAKE<br/>document to pages of text, with word boxes"]
     S1["S1 TRIAGE<br/>which page is the schedule, which is generic wording"]
-    S2["S2 ATOMIZE<br/>text to a clause ledger, every clause evidence-grounded"]
+    S2["S2 ATOMIZE<br/>each page cut on its own headings, every section read<br/>rules and model in parallel, then merged<br/>every clause evidence-grounded, and a limit and the<br/>ceiling stated on it stay one clause"]
     S3["S3 CHALLENGE<br/>attack every clause: rule, then model, then ask the user"]
     S4["S4 COMPILE<br/>surviving ledger to one executable policy"]
     S5["S5 MATCH<br/>policy x context x 580 hospitals, with reasons for each miss"]
@@ -346,6 +375,7 @@ flowchart TD
     JY["JOURNEY<br/>re-answers all of it at each stage against real accrued cost"]
 
     S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> JY
+    S0 -. "word boxes, so a photographed<br/>table's rows can be rebuilt" .-> S2
     S3 -. "unresolved becomes a question" .-> S3
     JY -. "re-costs" .-> S6
 ```

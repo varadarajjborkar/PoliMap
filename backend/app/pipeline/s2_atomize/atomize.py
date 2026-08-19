@@ -21,7 +21,7 @@ from app.agents.registry import registry
 from app.core.events import bus
 from app.core.logging import get_logger
 from app.pipeline.s1_triage import triage as triage_stage
-from app.pipeline.s2_atomize import grammar, model_extract
+from app.pipeline.s2_atomize import compose, grammar, model_extract
 from app.schemas.document import IngestedDocument
 from app.schemas.events import EventStatus, PipelineStage
 from app.schemas.policy import Clause, ClauseKind, ExtractorKind
@@ -165,7 +165,13 @@ def atomize(
         STAGE, "merge_clauses", session_id=session_id,
         summary="Combining what both extractors found",
     ) as step:
-        combined = merge([*grammar_clauses, *model_clauses])
+        # Before anything looks for conflicts: a percentage and the ceiling
+        # stated on it are one limit, and reaching the next stage as two makes
+        # a contradiction out of a sentence that never had one.
+        rejoined = compose.fuse_qualified_limits(
+            [*grammar_clauses, *model_clauses], document.pages
+        )
+        combined = merge(rejoined)
         agreed = sum(1 for c in combined if c.notes)
         conflicts = _count_conflicts(combined)
         step.ok(

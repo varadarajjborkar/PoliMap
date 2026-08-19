@@ -148,7 +148,10 @@ def test_durations():
 
 def test_percentage_with_maximum_keeps_both_bounds():
     params = _room_params("1% of Sum Insured per day, subject to a maximum of Rs. 5,000")
-    assert params == {"basis": "pct_with_max", "pct_of_si": "1", "amount_inr": "5000"}
+    assert params == {
+        "basis": "pct_with_max", "pct_of_si": "1", "amount_inr": "5000",
+        "per_day": True,
+    }
 
 
 def test_plain_percentage():
@@ -219,7 +222,10 @@ def test_sum_insured_is_read_not_the_premium(schedule_clauses):
 
 def test_room_and_icu_limits(schedule_clauses):
     room = _by_kind(schedule_clauses, ClauseKind.ROOM_RENT_CAP)
-    assert room.params == {"basis": "pct_with_max", "pct_of_si": "1", "amount_inr": "5000"}
+    assert room.params == {
+        "basis": "pct_with_max", "pct_of_si": "1", "amount_inr": "5000",
+        "per_day": True,
+    }
     icu = _by_kind(schedule_clauses, ClauseKind.ICU_CAP)
     assert icu.params["pct_of_si"] == "2"
 
