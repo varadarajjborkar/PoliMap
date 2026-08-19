@@ -213,7 +213,7 @@ line moved.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 687 keys, each resolving in all five. Not
+Every word it writes itself: 753 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -242,13 +242,24 @@ covered for ₹5,000" is a sentence about two numbers that only exist after
 adjudication. Those sentences carry three things rather than one, the key that
 says which sentence it is, the English as composed, and the values written into
 it, and the reader's own language is looked up under the key with the numbers
-put back into it there. Waiting periods travel as a unit and a count rather than
-as "24 months", which is a phrase no table can reach inside.
+put back into it there. Two kinds of value cannot survive that on their own and
+travel twice: a waiting period goes as a unit and a count rather than as "24
+months", and a date goes in ISO form beside the written one, because "17
+November" is an English month wherever it has been dropped into a sentence and
+no table can reach inside a value.
 
 Those keys are written in Python, so the frontend check cannot find them; they
 are declared to it instead. The other half of that check runs from the side they
 are born on, exercising the paths that produce them and failing with the key and
 the language named when one has no line.
+
+The panel a person watches while their policy is read is the same story from the
+other side. Its five phase names were constants and are keys now, but the line
+underneath, the one naming the file being opened or the page being recognised,
+is the server's own summary and cannot be translated where it stands. So it is
+composed in the browser instead, out of the figures the same event already
+carries, and a step that has not produced its figures yet says nothing rather
+than something half true.
 
 ![The language picker, with the app in Kannada](docs/images/12-language.png)
 
@@ -269,6 +280,24 @@ Every answer is written in this repository, in `help/knowledge.yaml`. With no
 model reachable the knowledge base answers on its own by matching what was
 asked; with one, that same knowledge is the only ground the model is given, so
 the difference between the two paths is fluency rather than substance.
+
+It answers in the language it was asked in, and in the script it was asked in.
+Those are two questions, and the second one is where a model left to itself gets
+it wrong: shown "room rent ka limit kitna hai" it recognises the Hindi and
+answers in Devanagari, to somebody who was typing in English letters. The script
+is decided here instead, by counting the letters of the question, which settles
+it exactly and covers the way most of this country actually types. Everything
+the desk did not write on the spot, the opening, the refusals and the fourteen
+written answers, travels with the key it is read under, so those come back in
+the reader's language with no model involved at all.
+
+The answer arrives as it is written rather than several seconds later, all at
+once. The vetting below is not relaxed for that: every check made on a finished
+draft is made on the growing one, and nothing reaches the screen until two
+hundred characters sit behind it, so a rule that a sentence is about to trip
+trips before that sentence has been shown to anybody. The finished reply is sent
+whole at the end and is the one that counts; when a draft is stopped part way,
+it carries the written answer and the browser replaces what it had.
 
 The answers and the refusals are YAML rather than Python because they are text
 and patterns, not logic. Every answer the desk can give, and every question it
@@ -352,7 +381,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 1029 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1051 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface
@@ -395,9 +424,18 @@ flowchart TD
 ```
 
 Every step emits a `PipelineEvent` written to the server log *and* streamed to
-the browser's activity panel, so what the user sees cannot drift from what the
-server did. The panel is a developer tool, so it lives in settings and is off by
-default:
+the browser, so what the user sees cannot drift from what the server did. Two
+things read that stream. The person waiting on their policy gets the five phases
+it groups into, with the page count and the timings, which is the whole of what
+they want to know. The activity panel gets every step, and it is a developer's
+window rather than a setting: it is asked for in the address bar with
+`?activity=1`, which is where the people who want it look and nowhere the people
+who do not will trip over it.
+
+Settings carries what belongs to the reader and nothing else, and is reachable
+from the very first screen, because the language control is inside it and
+somebody who cannot read the sign-in page has to be able to get to it before
+they are asked to type anything:
 
 ![Settings](docs/images/06-settings.png)
 
@@ -636,7 +674,7 @@ the phone is treated as its own screen rather than a narrow desk:
   bottom of the screen and the browser's own chrome comes and goes as you
   scroll, so `vh` is measured against a viewport that is often not there.
 - **The setup flow's thread lies on its side** under the header, and the rail
-  and the activity panel are desk-only rather than squeezed in.
+  is desk-only rather than squeezed in.
 - **Wide content scrolls inside itself**, so no table can push the page sideways.
 
 ![On a phone](docs/images/08-mobile.png)
