@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { describeStay } from '../lib/stays'
 import { useT } from '../hooks/useLanguage'
 import { useScreenExit } from '../hooks/useScreenExit'
-import { Button, Card, Disclaimer, Input } from './Primitives'
+import { Button, Card, Disclaimer, Input, SettingsButton } from './Primitives'
 
 // The screen before anything else.
 //
@@ -11,7 +11,7 @@ import { Button, Card, Disclaimer, Input } from './Primitives'
 // is all it does. Saying so plainly matters, because a family being asked to
 // register during an admission will simply close the tab.
 
-export function SignIn({ onSignIn }) {
+export function SignIn({ onSignIn, onOpenSettings }) {
   const t = useT()
   const { leaving, leave } = useScreenExit()
   const [name, setName] = useState('')
@@ -19,10 +19,12 @@ export function SignIn({ onSignIn }) {
 
   return (
     <div
-      className={`mx-auto flex max-w-md flex-col justify-center px-4 py-16 ${
+      className={`relative mx-auto flex max-w-md flex-col justify-center px-4 py-16 ${
         leaving ? 'motion-safe:animate-blur-out' : 'motion-safe:animate-blur-in'
       }`}
     >
+      {/* Before the name, because the language control is behind it. */}
+      <SettingsButton onClick={onOpenSettings} className="absolute right-4 top-4" />
       <div className="text-center">
         <img
           src="/logo-64.png" alt="" width="52" height="52"
@@ -80,7 +82,9 @@ export function SignIn({ onSignIn }) {
   )
 }
 
-export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser }) {
+export function StayList({
+  user, stays, onOpen, onNew, onDelete, onSwitchUser, onOpenSettings,
+}) {
   const t = useT()
   const { leaving, leave } = useScreenExit()
   return (
@@ -89,10 +93,10 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
         leaving ? 'motion-safe:animate-blur-out' : 'motion-safe:animate-blur-in'
       }`}
     >
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back, {user}
+            {t('home.welcome', 'Welcome back, {name}', { name: user })}
           </h1>
           <p className="mt-1.5 text-[0.9375rem] text-muted">
             {stays.length
@@ -103,12 +107,15 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
                 )}
           </p>
         </div>
-        <button
-          onClick={onSwitchUser}
-          className="shrink-0 text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
-        >
-          {t('home.switch_user', 'Not you?')}
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            onClick={onSwitchUser}
+            className="text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
+          >
+            {t('home.switch_user', 'Not you?')}
+          </button>
+          <SettingsButton onClick={onOpenSettings} />
+        </div>
       </div>
 
       <Button

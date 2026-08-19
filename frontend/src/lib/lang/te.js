@@ -95,6 +95,7 @@ export default {
   'signin.placeholder': 'మీ పేరు, లేదా మీకు గుర్తుండే ఏదైనా',
 
   'home.resume': 'ఆపిన చోటి నుంచే కొనసాగండి, లేదా కొత్త చేరిక మొదలుపెట్టండి.',
+  'home.welcome': 'మళ్ళీ స్వాగతం, {name}',
   'home.first': 'పాలసీ చదివించడంతో మొదలుపెట్టండి. ఆ తర్వాతదంతా ఇక్కడే భద్రపరచబడుతుంది.',
   'home.switch_user': 'మీరు కాదా?',
   'home.policy_read': 'పాలసీ చదవబడింది',
@@ -511,14 +512,6 @@ export default {
   'settings.clear.yes': 'అవును, తొలగించండి',
   'settings.clear.no': 'ఉంచండి',
   'settings.clear': 'తొలగించి మొదటి నుంచి మొదలుపెట్టండి',
-  'settings.developer': 'డెవలపర్',
-  'settings.developer.note': 'తనిఖీ కోసం. ఇక్కడి దేనివల్లా యాప్ లెక్కింపు మారదు.',
-  'settings.activity': 'కార్యకలాప ప్యానెల్ చూపండి',
-  'settings.activity.hint':
-    'ప్రతి పైప్‌లైన్ దశ ప్రత్యక్ష ప్రసారం, సమయాలతో. సర్వర్ తన లాగ్‌లో రాసే అవే ఘటనలు.',
-  'settings.api': 'API',
-  'settings.api.reachable': 'అందుబాటులో ఉంది',
-  'settings.api.unreachable': 'అందుబాటులో లేదు',
   'settings.reset': 'సెట్టింగ్‌లను మొదటి స్థితికి తీసుకురండి',
 
   disclaimer:

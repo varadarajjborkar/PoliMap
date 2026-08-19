@@ -9,7 +9,7 @@ import { PolicySummary } from './components/PolicySummary'
 import { ReadingProgress } from './components/ReadingProgress'
 import { EligibilityNotice, Results, SearchPanel } from './components/Results'
 import { Locked, SettledRail, SetupFlow } from './components/SetupFlow'
-import { Button, ErrorNote, Spinner } from './components/Primitives'
+import { Button, ErrorNote, SettingsButton, Spinner } from './components/Primitives'
 import { SettingsPanel } from './components/Settings'
 import { UploadStep } from './components/UploadStep'
 import {
@@ -27,6 +27,16 @@ import {
 // The server replays at most 500 events to a new subscriber, so holding more
 // than this only grows an array nobody scrolls back through.
 const MAX_EVENTS = 400
+
+// The activity panel: every pipeline step as it happens, with its timings.
+//
+// It is a developer's window, not a setting. It used to be a switch in the
+// settings drawer, which put a live feed of extraction steps in front of
+// somebody who came here to find out what a hospital stay costs. It is opened
+// now by asking for it in the address bar, `?activity=1`, which is where the
+// people who want it will look and nowhere the people who do not will trip
+// over it. Read once: turning it on is a reload either way.
+const SHOW_ACTIVITY = new URLSearchParams(window.location.search).has('activity')
 
 const DEFAULT_SEARCH = {
   procedure_code: '',
@@ -112,7 +122,7 @@ export default function App() {
   // `watching` and `sessionId` hold the same string once an upload succeeds,
   // so finishing does not tear the connection down and lose the log with it.
   const streamId = watching ?? sessionId
-  const streaming = Boolean(streamId) && (Boolean(watching) || settings.showActivity)
+  const streaming = Boolean(streamId) && (Boolean(watching) || SHOW_ACTIVITY)
 
   useEffect(() => {
     if (!streaming || !streamId) return
@@ -474,10 +484,26 @@ export default function App() {
   // The name decides the screen and the address follows it, not the other way
   // round: reading the route here would flash the sign-in screen for a frame
   // whenever somebody arrives at /signin already signed in.
+  // Language, theme and text size are all this panel carries before there is a
+  // stay: there is no session to clear and no ticket to list, and the reason it
+  // is here at all is the first of the three.
+  const briefSettings = (
+    <SettingsPanel
+      brief
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      settings={settings} set={set} reset={reset}
+      sessionId={null}
+      onForget={forgetEverything}
+      user={user}
+    />
+  )
+
   if (!user) {
     return (
       <LanguageContext.Provider value={t}>
-        <SignIn onSignIn={signIn} />
+        <SignIn onSignIn={signIn} onOpenSettings={() => setSettingsOpen(true)} />
+        {briefSettings}
       </LanguageContext.Provider>
     )
   }
@@ -492,15 +518,9 @@ export default function App() {
           onNew={startNewStay}
           onDelete={removeStay}
           onSwitchUser={switchUser}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
-        <SettingsPanel
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          settings={settings} set={set} reset={reset}
-          sessionId={null}
-          onForget={forgetEverything}
-          user={user}
-        />
+        {briefSettings}
         {/* Keyed on the name: another name is another person, and a
             conversation is not theirs to inherit. */}
         <HelpDesk key={user} screen="home" user={user} />
@@ -827,7 +847,7 @@ function Shell({
   step, reachable, onGo, onHome, onStartOver, hasSession, user, onToggleText,
 }) {
   const t = useT()
-  const showActivity = settings.showActivity
+  const showActivity = SHOW_ACTIVITY
   const header = useMeasuredHeader()
 
   return (
@@ -889,14 +909,7 @@ function Shell({
             >
               A<span className="text-[0.75rem]">A</span>
             </button>
-            <button
-              onClick={onOpenSettings}
-              aria-label={t('nav.settings', 'Settings')}
-              title={t('nav.settings', 'Settings')}
-              className="rounded-lg border border-line px-2.5 py-2 text-[0.875rem] text-muted transition hover:bg-canvas hover:text-ink"
-            >
-              <GearIcon />
-            </button>
+            <SettingsButton onClick={onOpenSettings} />
           </div>
         </div>
 
@@ -981,15 +994,3 @@ function StepNav({ step, onGo, reachable }) {
   )
 }
 
-function GearIcon() {
-  return (
-    <svg
-      width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  )
-}

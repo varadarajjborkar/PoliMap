@@ -95,6 +95,7 @@ export default {
   'signin.placeholder': 'तुमचे नाव, किंवा तुम्हाला लक्षात राहील असे काहीही',
 
   'home.resume': 'जिथे थांबला होतात तिथून पुढे जा, किंवा नवीन भरती सुरू करा.',
+  'home.welcome': 'पुन्हा स्वागत आहे, {name}',
   'home.first': 'पॉलिसी वाचून घेऊन सुरुवात करा. त्यानंतरचे सर्व इथेच जतन होते.',
   'home.switch_user': 'तुम्ही नाही?',
   'home.policy_read': 'पॉलिसी वाचली',
@@ -514,14 +515,6 @@ export default {
   'settings.clear.yes': 'होय, पुसून टाका',
   'settings.clear.no': 'राहू द्या',
   'settings.clear': 'पुसून सुरुवातीपासून करा',
-  'settings.developer': 'डेव्हलपर',
-  'settings.developer.note': 'तपासणीसाठी. इथल्या कशानेही ॲपची गणना बदलत नाही.',
-  'settings.activity': 'हालचाल पॅनेल दाखवा',
-  'settings.activity.hint':
-    'प्रत्येक पाइपलाइन टप्प्याचा थेट प्रवाह, वेळेसह. सर्व्हर आपल्या लॉगमध्ये लिहितो त्याच घटना.',
-  'settings.api': 'API',
-  'settings.api.reachable': 'उपलब्ध आहे',
-  'settings.api.unreachable': 'उपलब्ध नाही',
   'settings.reset': 'सेटिंग सुरुवातीच्या स्थितीत आणा',
 
   disclaimer:

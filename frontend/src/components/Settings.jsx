@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
 import { useScreenExit } from '../hooks/useScreenExit'
 import { useT } from '../hooks/useLanguage'
 import { LANGUAGES } from '../lib/i18n'
 import { listTickets } from '../lib/tickets'
-import { Badge, Button, Toggle } from './Primitives'
+import { Button } from './Primitives'
 
 // Settings, in a panel over the page.
 //
-// Grouped by whose problem each setting solves. Reading and privacy belong to
-// the user. The activity stream belongs to whoever is building or judging this,
-// so it sits under its own heading, off by default, and says what it is.
+// Everything here is the reader's own: how the app speaks to them, and what it
+// is holding for them. There is no diagnostics section, because a live feed of
+// pipeline steps is a thing we want to watch and not a thing anybody using this
+// needs offered.
+//
+// `brief` is the panel before a stay exists. On the sign-in and home screens
+// there is no session and no ticket worth listing, so it carries the two
+// settings that apply everywhere and stops. Reaching them from the very first
+// screen is the point: somebody who cannot read English has to be able to
+// change the language before they are asked to type anything.
 
 export function SettingsPanel({
-  open, onClose, settings, set, reset, sessionId, onForget, user,
+  open, onClose, settings, set, reset, sessionId, onForget, user, brief = false,
 }) {
-  const [health, setHealth] = useState(null)
   const [confirmForget, setConfirmForget] = useState(false)
   const [tickets, setTickets] = useState([])
   const t = useT()
@@ -28,8 +33,6 @@ export function SettingsPanel({
   const close = useCallback(() => leave(onClose), [leave, onClose])
   const panel = useDialog(open, close)
 
-  // Probed when the panel opens rather than on load, so the page does not pay
-  // for diagnostics nobody asked to see.
   useEffect(() => {
     if (!open) {
       setConfirmForget(false)
@@ -39,7 +42,6 @@ export function SettingsPanel({
     // would open part-way through its own exit.
     resetExit()
     setTickets(listTickets(user))
-    api.health().then(setHealth).catch(() => setHealth(null))
   }, [open, resetExit, user])
 
   if (!open) return null
@@ -126,23 +128,25 @@ export function SettingsPanel({
             />
           </Section>
 
-          <Section title={t('settings.tickets', 'Your tickets')}>
-            {tickets.length === 0 ? (
-              <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
-                {t(
-                  'settings.tickets.none',
-                  'Nothing raised yet. Anything you send from the help desk appears here.')}
-              </p>
-            ) : (
-              <ul className="space-y-2 pt-1">
-                {tickets.map((ticket) => (
-                  <TicketRow key={ticket.ticket_id} ticket={ticket} t={t} />
-                ))}
-              </ul>
-            )}
-          </Section>
+          {!brief && (
+            <Section title={t('settings.tickets', 'Your tickets')}>
+              {tickets.length === 0 ? (
+                <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
+                  {t(
+                    'settings.tickets.none',
+                    'Nothing raised yet. Anything you send from the help desk appears here.')}
+                </p>
+              ) : (
+                <ul className="space-y-2 pt-1">
+                  {tickets.map((ticket) => (
+                    <TicketRow key={ticket.ticket_id} ticket={ticket} t={t} />
+                  ))}
+                </ul>
+              )}
+            </Section>
+          )}
 
-          {sessionId && (
+          {!brief && sessionId && (
             <Section title={t('settings.session', 'This session')}>
               <p className="pt-1 text-[0.8125rem] leading-relaxed text-muted">
                 {t(
@@ -176,43 +180,13 @@ export function SettingsPanel({
             </Section>
           )}
 
-          <Section
-            title={t('settings.developer', 'Developer')}
-            note={t(
-              'settings.developer.note',
-              'Diagnostics. Nothing here changes what the app calculates.'
-            )}
-          >
-            <Toggle
-              label={t('settings.activity', 'Show the activity panel')}
-              hint={t(
-                'settings.activity.hint',
-                'A live feed of every pipeline step, with timings. The same events ' +
-                  'the server logs.')}
-              checked={settings.showActivity}
-              onChange={(v) => set('showActivity', v)}
-            />
-
-            {/* One line, because the only question this answers for anybody
-                who is not building the app is whether the server is up. What
-                model is serving which role, how many sessions are held and how
-                much disk the page images take are questions for a terminal. */}
-            <div className="border-t border-line pt-3 text-[0.8125rem]">
-              <Row label={t('settings.api', 'API')}>
-                {health ? (
-                  <Badge tone="good">{t('settings.api.reachable', 'reachable')}</Badge>
-                ) : (
-                  <Badge tone="bad">{t('settings.api.unreachable', 'unreachable')}</Badge>
-                )}
-              </Row>
+          {!brief && (
+            <div className="border-t border-line py-4">
+              <Button variant="secondary" onClick={reset}>
+                {t('settings.reset', 'Reset settings to defaults')}
+              </Button>
             </div>
-          </Section>
-
-          <div className="border-t border-line py-4">
-            <Button variant="secondary" onClick={reset}>
-              {t('settings.reset', 'Reset settings to defaults')}
-            </Button>
-          </div>
+          )}
         </div>
       </aside>
     </div>
@@ -319,11 +293,3 @@ function Section({ title, note, children }) {
   )
 }
 
-function Row({ label, children }) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1">
-      <span className="capitalize text-muted">{label}</span>
-      {children}
-    </div>
-  )
-}

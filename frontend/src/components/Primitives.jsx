@@ -63,44 +63,6 @@ export function Input({ className = '', ...props }) {
   return <input className={`${controlClass} ${className}`} {...props} />
 }
 
-// A switch with its label as part of the hit area. Anything smaller is hard to
-// use one-handed, which is how this app tends to get used.
-export function Toggle({ checked, onChange, label, hint, disabled }) {
-  return (
-    <label
-      className={`flex items-start justify-between gap-4 py-3 ${
-        disabled ? 'opacity-50' : 'cursor-pointer'
-      }`}
-    >
-      <span className="min-w-0">
-        <span className="block text-[0.875rem] font-medium">{label}</span>
-        {hint && (
-          <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted">
-            {hint}
-          </span>
-        )}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${
-          checked ? 'bg-brand' : 'bg-line'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-sm transition-all ${
-            checked ? 'left-[22px]' : 'left-0.5'
-          }`}
-        />
-      </button>
-    </label>
-  )
-}
-
 export function Badge({ tone = 'neutral', children }) {
   const tones = {
     neutral: 'bg-canvas text-muted border-line',
@@ -113,10 +75,6 @@ export function Badge({ tone = 'neutral', children }) {
       {children}
     </span>
   )
-}
-
-export function Money({ value, className = '' }) {
-  return <span className={`tabular-nums ${className}`}>{value}</span>
 }
 
 // Always present alongside any figure. The problem statement forbids binding
@@ -143,15 +101,6 @@ export function Spinner({ label }) {
   )
 }
 
-export function EmptyState({ title, children }) {
-  return (
-    <div className="px-5 py-12 text-center">
-      <p className="text-[0.9375rem] font-medium">{title}</p>
-      {children && <p className="mx-auto mt-1.5 max-w-md text-[0.875rem] text-muted">{children}</p>}
-    </div>
-  )
-}
-
 export function ErrorNote({ children, onDismiss }) {
   const t = useT()
   if (!children) return null
@@ -164,5 +113,32 @@ export function ErrorNote({ children, onDismiss }) {
         </button>
       )}
     </div>
+  )
+}
+
+// The way into settings, wherever the app happens to be.
+//
+// It lives here rather than in the header because the first two screens have
+// no header, and those are the two where it matters most: the language control
+// is inside this panel, and somebody who cannot read the sign-in screen has to
+// be able to reach it before they are asked to type a name.
+export function SettingsButton({ onClick, className = '' }) {
+  const t = useT()
+  return (
+    <button
+      onClick={onClick}
+      aria-label={t('nav.settings', 'Settings')}
+      title={t('nav.settings', 'Settings')}
+      className={`rounded-lg border border-line px-2.5 py-2 text-[0.875rem] text-muted transition hover:bg-canvas hover:text-ink ${className}`}
+    >
+      <svg
+        width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        strokeLinejoin="round" aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    </button>
   )
 }

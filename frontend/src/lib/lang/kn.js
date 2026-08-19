@@ -95,6 +95,7 @@ export default {
   'signin.placeholder': 'ನಿಮ್ಮ ಹೆಸರು, ಅಥವಾ ನಿಮಗೆ ನೆನಪಿರುವ ಯಾವುದಾದರೂ',
 
   'home.resume': 'ಬಿಟ್ಟಲ್ಲಿಂದಲೇ ಮುಂದುವರಿಸಿ, ಅಥವಾ ಹೊಸ ದಾಖಲಾತಿ ಶುರು ಮಾಡಿ.',
+  'home.welcome': 'ಮತ್ತೆ ಸ್ವಾಗತ, {name}',
   'home.first': 'ಪಾಲಿಸಿ ಓದಿಸುವುದರಿಂದ ಶುರು ಮಾಡಿ. ಆ ನಂತರದ್ದೆಲ್ಲ ಇಲ್ಲೇ ಉಳಿಯುತ್ತದೆ.',
   'home.switch_user': 'ನೀವಲ್ಲವೇ?',
   'home.policy_read': 'ಪಾಲಿಸಿ ಓದಲಾಗಿದೆ',
@@ -511,15 +512,6 @@ export default {
   'settings.clear.yes': 'ಹೌದು, ಅಳಿಸಿ',
   'settings.clear.no': 'ಇರಲಿ',
   'settings.clear': 'ಅಳಿಸಿ ಮೊದಲಿನಿಂದ ಶುರು ಮಾಡಿ',
-  'settings.developer': 'ಡೆವಲಪರ್',
-  'settings.developer.note':
-    'ಪರಿಶೀಲನೆಗಾಗಿ. ಇಲ್ಲಿನ ಯಾವುದರಿಂದಲೂ ಆ್ಯಪ್‌ನ ಲೆಕ್ಕ ಬದಲಾಗುವುದಿಲ್ಲ.',
-  'settings.activity': 'ಚಟುವಟಿಕೆ ಫಲಕ ತೋರಿಸಿ',
-  'settings.activity.hint':
-    'ಪ್ರತಿ ಪೈಪ್‌ಲೈನ್ ಹಂತದ ನೇರ ಪ್ರಸಾರ, ಸಮಯದೊಂದಿಗೆ. ಸರ್ವರ್ ತನ್ನ ಲಾಗ್‌ನಲ್ಲಿ ಬರೆಯುವ ಅದೇ ಘಟನೆಗಳು.',
-  'settings.api': 'API',
-  'settings.api.reachable': 'ಸಿಗುತ್ತಿದೆ',
-  'settings.api.unreachable': 'ಸಿಗುತ್ತಿಲ್ಲ',
   'settings.reset': 'ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಮೊದಲಿನಂತೆ ಮಾಡಿ',
 
   disclaimer:

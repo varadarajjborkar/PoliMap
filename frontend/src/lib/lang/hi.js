@@ -95,6 +95,7 @@ export default {
   'signin.placeholder': 'आपका नाम, या जो आपको याद रहे',
 
   'home.resume': 'जहाँ छोड़ा था वहीं से चलें, या नई भर्ती शुरू करें।',
+  'home.welcome': 'फिर से स्वागत है, {name}',
   'home.first': 'पॉलिसी पढ़वाकर शुरू करें। उसके बाद का सब कुछ यहीं सहेजा जाता है।',
   'home.switch_user': 'आप नहीं?',
   'home.policy_read': 'पॉलिसी पढ़ी गई',
@@ -510,14 +511,6 @@ export default {
   'settings.clear.yes': 'हाँ, मिटा दें',
   'settings.clear.no': 'रहने दें',
   'settings.clear': 'मिटाकर शुरू से करें',
-  'settings.developer': 'डेवलपर',
-  'settings.developer.note': 'जाँच के लिए। यहाँ की किसी चीज़ से ऐप की गणना नहीं बदलती।',
-  'settings.activity': 'गतिविधि पैनल दिखाएँ',
-  'settings.activity.hint':
-    'हर पाइपलाइन चरण की सीधी धारा, समय सहित। वही घटनाएँ जो सर्वर अपने लॉग में लिखता है।',
-  'settings.api': 'API',
-  'settings.api.reachable': 'पहुँच में है',
-  'settings.api.unreachable': 'पहुँच में नहीं',
   'settings.reset': 'सेटिंग शुरुआती हाल में लाएँ',
 
   disclaimer:

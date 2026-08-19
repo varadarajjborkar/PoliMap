@@ -2,10 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 // Preferences, kept on the device.
 //
-// Defaults are chosen for the person the app is actually for: someone dealing
-// with a hospital admission, not someone inspecting a pipeline. So the activity
-// panel starts hidden. It is a developer tool, and a live feed of extraction
-// steps is noise to a user and reassurance only to us.
+// Three of them, and every one is about reading: which language the app speaks,
+// which theme it wears, how large it sets its type. Nothing that belongs to a
+// developer is offered here, which is why the activity panel is not.
 //
 // Nothing about a policy is stored here. A reload starts over, which is the
 // honest behaviour while there are no accounts: the alternative is leaving
@@ -25,8 +24,6 @@ export const DEFAULTS = {
   language: 'en',
   // The comfortable size is the default. "large" goes further.
   textSize: 'default',
-  // Developer
-  showActivity: false,
 }
 
 function load() {
