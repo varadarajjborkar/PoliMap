@@ -646,7 +646,10 @@ def find_options(
             option = _cost_option(hospital, distance, procedure, policy, context, filters)
             if option is not None:
                 options.append(option)
-        step.ok(f"Costed {len(options)} option{'s' if len(options) != 1 else ''}")
+        step.ok(
+            f"Costed {len(options)} option{'s' if len(options) != 1 else ''}",
+            costed=len(options),
+        )
 
     if not options:
         return MatchResult(
@@ -671,6 +674,7 @@ def find_options(
         step.ok(
             f"{len(chosen)} option{'s' if len(chosen) != 1 else ''} shortlisted, "
             f"{sum(o.on_pareto_frontier for o in options)} genuinely non-dominated",
+            shortlisted=len(chosen),
             frontier=sum(o.on_pareto_frontier for o in options),
         )
 

@@ -146,6 +146,24 @@ const SERVER_KEYS = [
   'warn.scheme_unusable_reimbursable', 'warn.scheme_upgrade',
 ]
 
+// Keys asked for from lib/, not from a component.
+//
+// The progress panel's phase names and the line under the phase being worked
+// on are chosen from tables in lib/progress.js by a key the scan below cannot
+// see: the call site passes a variable. They are listed for the same reason the
+// server's keys are, and with the same consequence either way round.
+const LIB_KEYS = [
+  'count.pages', 'count.sections',
+  'note.compiled', 'note.costed', 'note.findings', 'note.insurer',
+  'note.ledger', 'note.lines', 'note.matched', 'note.model_kept',
+  'note.opened', 'note.page_ocr', 'note.page_text', 'note.page_vision',
+  'note.pages_read', 'note.questions', 'note.reading', 'note.rules_found',
+  'note.sections', 'note.shortlisted',
+  'phase.against_policy', 'phase.build', 'phase.check', 'phase.cost',
+  'phase.doc', 'phase.find', 'phase.lines', 'phase.pages', 'phase.rank',
+  'phase.sort', 'phase.terms',
+]
+
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name)
@@ -153,7 +171,7 @@ function walk(dir) {
   })
 }
 
-const used = new Set(SERVER_KEYS)
+const used = new Set([...SERVER_KEYS, ...LIB_KEYS])
 for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
   const text = readFileSync(path, 'utf8')
   for (const [, key] of text.matchAll(/\bt\(\s*'([a-z][a-z0-9._]*)'/g)) {

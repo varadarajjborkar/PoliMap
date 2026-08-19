@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { clock, humanDuration, progressOf } from '../lib/progress'
 
 // What the system is doing, while it does it.
@@ -14,7 +15,8 @@ import { clock, humanDuration, progressOf } from '../lib/progress'
 // the server sent. Nothing advances on a timer, which is the point: when a
 // step is slow, this shows a slow step rather than a bar that keeps moving.
 
-export function ReadingProgress({ events, phases, title, hint, waiting = 'Starting.' }) {
+export function ReadingProgress({ events, phases, title, hint, waiting }) {
+  const t = useT()
   const elapsed = useElapsed()
   const { phases: rows, document, started, failed } = progressOf(events, phases)
 
@@ -33,14 +35,16 @@ export function ReadingProgress({ events, phases, title, hint, waiting = 'Starti
 
       {document && (
         <p className="px-4 pt-1 text-[0.75rem] text-muted">
-          Document {document.index} of {document.total}
+          {t('reading.document', 'Document {index} of {total}', {
+            index: document.index, total: document.total,
+          })}
           {document.name ? ` · ${document.name}` : ''}
         </p>
       )}
 
       <ol className="space-y-0 px-4 py-3">
         {rows.map((row, index) => (
-          <Row key={row.key} row={row} last={index === rows.length - 1} />
+          <Row key={row.key} row={row} last={index === rows.length - 1} t={t} />
         ))}
       </ol>
 
@@ -49,7 +53,7 @@ export function ReadingProgress({ events, phases, title, hint, waiting = 'Starti
           ? failed
           : started
             ? hint
-            : waiting}
+            : waiting || t('reading.starting', 'Starting.')}
       </p>
     </div>
   )
@@ -58,9 +62,10 @@ export function ReadingProgress({ events, phases, title, hint, waiting = 'Starti
 // The thread down the left with a knot on each step. The knot is the state:
 // filled and ticked once done, ringed and breathing while it is the one being
 // worked on, hollow until then.
-function Row({ row, last }) {
+function Row({ row, last, t }) {
   const done = row.state === 'done'
   const active = row.state === 'active'
+  const note = row.note ? t(row.note.key, row.note.english, row.note.values) : ''
 
   return (
     <li className="flex gap-3">
@@ -95,7 +100,7 @@ function Row({ row, last }) {
               active ? 'font-medium text-ink' : done ? 'text-muted' : 'text-muted/60'
             }`}
           >
-            {row.label}
+            {t(row.name, row.label)}
           </span>
           {done && row.ms > 0 && (
             <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted/70">
@@ -112,20 +117,21 @@ function Row({ row, last }) {
                 style={{ width: `${(row.fraction.done / row.fraction.total) * 100}%` }}
               />
             </div>
-            <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted">
-              {row.fraction.done}/{row.fraction.total} {row.fraction.noun}
-              {row.fraction.total === 1 ? '' : 's'}
+            <span className="shrink-0 text-[0.6875rem] tabular-nums text-muted">
+              {t(row.fraction.name, row.fraction.label, {
+                done: row.fraction.done, total: row.fraction.total,
+              })}
             </span>
           </div>
         )}
 
-        {active && row.note && (
+        {active && note && (
           // Keyed on the text so each new line fades in rather than swapping.
           <p
-            key={row.note}
+            key={note}
             className="mt-1 truncate text-[0.75rem] text-muted motion-safe:animate-fade"
           >
-            {row.note}
+            {note}
           </p>
         )}
       </div>

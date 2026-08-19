@@ -297,7 +297,7 @@ def _ingest_image(
 ) -> IngestedDocument:
     with bus.step(
         STAGE, "read_image", session_id=session_id,
-        summary=f"Reading {shown}",
+        summary=f"Reading {shown}", file=shown,
     ) as step:
         _refuse_oversized_image(path)
         image = cv2.imread(str(path))
@@ -350,6 +350,7 @@ def _ingest_pdf(
             STAGE, "open_pdf", session_id=session_id,
             summary=f"Opened {shown}, {page_count} page"
                     f"{'s' if page_count != 1 else ''}",
+            file=shown,
             pages=page_count,
         )
 
@@ -394,6 +395,7 @@ def _ingest_pdf(
             f"quality {document.quality_score:.0%}"
         ),
         input_kind=document.input_kind.value,
+        pages=len(pages),
         scanned_pages=scanned_pages,
         quality=document.quality_score,
     )

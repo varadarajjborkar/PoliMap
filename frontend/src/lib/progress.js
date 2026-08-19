@@ -8,28 +8,49 @@
 // steps read as five, and counting, so a phase that will take a while can say
 // how far through it is.
 
+// Every phase carries the key its name is read under as well as the name. The
+// counter keys (`read`, `terms`) say which phase this is to the code and are
+// not unique across the three sets, so they cannot double as the string's name:
+// the first phase of a policy and the first of a bill count pages the same way
+// and are called different things.
 export const READING_PHASES = [
-  { key: 'read', label: 'Reading the pages', stage: 'S0_INTAKE' },
-  { key: 'sort', label: 'Working out what each page holds', stage: 'S1_TRIAGE' },
-  { key: 'terms', label: 'Picking out the terms', stage: 'S2_ATOMIZE' },
-  { key: 'check', label: 'Checking each term against the document', stage: 'S3_CHALLENGE' },
-  { key: 'build', label: 'Building your cover', stage: 'S4_COMPILE' },
+  { key: 'read', name: 'phase.pages', label: 'Reading the pages', stage: 'S0_INTAKE' },
+  {
+    key: 'sort', name: 'phase.sort', label: 'Working out what each page holds',
+    stage: 'S1_TRIAGE',
+  },
+  { key: 'terms', name: 'phase.terms', label: 'Picking out the terms', stage: 'S2_ATOMIZE' },
+  {
+    key: 'check', name: 'phase.check', label: 'Checking each term against the document',
+    stage: 'S3_CHALLENGE',
+  },
+  { key: 'build', name: 'phase.build', label: 'Building your cover', stage: 'S4_COMPILE' },
 ]
 
 export const SEARCH_PHASES = [
-  { key: 'find', label: 'Finding hospitals that can treat this', steps: ['find_options'] },
-  { key: 'cost', label: 'Working out what each would cost you', steps: ['estimate_costs'] },
-  { key: 'rank', label: 'Putting them in order', steps: ['rank_options'] },
+  {
+    key: 'find', name: 'phase.find', label: 'Finding hospitals that can treat this',
+    steps: ['find_options'],
+  },
+  {
+    key: 'cost', name: 'phase.cost', label: 'Working out what each would cost you',
+    steps: ['estimate_costs'],
+  },
+  { key: 'rank', name: 'phase.rank', label: 'Putting them in order', steps: ['rank_options'] },
 ]
 
 // Reading a bill is the other slow wait, and a photographed one is the slowest
 // thing in the app: OCR, then a vision pass over anything OCR could not read.
 // The page phase reuses the `read` key so it inherits the page counter.
 export const BILL_PHASES = [
-  { key: 'read', label: 'Reading the document', stage: 'S0_INTAKE' },
-  { key: 'lines', label: 'Finding the lines and what each one is', steps: ['read_bill'] },
+  { key: 'read', name: 'phase.doc', label: 'Reading the document', stage: 'S0_INTAKE' },
+  {
+    key: 'lines', name: 'phase.lines', label: 'Finding the lines and what each one is',
+    steps: ['read_bill'],
+  },
   {
     key: 'check',
+    name: 'phase.against_policy',
     label: 'Checking it against your policy and the IRDAI list',
     steps: ['check_bill'],
   },
@@ -75,12 +96,111 @@ function tally(counts, event) {
   }
 }
 
+// The line under the phase being worked on, said in the reader's language.
+//
+// The server writes every event a one-line English summary. That summary is
+// what the console prints and what the activity panel shows, and both of those
+// are ours to read. The person waiting on their policy gets the same thing
+// composed here instead, out of the figures on the very same event, because a
+// sentence already assembled in Python around a number cannot be translated
+// afterwards without taking it apart again.
+//
+// A step with nothing to say here shows no line rather than an English one.
+// The phase's own name is above it and already says what is happening; the
+// line is for the number beside it, and a step that has not produced its
+// number yet has not got to the interesting part.
+const NOTES = {
+  document_started: (d) => say('note.reading', 'Reading {file}', { file: d.file }),
+  read_image: (d) => say('note.reading', 'Reading {file}', { file: d.file }),
+  open_pdf: (d) =>
+    say('note.opened', 'Opened {file}, {pages} pages', {
+      file: d.file, pages: d.pages,
+    }),
+  native_text: (d) =>
+    say('note.page_text', 'Page {page}: read from the file itself', {
+      page: pageNumber(d),
+    }),
+  ocr_page: (d) =>
+    say('note.page_ocr', 'Page {page}: {chars} characters, {sure}% sure', {
+      page: pageNumber(d), chars: d.chars, sure: percent(d.confidence),
+    }),
+  vision_escalation: (d) =>
+    say('note.page_vision', 'Page {page}: hard to read, asking a model to look', {
+      page: pageNumber(d),
+    }),
+  intake_complete: (d) =>
+    say('note.pages_read', '{pages} pages read', { pages: d.pages }),
+  classify_pages: (d) =>
+    say('note.insurer', 'Looks like a {insurer} policy', { insurer: d.insurer }),
+  chunk_document: (d) =>
+    say('note.sections', 'Split into {chunks} sections', { chunks: d.chunks }),
+  grammar_extract: (d) =>
+    say('note.rules_found', 'The rules found {clauses} terms', { clauses: d.clauses }),
+  model_extract: (d) =>
+    say('note.model_kept', '{admitted} more terms, each one found in the document', {
+      admitted: d.admitted,
+    }),
+  merge_clauses: (d) =>
+    say('note.ledger', '{total} terms in all', { total: d.total }),
+  challenge_round: (d) =>
+    say('note.questions', 'Round {round}: {challenges} things worth questioning', {
+      round: d.round, challenges: d.challenges,
+    }),
+  compile_policy: (d) =>
+    say('note.compiled', '{sublimits} limits found in your cover', {
+      sublimits: d.sublimits,
+    }),
+  find_options: (d) =>
+    say('note.matched', '{matched} of {considered} hospitals fit', {
+      matched: d.matched, considered: d.considered,
+    }),
+  estimate_costs: (d) =>
+    say('note.costed', 'Costed {costed} of them', { costed: d.costed }),
+  rank_options: (d) =>
+    say('note.shortlisted', '{shortlisted} shortlisted', {
+      shortlisted: d.shortlisted,
+    }),
+  read_bill: (d) => say('note.lines', '{lines} lines found', { lines: d.lines }),
+  check_bill: (d) =>
+    say('note.findings', '{findings} things to look at', { findings: d.findings }),
+}
+
+// A note needs every figure it names. Anything missing means the step has
+// started and not finished, so there is nothing to say yet.
+function say(key, english, values) {
+  for (const value of Object.values(values)) {
+    if (value === undefined || value === null || value === '') return null
+  }
+  return { key, english, values }
+}
+
+const pageNumber = (detail) =>
+  typeof detail.page === 'number' ? detail.page + 1 : null
+
+const percent = (value) =>
+  typeof value === 'number' ? Math.round(value * 100) : null
+
+function noteFor(event) {
+  const compose = NOTES[event.step]
+  return compose ? compose(event.detail ?? {}) : null
+}
+
 function fractionFor(key, counts) {
   if (key === 'read' && counts.pageTotal > 1) {
-    return { done: Math.min(counts.pages, counts.pageTotal), total: counts.pageTotal, noun: 'page' }
+    return {
+      done: Math.min(counts.pages, counts.pageTotal),
+      total: counts.pageTotal,
+      name: 'count.pages',
+      label: '{done}/{total} pages',
+    }
   }
   if (key === 'terms' && counts.chunkTotal > 1) {
-    return { done: Math.min(counts.chunks, counts.chunkTotal), total: counts.chunkTotal, noun: 'section' }
+    return {
+      done: Math.min(counts.chunks, counts.chunkTotal),
+      total: counts.chunkTotal,
+      name: 'count.sections',
+      label: '{done}/{total} sections',
+    }
   }
   return null
 }
@@ -94,7 +214,7 @@ export function progressOf(events, phases) {
   // all of them, and carrying the marker into those would say the work is
   // still on one file when it is not.
   let documentPhase = -1
-  const notes = phases.map(() => '')
+  const notes = phases.map(() => null)
   // When each phase first said anything, and when anything last did. A phase
   // ran from its own first event until the next phase's, which is wall clock
   // and therefore comparable across phases. Summing the steps' own durations
@@ -124,7 +244,8 @@ export function progressOf(events, phases) {
     if (event.status === 'failed') failed = event.summary
     if (index > furthest) furthest = index
     if (event.step === 'document_started') documentPhase = index
-    if (event.summary) notes[index] = event.summary
+    const note = noteFor(event)
+    if (note) notes[index] = note
 
     const at = Date.parse(event.ts)
     if (!Number.isNaN(at)) {
@@ -154,9 +275,10 @@ export function progressOf(events, phases) {
         finished || index < furthest ? 'done' : index === furthest ? 'active' : 'pending'
       return {
         key: phase.key,
+        name: phase.name,
         label: phase.label,
         state,
-        note: state === 'active' ? notes[index] : '',
+        note: state === 'active' ? notes[index] : null,
         ms: ranFor(index),
         fraction: state === 'active' ? fractionFor(phase.key, counts) : null,
       }
