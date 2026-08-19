@@ -90,24 +90,39 @@ So every figure above traces back to the passage it was read from:
 
 ### 3. An adversarial verification loop, because the measurement demanded one
 
-Adding a language model to extraction halved the missed fields and **tripled the
-confidently wrong ones**. Wrong values are the dangerous failure: nothing
-prompts anyone to check them. So the model's output is attacked before it is
-believed, most sharply by re-parsing each clause's own quote and confirming it
-still yields the value reported.
+Wrong values are the dangerous failure: a missed field prompts a question, and a
+confidently incorrect figure prompts nothing. So the model's output is attacked
+before it is believed, most sharply by re-parsing each clause's own quote and
+confirming it still yields the value reported.
 
-Measured across 158 fields, 10 policies, 6 document conditions:
+Measured across 160 fields, 10 policies, 6 document conditions:
 
-| Configuration                          |        Accuracy | **Wrong values** |     Missing |
-| -------------------------------------- | --------------: | ---------------------: | ----------: |
-| Rules only                             |           93.4% |                      2 |          10 |
-| Rules + model                          |           93.0% |                      6 |           5 |
-| Rules + verification                   |           94.3% |                      1 |           8 |
-| **Rules + model + verification** | **94.9%** |            **3** | **5** |
+| Configuration                    |    Accuracy | **Wrong values** | Missing |
+| -------------------------------- | ----------: | ---------------: | ------: |
+| Rules only                       |       88.7% |                2 |      16 |
+| Rules + verification             |       88.7% |                2 |      16 |
+| **Rules + model**                |   **95.6%** |            **4** |   **3** |
+| Rules + model + verification     |       95.0% |                5 |       3 |
 
-Verification is what makes the model layer safe to use: it keeps the recall gain
-and halves the wrong values the model introduced. Whatever it cannot settle
-becomes a plain-language question rather than a silent guess.
+Reading each document in sections rather than one truncated pass per page is
+what moved this: the model now carries the pipeline, worth **6.9 points** where
+it was previously worth nothing at all, and missed fields fell from 16 to 3.
+
+The honest reading of the other two rows is that **verification no longer earns
+its place.** It is inert without the model and slightly harmful with it, and the
+cause is specific rather than mysterious. Two policies in the corpus write the
+room limit as *"1% of Sum Insured per day, subject to a maximum of Rs. 5,000/-
+per day"*. The compiler models that correctly, taking whichever of the two binds
+lower. Section-wise reading splits the sentence across the cut, so the model
+proposes the percentage and the maximum as **two rival clauses**, and the loop
+does exactly what it is built to do: it detects a contradiction, and settles it
+by picking one half of a clause that was never a contradiction. Both remaining
+wrong values are that same sentence.
+
+So the fix belongs upstream, in never splitting a qualified limit from its
+qualifier, and not in the adjudicator that is reasoning correctly about bad
+input. Until then the table above is what the code actually does, which is the
+point of measuring it.
 
 ### 4. It never returns an empty page
 
@@ -294,14 +309,21 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 400 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 978 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
+cd frontend && npm run lint                        # includes: every interface
+                                                   # string resolves in all
+                                                   # five languages
 
 .venv/bin/python -m bench.ocr_bench                # intake quality by condition
-.venv/bin/python -m bench.extract_bench            # extraction accuracy
-.venv/bin/python -m bench.extract_bench --no-model # ablation: rules only
-.venv/bin/python -m bench.extract_bench --no-verify # ablation: no verification
+
+# The ablation table above, in the order it is printed. --limit 10 is the
+# sample it was measured on; without it the run covers all 40 policies.
+.venv/bin/python -m bench.extract_bench --limit 10
+.venv/bin/python -m bench.extract_bench --limit 10 --no-verify
+.venv/bin/python -m bench.extract_bench --limit 10 --no-model
+.venv/bin/python -m bench.extract_bench --limit 10 --no-model --no-verify
 ```
 
 `curl localhost:8000/api/health/providers` shows which model is serving each
@@ -344,8 +366,8 @@ gets read on a phone, at night, by someone who is tired.
 a vision model, then ask the user. Preprocessing branches on measured page
 condition. Speckle detection picks a median filter over non-local means,
 lighting is flattened only when a shadow is actually present, and capture DPI is
-inferred from page dimensions. Field recall across the corpus: **94.3%**, up
-from 81.3% before those three fixes.
+inferred from page dimensions. Field recall across all 104 documents:
+**96.4%**, up from 81.3% before those three fixes.
 
 ---
 
