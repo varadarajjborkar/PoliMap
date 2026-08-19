@@ -309,13 +309,21 @@ def _discharge_planning(
             "claimable, and are most often lost to a thrown-away receipt."
         )
         if state.admitted_at:
-            until = f"{(state.admitted_at.date() + timedelta(days=policy.post_hospitalisation_days)):%d %B}"
+            last_day = state.admitted_at.date() + timedelta(
+                days=policy.post_hospitalisation_days
+            )
+            # Both forms of the date: the one written out, so a sentence with
+            # no translation still reads, and the machine one, which is the
+            # only form the browser can say in the reader's own language.
+            until = f"{last_day:%d %B}"
             items.append(ChecklistItem(
                 "post_window",
                 f"Keep every prescription and bill until {until}",
                 why,
                 key="post_window_until",
-                values={"days": days, "until": until},
+                values={
+                    "days": days, "until": until, "until_iso": last_day.isoformat(),
+                },
                 tags=["paperwork"],
             ))
         else:

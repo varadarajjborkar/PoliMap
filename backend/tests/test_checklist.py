@@ -107,6 +107,10 @@ def test_the_post_hospitalisation_window_becomes_a_date():
     # sentence naming a day and one counting days are not one sentence.
     assert post.string_key == "post_window_until"
     assert post.values["days"] == "90"
+    # And the machine form beside it, because "08 November" is an English month
+    # name wherever it has been dropped into a sentence. The browser writes the
+    # date out of this one in whatever language it is reading in.
+    assert post.values["until_iso"] == "2026-11-08"
 
 
 def test_a_policy_with_no_post_window_says_nothing_about_one():

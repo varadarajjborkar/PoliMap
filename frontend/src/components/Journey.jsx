@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
 import { useT } from '../hooks/useLanguage'
+import { dates } from '../lib/i18n'
 import { BillCheck } from './BillCheck'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
@@ -538,11 +539,11 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
                     item.done ? 'line-through' : 'font-medium'
                   }`}
                 >
-                  {t(`checklist.${item.key}`, item.text, item.values)}
+                  {t(`checklist.${item.key}`, item.text, dates(item.values))}
                 </span>
                 {item.why && !item.done && (
                   <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
-                    {t(`checklist.${item.key}.why`, item.why, item.values)}
+                    {t(`checklist.${item.key}.why`, item.why, dates(item.values))}
                   </span>
                 )}
               </span>

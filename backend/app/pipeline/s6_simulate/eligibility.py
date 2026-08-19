@@ -398,7 +398,9 @@ def _judge(
                 "period": period.describe(),
                 "n": _left(days_left)[1],
                 "start": f"{start:%d %B %Y}",
+                "start_iso": start.isoformat(),
                 "clears": f"{clears:%d %B %Y}",
+                "clears_iso": clears.isoformat(),
             },
         )
 
@@ -425,6 +427,7 @@ def _judge(
                 values=_span("period", period) | {
                     "period": period.describe(),
                     "clears": f"{clears:%d %B %Y}",
+                    "clears_iso": clears.isoformat(),
                 },
             )
         return Finding(
@@ -439,7 +442,11 @@ def _judge(
             days_left=days_left,
             clause_ids=period.source_clause_ids,
             key=f"pre_existing_{_left(days_left)[0]}",
-            values={"n": _left(days_left)[1], "clears": f"{clears:%d %B %Y}"},
+            values={
+                "n": _left(days_left)[1],
+                "clears": f"{clears:%d %B %Y}",
+                "clears_iso": clears.isoformat(),
+            },
         )
 
     named = period.applies_to.strip().rstrip(".") or "this treatment"
@@ -462,5 +469,6 @@ def _judge(
             "named": named,
             "procedure": procedure.name.lower(),
             "clears": f"{clears:%d %B %Y}",
+            "clears_iso": clears.isoformat(),
         },
     )

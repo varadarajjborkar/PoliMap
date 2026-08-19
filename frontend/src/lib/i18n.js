@@ -95,6 +95,49 @@ export function spans(t, values) {
   }
 }
 
+// A date, written the way the reader's language writes dates.
+//
+// The server sends both: the date already written out, so a sentence with no
+// translation still reads, and the same date in ISO form under the same name
+// with `_iso` on the end. Only the second can be moved into another language,
+// because "17 November" is a month name in English wherever it has been
+// dropped into a sentence, and no table can reach inside a value.
+//
+// The language comes off the document rather than being threaded through every
+// call: the settings hook sets `lang` on the root element for screen readers
+// and the browser's own font choice, and this is the same question.
+export function dates(values) {
+  if (!values) return values
+  let out = values
+
+  for (const [name, iso] of Object.entries(values)) {
+    if (!name.endsWith('_iso')) continue
+    const at = new Date(iso)
+    if (Number.isNaN(at.getTime())) continue
+
+    const under = name.slice(0, -4)
+    // Whether the year belongs on it is the server's decision, not this one: a
+    // deadline three days out is a day and a month, a waiting period ending in
+    // 2028 is not. It said which by writing one, so the year is kept where the
+    // sentence it is going into already had one.
+    const withYear = /\d{4}/.test(String(values[under] ?? ''))
+    if (out === values) out = { ...values }
+    out[under] = at.toLocaleDateString(locale(), {
+      day: 'numeric',
+      month: 'long',
+      ...(withYear ? { year: 'numeric' } : {}),
+    })
+  }
+
+  return out
+}
+
+// Indian formatting in every one of these languages: these are dates on an
+// Indian hospital bill, read by somebody standing in front of it.
+function locale() {
+  return `${document.documentElement.lang || 'en'}-IN`
+}
+
 // Takes the table rather than the code, because by the time anything renders
 // the table has already been fetched and there is nothing left to look up.
 export function translator(table) {

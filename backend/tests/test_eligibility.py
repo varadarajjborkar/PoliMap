@@ -104,6 +104,19 @@ def test_the_first_thirty_days_cover_nothing_but_accidents():
     assert verdict.of(WaitingKind.INITIAL).days_left == 20
 
 
+def test_a_date_in_a_finding_travels_in_a_form_a_browser_can_translate():
+    """The written date is what a sentence with no translation reads as. Beside
+    it goes the machine one, which is the only form another language can say:
+    "3 March 2026" is an English month wherever it has been dropped in."""
+    policy = make_policy(waits=[INITIAL])
+    finding = E.assess(policy, HEART, on=START + timedelta(days=10)).of(
+        WaitingKind.INITIAL
+    )
+    assert finding.values["clears"] == "03 March 2026"
+    assert finding.values["clears_iso"] == "2026-03-03"
+    assert finding.values["start_iso"] == START.isoformat()
+
+
 def test_an_accident_inside_the_first_thirty_days_is_covered():
     policy = make_policy(waits=[INITIAL])
     verdict = E.assess(policy, HEART, on=START + timedelta(days=10), accident=True)

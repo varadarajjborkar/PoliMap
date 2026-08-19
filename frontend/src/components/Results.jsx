@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
-import { said, spans } from '../lib/i18n'
+import { dates, said, spans } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
 import { TreatmentPicker } from './TreatmentPicker'
 
@@ -179,10 +179,10 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
             .map((finding, index) => (
               <li key={index} className="rounded-lg bg-surface/70 px-3 py-2">
                 <p className="text-[0.8125rem] font-medium">
-                  {t(`elig.${finding.key}`, finding.headline, spans(t, finding.values))}
+                  {t(`elig.${finding.key}`, finding.headline, dates(spans(t, finding.values)))}
                 </p>
                 <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                  {t(`elig.${finding.key}.detail`, finding.detail, spans(t, finding.values))}
+                  {t(`elig.${finding.key}.detail`, finding.detail, dates(spans(t, finding.values)))}
                 </p>
               </li>
             ))}
