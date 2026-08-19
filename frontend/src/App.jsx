@@ -178,18 +178,32 @@ export default function App() {
     }
   }, [user, view, navigate])
 
+  // Where the reader is right now, readable from a promise that settles later.
+  // A restore takes a second or two, and what has to be asked when it lands is
+  // whether they are still on the stay it belongs to.
+  const whereRef = useRef({ view, stayId })
+  whereRef.current = { view, stayId }
+
   // Opening a stay from a link, a reload, or the home screen all arrive here.
+  //
+  // What decides whether the result may be used is the reader having stayed put,
+  // not this effect having survived. That distinction was the whole bug: opening
+  // a stay adopts its session id, the id is one of this effect's dependencies,
+  // so the effect that started the restore was torn down by the restore
+  // working. Everything then hung off a cleanup flag that had been set by
+  // success: the policy and the stay were never put on screen, and the spinner
+  // over them never came off.
   useEffect(() => {
     if (view !== 'stay' || !stayId || !user) return
     if (sessionId) return
 
-    let cancelled = false
+    const here = () => whereRef.current.view === 'stay' && whereRef.current.stayId === stayId
+
     setBusy('restore')
     openSavedStay()
-      .then((restored) => { if (!cancelled) hydrate(restored) })
-      .catch((e) => { if (!cancelled) setError(e.message) })
-      .finally(() => { if (!cancelled) setBusy(null) })
-    return () => { cancelled = true }
+      .then((restored) => { if (here()) hydrate(restored) })
+      .catch((e) => { if (here()) setError(e.message) })
+      .finally(() => setBusy((current) => (current === 'restore' ? null : current)))
   }, [view, stayId, user, sessionId, openSavedStay, hydrate])
 
   // Anything the server now holds is worth writing to the device.
