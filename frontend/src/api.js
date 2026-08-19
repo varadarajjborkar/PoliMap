@@ -49,7 +49,6 @@ const json = (body) => ({
 
 export const api = {
   health: () => request('/api/health'),
-  providers: () => request('/api/health/providers'),
   reference: () => request('/api/reference'),
 
   clear: (sessionId) => request(`/api/session/${sessionId}`, { method: 'DELETE' }),

@@ -10,6 +10,7 @@ import { TreatmentPicker } from './TreatmentPicker'
 // number.
 
 export function SearchPanel({ reference, value, onChange, onSearch, busy, policy }) {
+  const t = useT()
   const set = (key) => (event) => onChange({ ...value, [key]: event.target.value })
 
   // Only worth asking where the policy names more than one person and the
@@ -21,14 +22,21 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
   return (
     <Card>
       <CardHeader
-        title="What treatment do you need?"
-        subtitle="We will find hospitals that do it and show what each would cost you."
+        title={t('search.title', 'What treatment do you need?')}
+        subtitle={t(
+          'search.subtitle',
+          'We will find hospitals that do it and show what each would cost you.'
+        )}
       />
       <div className="grid gap-4 p-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Field
-            label="Treatment"
-            hint="Type what you were told. We will match it to the closest treatment we can cost."
+            label={t('search.treatment', 'Treatment')}
+            hint={t(
+              'search.treatment.hint',
+              'Type what you were told. We will match it to the closest ' +
+                'treatment we can cost.'
+            )}
           >
             <TreatmentPicker
               procedures={reference?.procedures ?? []}
@@ -41,8 +49,12 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
         {patients.length > 1 && (
           <div className="sm:col-span-2">
             <Field
-              label="Who is being treated?"
-              hint="Your policy charges a co-payment only on older members, so this changes the figures."
+              label={t('search.patient', 'Who is being treated?')}
+              hint={t(
+                'search.patient.hint',
+                'Your policy charges a co-payment only on older members, so ' +
+                  'this changes the figures.'
+              )}
             >
               <Select
                 value={value.patient_index ?? ''}
@@ -53,7 +65,7 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
                   })
                 }
               >
-                <option value="">Not sure yet</option>
+                <option value="">{t('search.patient.unsure', 'Not sure yet')}</option>
                 {patients.map((person, index) => (
                   <option key={`${person.name}-${index}`} value={index}>
                     {person.name}
@@ -68,39 +80,43 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
           </div>
         )}
 
-        <Field label="City">
+        <Field label={t('search.city', 'City')}>
           <Select value={value.city} onChange={set('city')}>
             {(reference?.cities ?? []).map((city) => (
               <option key={city.city} value={city.city}>
-                {city.city} ({city.count} hospitals)
+                {t('search.city.count', '{city} ({count} hospitals)', {
+                  city: city.city, count: city.count,
+                })}
               </option>
             ))}
           </Select>
         </Field>
 
-        <Field label="How far can you travel?">
+        <Field label={t('search.distance', 'How far can you travel?')}>
           <Select value={value.max_distance_km} onChange={set('max_distance_km')}>
             {[5, 10, 15, 25, 40].map((km) => (
-              <option key={km} value={km}>Up to {km} km</option>
+              <option key={km} value={km}>
+                {t('search.distance.upto', 'Up to {km} km', { km })}
+              </option>
             ))}
           </Select>
         </Field>
 
-        <Field label="What matters most to you?">
+        <Field label={t('search.preference', 'What matters most to you?')}>
           <Select value={value.preference} onChange={set('preference')}>
             {(reference?.preferences ?? []).map((preference) => (
               <option key={preference.value} value={preference.value}>
-                {preference.label}
+                {t(`preference.${preference.value}`, preference.label)}
               </option>
             ))}
           </Select>
         </Field>
 
-        <Field label="How soon?">
+        <Field label={t('search.urgency', 'How soon?')}>
           <Select value={value.urgency} onChange={set('urgency')}>
-            <option value="planned">Planned</option>
-            <option value="urgent">Within a few days</option>
-            <option value="emergency">Emergency</option>
+            <option value="planned">{t('search.urgency.planned', 'Planned')}</option>
+            <option value="urgent">{t('search.urgency.urgent', 'Within a few days')}</option>
+            <option value="emergency">{t('search.urgency.emergency', 'Emergency')}</option>
           </Select>
         </Field>
 
@@ -110,7 +126,9 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
             disabled={busy || !value.procedure_code}
             onClick={onSearch}
           >
-            {busy ? 'Searching…' : 'Show me my options'}
+            {busy
+              ? t('search.searching', 'Searching\u2026')
+              : t('search.go', 'Show me my options')}
           </Button>
         </div>
       </div>
@@ -124,6 +142,7 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
 // period has not run still wants to know what the treatment costs, because
 // they are now the one paying for it. What changes is who the figure is for.
 export function EligibilityNotice({ eligibility, onAnswer, busy }) {
+  const t = useT()
   if (!eligibility || eligibility.verdict === 'covered') return null
 
   const blocking = eligibility.blocks
@@ -139,13 +158,16 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
         <div>
           <p className={`text-[0.9375rem] font-semibold ${blocking ? 'text-danger' : 'text-warn'}`}>
             {blocking
-              ? 'Your insurer would decline this claim'
+              ? t('eligibility.declined', 'Your insurer would decline this claim')
               : eligibility.headline}
           </p>
           <p className="mt-1 text-[0.875rem] leading-relaxed">
             {blocking
-              ? 'The costs below are what you would pay yourself.'
-              : 'One answer settles this.'}
+              ? t(
+                  'eligibility.declined.hint',
+                  'The costs below are what you would pay yourself.'
+                )
+              : t('eligibility.one_answer', 'One answer settles this.')}
           </p>
         </div>
 
@@ -166,8 +188,11 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
           <div className="rounded-lg border border-line bg-surface px-3 py-3">
             <p className="text-[0.875rem] font-medium">{question.question}</p>
             <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-              No policy states this, and it changes the answer, so we have to
-              ask. Your answer stays on this device.
+              {t(
+                'eligibility.why_ask',
+                'No policy states this, and it changes the answer, so we have ' +
+                  'to ask. Your answer stays on this device.'
+              )}
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               <Button
@@ -175,21 +200,21 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
                 disabled={busy}
                 onClick={() => onAnswer({ pre_existing: true })}
               >
-                Yes, I had it before
+                {t('eligibility.had_before', 'Yes, I had it before')}
               </Button>
               <Button
                 variant="secondary"
                 disabled={busy}
                 onClick={() => onAnswer({ pre_existing: false })}
               >
-                No, it came up after
+                {t('eligibility.came_after', 'No, it came up after')}
               </Button>
               <Button
                 variant="ghost"
                 disabled={busy}
                 onClick={() => onAnswer({ accident: true })}
               >
-                It was an accident
+                {t('eligibility.accident', 'It was an accident')}
               </Button>
             </div>
           </div>
@@ -200,6 +225,7 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
 }
 
 export function Results({ results, onStartJourney, starting }) {
+  const t = useT()
   const [query, setQuery] = useState('')
 
   const shown = useMemo(() => {
@@ -228,9 +254,16 @@ export function Results({ results, onStartJourney, starting }) {
         <div className="px-5 py-4">
           <p className="text-[0.9375rem] font-medium">{results.message}</p>
           <p className="mt-1 text-[0.875rem] text-muted">
-            We looked at{' '}
-            {(results.considered_in_city || results.considered).toLocaleString('en-IN')}
-            {' '}hospitals{results.city ? ` in ${results.city}` : ''}.
+            {results.city
+              ? t('results.looked_at.city', 'We looked at {count} hospitals in {city}.', {
+                  count: (results.considered_in_city || results.considered)
+                    .toLocaleString('en-IN'),
+                  city: results.city,
+                })
+              : t('results.looked_at', 'We looked at {count} hospitals.', {
+                  count: (results.considered_in_city || results.considered)
+                    .toLocaleString('en-IN'),
+                })}
           </p>
           {results.one_thing_to_change && (
             <p className="mt-1 text-[0.875rem] text-muted">
@@ -241,7 +274,7 @@ export function Results({ results, onStartJourney, starting }) {
           {results.relaxations?.length > 0 && (
             <div className="mt-3 space-y-2 rounded-lg border border-warn/25 bg-warn-soft p-3">
               <p className="text-[0.8125rem] font-semibold text-warn">
-                To find these, we had to relax what you asked for
+                {t('results.relaxed', 'To find these, we had to relax what you asked for')}
               </p>
               {results.relaxations.map((relaxation) => (
                 <div key={relaxation.kind} className="text-[0.8125rem] leading-relaxed text-warn">
@@ -258,12 +291,14 @@ export function Results({ results, onStartJourney, starting }) {
           {results.exclusions?.length > 0 && (
             <details className="mt-3">
               <summary className="cursor-pointer text-[0.8125rem] text-muted">
-                Why other hospitals were left out
+                {t('results.excluded', 'Why other hospitals were left out')}
               </summary>
               <ul className="mt-2 space-y-1 text-[0.8125rem] text-muted">
                 {results.exclusions.map((exclusion) => (
                   <li key={exclusion.reason} className="flex justify-between">
-                    <span>{exclusion.reason.replace(/_/g, ' ')}</span>
+                    <span>
+                      {t(`exclusion.${exclusion.reason}`, exclusion.reason.replace(/_/g, ' '))}
+                    </span>
                     <span className="tabular-nums">{exclusion.count}</span>
                   </li>
                 ))}
@@ -279,8 +314,11 @@ export function Results({ results, onStartJourney, starting }) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find a hospital by name or area"
-            aria-label="Filter these results by hospital name or area"
+            placeholder={t('results.filter', 'Find a hospital by name or area')}
+            aria-label={t(
+              'results.filter.label',
+              'Filter these results by hospital name or area'
+            )}
             className="pl-9"
           />
           <span
@@ -295,8 +333,10 @@ export function Results({ results, onStartJourney, starting }) {
       {query && (
         <p className="text-[0.8125rem] text-muted">
           {shown.length === 0
-            ? `No hospital here matches "${query}".`
-            : `${shown.length} of ${results.options.length} match "${query}".`}
+            ? t('results.filter.none', 'No hospital here matches "{query}".', { query })
+            : t('results.filter.some', '{shown} of {total} match "{query}".', {
+                shown: shown.length, total: results.options.length, query,
+              })}
         </p>
       )}
 
@@ -318,6 +358,7 @@ export function Results({ results, onStartJourney, starting }) {
 }
 
 function OptionCard({ option, onStart, starting, showFrontierBadge }) {
+  const t = useT()
   const [showDetail, setShowDetail] = useState(false)
   const reimbursement = option.settlement === 'reimbursement'
 
@@ -335,12 +376,15 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
               {option.hospital.name}
             </h3>
             {option.on_frontier && showFrontierBadge && (
-              <Badge tone="good">Strong option</Badge>
+              <Badge tone="good">{t('results.strong', 'Strong option')}</Badge>
             )}
           </div>
           <p className="mt-1 text-[0.8125rem] text-muted">
             {option.hospital.locality} · {option.distance_km} km ·{' '}
-            about {option.travel_minutes} min · {option.hospital.accreditation}
+            {t('results.travel', 'about {minutes} min', {
+              minutes: option.travel_minutes,
+            })}{' '}
+            · {option.hospital.accreditation}
           </p>
         </div>
 
@@ -348,7 +392,9 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
           {/* On a phone the label and the amount sit on one line, so the card
               does not spend three stacked rows saying one thing. */}
           <div className="flex items-baseline gap-2 sm:block">
-            <div className="text-[0.8125rem] text-muted">You would pay</div>
+            <div className="text-[0.8125rem] text-muted">
+              {t('results.you_would_pay', 'You would pay')}
+            </div>
             <div className="text-[1.5rem] font-semibold tabular-nums">
               {option.you_pay_display}
             </div>
@@ -358,13 +404,15 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
               a bare pair of numbers invites the reader to average them. */}
           {option.band && option.band.high > option.band.expected && (
             <div className="mt-0.5 text-[0.8125rem] leading-snug text-muted">
-              up to{' '}
+              {t('results.up_to', 'up to')}{' '}
               <span className="tabular-nums font-medium">
                 {option.band.high_display}
               </span>
               {option.band.high_driver && (
                 <span className="block text-[0.75rem] leading-snug sm:max-w-[13rem]">
-                  with {option.band.high_driver}
+                  {t('results.up_to.driver', 'with {driver}', {
+                    driver: option.band.high_driver,
+                  })}
                 </span>
               )}
             </div>
@@ -373,20 +421,37 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
       </div>
 
       <div className="grid gap-px border-y border-line bg-line sm:grid-cols-3">
-        <Stat label="Hospital bill" value={option.estimated_bill_display} />
-        <Stat label="Insurer pays" value={option.insurer_pays_display} />
         <Stat
-          label={reimbursement ? 'You pay upfront' : 'Settlement'}
-          value={reimbursement ? option.cash_upfront_display : option.settlement_label}
+          label={t('results.hospital_bill', 'Hospital bill')}
+          value={option.estimated_bill_display}
+        />
+        <Stat
+          label={t('results.insurer_pays_short', 'Insurer pays')}
+          value={option.insurer_pays_display}
+        />
+        <Stat
+          label={
+            reimbursement
+              ? t('results.upfront', 'You pay upfront')
+              : t('results.settlement', 'Settlement')
+          }
+          value={
+            reimbursement
+              ? option.cash_upfront_display
+              : t(`settlement.${option.settlement}`, option.settlement_label)
+          }
           tone={reimbursement ? 'warn' : 'neutral'}
         />
       </div>
 
       <div className="space-y-2.5 px-5 py-4">
         <div className="text-[0.8125rem]">
-          <span className="text-muted">Room: </span>
+          <span className="text-muted">{t('results.room', 'Room')}: </span>
           <span className="font-medium">
-            {option.room.label} at {option.room.per_day_display} a day
+            {t('results.room.rate', '{room} at {rate} a day', {
+              room: t(`room.${option.room.category}`, option.room.label),
+              rate: option.room.per_day_display,
+            })}
           </span>
         </div>
 
@@ -419,10 +484,12 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
 
       <div className="flex flex-wrap gap-2 border-t border-line px-5 py-3">
         <Button variant="secondary" onClick={() => setShowDetail(!showDetail)}>
-          {showDetail ? 'Hide the breakdown' : 'Where does my money go?'}
+          {showDetail
+            ? t('results.hide_breakdown', 'Hide the breakdown')
+            : t('results.show_breakdown', 'Where does my money go?')}
         </Button>
         <Button onClick={onStart} disabled={starting}>
-          Track my stay here
+          {t('results.track', 'Track my stay here')}
         </Button>
       </div>
 
@@ -455,12 +522,12 @@ function Waterfall({ option }) {
   return (
     <div className="border-t border-line bg-canvas px-5 py-4">
       <h4 className="text-[0.8125rem] font-semibold">
-        From the hospital bill to what you pay
+        {t('waterfall.title', 'From the hospital bill to what you pay')}
       </h4>
 
       <div className="mt-3 space-y-2">
         <Row
-          label="Hospital bill"
+          label={t('results.hospital_bill', 'Hospital bill')}
           amount={option.estimated_bill_display}
           width={100}
           tone="base"
@@ -493,7 +560,7 @@ function Waterfall({ option }) {
 
       <details className="mt-4">
         <summary className="cursor-pointer text-[0.8125rem] text-muted">
-          The hospital bill, item by item
+          {t('waterfall.lines', 'The hospital bill, item by item')}
         </summary>
         <ul className="mt-2 space-y-1">
           {option.bill_lines.map((line, index) => (

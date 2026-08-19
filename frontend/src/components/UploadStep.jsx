@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { Button, Card, Disclaimer, ErrorNote, Field, Input, Select, Spinner } from './Primitives'
 
 // The first screen. Written on the assumption that the person here is not
@@ -18,6 +19,7 @@ export function UploadStep({
   reference, onUploaded, onManual, busy, error, onClearError, progress,
   done = false,
 }) {
+  const t = useT()
   const [mode, setMode] = useState('upload')
   const [insurerId, setInsurerId] = useState('')
   const [files, setFiles] = useState([])
@@ -39,8 +41,12 @@ export function UploadStep({
     const combined = [...files, ...chosen]
     if (combined.length > MAX_FILES) {
       setRefused(
-        `That is more than ${MAX_FILES} files. The pages listing your cover ` +
-          `are usually enough on their own.`
+        t(
+          'upload.too_many',
+          'That is more than {limit} files. The pages listing your cover are ' +
+            'usually enough on their own.',
+          { limit: MAX_FILES }
+        )
       )
       return
     }
@@ -48,9 +54,12 @@ export function UploadStep({
     const total = combined.reduce((sum, f) => sum + f.size, 0)
     if (total > MAX_UPLOAD_MB * 1024 * 1024) {
       setRefused(
-        `Those come to ${(total / 1024 / 1024).toFixed(0)} MB, and we can read ` +
-          `up to ${MAX_UPLOAD_MB} MB. The pages listing your cover are usually ` +
-          `enough on their own.`
+        t(
+          'upload.too_large',
+          'Those come to {size} MB, and we can read up to {limit} MB. The ' +
+            'pages listing your cover are usually enough on their own.',
+          { size: (total / 1024 / 1024).toFixed(0), limit: MAX_UPLOAD_MB }
+        )
       )
       return
     }
@@ -82,10 +91,15 @@ export function UploadStep({
               ✓
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[0.9375rem] font-medium">Your policy has been read</p>
+              <p className="text-[0.9375rem] font-medium">
+                {t('upload.done', 'Your policy has been read')}
+              </p>
               <p className="mt-0.5 text-[0.875rem] leading-relaxed text-muted">
-                What it says is below. Correct anything we got wrong before you
-                go on.
+                {t(
+                  'upload.done.hint',
+                  'What it says is below. Correct anything we got wrong before ' +
+                    'you go on.'
+                )}
               </p>
             </div>
           </div>
@@ -98,12 +112,15 @@ export function UploadStep({
     <div className="mx-auto max-w-2xl space-y-5">
       <div className="text-center">
         <h1 className="text-[1.625rem] font-semibold tracking-tight">
-          Find out what your hospital stay will really cost
+          {t('upload.title', 'Find out what your hospital stay will really cost')}
         </h1>
         <p className="mx-auto mt-2 max-w-lg text-[0.9375rem] leading-relaxed text-muted">
-          Upload your health insurance policy and we will show you which
-          hospitals you are covered at, what room you are entitled to, and what
-          you would pay yourself.
+          {t(
+            'upload.subtitle',
+            'Upload your health insurance policy and we will show you which ' +
+              'hospitals you are covered at, what room you are entitled to, ' +
+              'and what you would pay yourself.'
+          )}
         </p>
       </div>
 
@@ -112,8 +129,8 @@ export function UploadStep({
       <Card>
         <div className="flex border-b border-line">
           {[
-            ['upload', 'Upload my policy'],
-            ['manual', "I don't have the document"],
+            ['upload', t('upload.tab.file', 'Upload my policy')],
+            ['manual', t('upload.tab.manual', "I don't have the document")],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -131,17 +148,20 @@ export function UploadStep({
 
         <div className="space-y-4 p-5">
           <Field
-            label="Who is your insurance with?"
-            hint="This tells us which hospitals offer you cashless treatment."
+            label={t('upload.insurer', 'Who is your insurance with?')}
+            hint={t(
+              'upload.insurer.hint',
+              'This tells us which hospitals offer you cashless treatment.'
+            )}
           >
             <Select value={insurerId} onChange={(e) => setInsurerId(e.target.value)}>
-              <option value="">Select your insurer</option>
-              <optgroup label="Insurance companies">
+              <option value="">{t('upload.insurer.choose', 'Select your insurer')}</option>
+              <optgroup label={t('upload.insurer.companies', 'Insurance companies')}>
                 {insurers.map((i) => (
                   <option key={i.id} value={i.id}>{i.name}</option>
                 ))}
               </optgroup>
-              <optgroup label="Government schemes">
+              <optgroup label={t('upload.insurer.schemes', 'Government schemes')}>
                 {schemes.map((i) => (
                   <option key={i.id} value={i.id}>{i.name}</option>
                 ))}
@@ -174,13 +194,16 @@ export function UploadStep({
                 />
                 <p className="text-[0.9375rem] font-medium">
                   {files.length
-                    ? 'Add another page, or click to choose more'
-                    : 'Drop your policy here, or click to choose'}
+                    ? t('upload.drop.more', 'Add another page, or click to choose more')
+                    : t('upload.drop', 'Drop your policy here, or click to choose')}
                 </p>
                 <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-                  PDFs and photos both work, and you can add several. A photo of
-                  each page taken on your phone is fine; we will read them and
-                  put them together.
+                  {t(
+                    'upload.drop.hint',
+                    'PDFs and photos both work, and you can add several. A ' +
+                      'photo of each page taken on your phone is fine; we will ' +
+                      'read them and put them together.'
+                  )}
                 </p>
               </div>
 
@@ -199,7 +222,9 @@ export function UploadStep({
                       </span>
                       <button
                         onClick={() => drop(index)}
-                        aria-label={`Remove ${chosen.name}`}
+                        aria-label={t('upload.remove', 'Remove {name}', {
+                          name: chosen.name,
+                        })}
                         className="shrink-0 rounded px-1.5 text-[0.875rem] text-muted transition hover:text-danger"
                       >
                         &times;
@@ -214,7 +239,7 @@ export function UploadStep({
                 // upload. A spinner only when there is nothing better to show.
                 progress ?? (
                   <div className="rounded-lg bg-canvas px-4 py-3">
-                    <Spinner label="Reading your policy." />
+                    <Spinner label={t('upload.reading', 'Reading your policy.')} />
                   </div>
                 )
               ) : (
@@ -224,8 +249,10 @@ export function UploadStep({
                   onClick={() => onUploaded(files, insurerId)}
                 >
                   {files.length > 1
-                    ? `Read these ${files.length} documents`
-                    : 'Read my policy'}
+                    ? t('upload.read_many', 'Read these {count} documents', {
+                        count: files.length,
+                      })
+                    : t('upload.read', 'Read my policy')}
                 </Button>
               )}
             </>
@@ -241,6 +268,7 @@ export function UploadStep({
 }
 
 function ManualForm({ insurerId, onSubmit, busy }) {
+  const t = useT()
   const [values, setValues] = useState({
     sum_insured: '500000',
     room_limit_type: 'flat',
@@ -254,33 +282,46 @@ function ManualForm({ insurerId, onSubmit, busy }) {
 
   return (
     <div className="space-y-4">
-      <Field label="Total cover amount" hint="The most your insurer pays in a year.">
+      <Field
+        label={t('manual.sum_insured', 'Total cover amount')}
+        hint={t('manual.sum_insured.hint', 'The most your insurer pays in a year.')}
+      >
         <Input type="number" value={values.sum_insured} onChange={set('sum_insured')} />
       </Field>
 
       <Field
-        label="Room rent limit"
-        hint="Most policies cap this. A room above your limit also reduces what your insurer pays on other charges."
+        label={t('manual.room', 'Room rent limit')}
+        hint={t(
+          'manual.room.hint',
+          'Most policies cap this. A room above your limit also reduces what ' +
+            'your insurer pays on other charges.'
+        )}
       >
         <Select value={values.room_limit_type} onChange={set('room_limit_type')}>
-          <option value="flat">A fixed amount per day</option>
-          <option value="pct">A percentage of my cover</option>
-          <option value="none">No limit</option>
+          <option value="flat">{t('manual.room.flat', 'A fixed amount per day')}</option>
+          <option value="pct">{t('manual.room.pct', 'A percentage of my cover')}</option>
+          <option value="none">{t('manual.room.none', 'No limit')}</option>
         </Select>
       </Field>
 
       {values.room_limit_type === 'flat' && (
-        <Field label="Amount per day">
+        <Field label={t('manual.room.amount', 'Amount per day')}>
           <Input type="number" value={values.room_limit_amount} onChange={set('room_limit_amount')} />
         </Field>
       )}
       {values.room_limit_type === 'pct' && (
-        <Field label="Percentage of cover, per day">
+        <Field label={t('manual.room.percent', 'Percentage of cover, per day')}>
           <Input type="number" step="0.5" value={values.room_limit_pct} onChange={set('room_limit_pct')} />
         </Field>
       )}
 
-      <Field label="Co-payment" hint="The share of every claim you pay yourself. Enter 0 if none.">
+      <Field
+        label={t('manual.copay', 'Co-payment')}
+        hint={t(
+          'manual.copay.hint',
+          'The share of every claim you pay yourself. Enter 0 if none.'
+        )}
+      >
         <Input type="number" value={values.copay_pct} onChange={set('copay_pct')} />
       </Field>
 
@@ -298,7 +339,7 @@ function ManualForm({ insurerId, onSubmit, busy }) {
           })
         }
       >
-        {busy ? 'Working…' : 'Continue'}
+        {busy ? t('manual.working', 'Working\u2026') : t('manual.continue', 'Continue')}
       </Button>
     </div>
   )

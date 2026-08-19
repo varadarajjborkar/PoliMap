@@ -523,18 +523,20 @@ export default function App() {
   // decides how wide the page is.
   const settled = [
     policy && {
-      label: 'Your cover',
+      label: t('rail.cover', 'Your cover'),
       value: policy.sum_insured_display,
       onChange: () => goToSection('policy'),
-      changeLabel: 'Check what we read',
+      changeLabel: t('rail.check', 'Check what we read'),
     },
     policy && {
-      label: 'Room you are covered for',
+      label: t('rail.room', 'Room you are covered for'),
       value: policy.room_limit?.description,
     },
-    chosenTreatment && { label: 'Treatment', value: chosenTreatment },
+    chosenTreatment && {
+      label: t('rail.treatment', 'Treatment'), value: chosenTreatment,
+    },
     results?.options?.length && {
-      label: 'Cheapest for you',
+      label: t('rail.cheapest', 'Cheapest for you'),
       value: `${results.options[0].hospital.name} · ${results.options[0].you_pay_display}`,
     },
   ].filter(Boolean)
@@ -558,7 +560,12 @@ export default function App() {
       <Shell {...shell}>
         {busy === 'restore' || restoring ? (
           <div className="mx-auto max-w-2xl px-4 py-20 text-center motion-safe:animate-fade">
-            <Spinner label="Opening your stay. The server may take a moment to wake." />
+            <Spinner
+              label={t(
+                'restore.opening',
+                'Opening your stay. The server may take a moment to wake.'
+              )}
+            />
           </div>
         ) : gone && !policy ? (
           <StayGone onHome={goHome} onNew={startNewStay} />
@@ -586,9 +593,16 @@ export default function App() {
                         <ReadingProgress
                           events={events}
                           phases={READING_PHASES}
-                          title="Reading your policy"
-                          waiting="Sending your files. Keep this page open."
-                          hint="Long documents and phone photos take longer. You can leave this open in the background."
+                          title={t('reading.policy', 'Reading your policy')}
+                          waiting={t(
+                            'reading.policy.waiting',
+                            'Sending your files. Keep this page open.'
+                          )}
+                          hint={t(
+                            'reading.policy.hint',
+                            'Long documents and phone photos take longer. You ' +
+                              'can leave this open in the background.'
+                          )}
                         />
                       )
                     }
@@ -606,10 +620,13 @@ export default function App() {
                     answering={busy === 'answer'}
                   />
                 ) : (
-                  <Locked title="Your cover">
-                    Once your policy is read, everything it says about what you
-                    are covered for appears here, and you can correct anything we
-                    got wrong.
+                  <Locked title={t('locked.policy', 'Your cover')}>
+                    {t(
+                      'locked.policy.why',
+                      'Once your policy is read, everything it says about what ' +
+                        'you are covered for appears here, and you can correct ' +
+                        'anything we got wrong.'
+                    )}
                   </Locked>
                 ),
                 search: policy ? (
@@ -626,8 +643,12 @@ export default function App() {
                       <ReadingProgress
                         events={events}
                         phases={SEARCH_PHASES}
-                        title="Looking for your options"
-                        hint="Every hospital in range is costed against your policy, one at a time."
+                        title={t('reading.search', 'Looking for your options')}
+                        hint={t(
+                          'reading.search.hint',
+                          'Every hospital in range is costed against your ' +
+                            'policy, one at a time.'
+                        )}
                       />
                     )}
                     <EligibilityNotice
@@ -646,9 +667,12 @@ export default function App() {
                     />
                   </div>
                 ) : (
-                  <Locked title="Hospitals">
-                    We cost every hospital in range against your own policy, so
-                    this needs your cover first.
+                  <Locked title={t('locked.search', 'Hospitals')}>
+                    {t(
+                      'locked.search.why',
+                      'We cost every hospital in range against your own policy, ' +
+                        'so this needs your cover first.'
+                    )}
                   </Locked>
                 ),
               }}
@@ -674,9 +698,16 @@ export default function App() {
                       <ReadingProgress
                         events={events}
                         phases={BILL_PHASES}
-                        title="Reading your bill"
-                        waiting="Sending the bill. Keep this page open."
-                        hint="A photograph takes longer than a PDF, because every line has to be recognised before it can be checked."
+                        title={t('reading.bill', 'Reading your bill')}
+                        waiting={t(
+                          'reading.bill.waiting',
+                          'Sending the bill. Keep this page open.'
+                        )}
+                        hint={t(
+                          'reading.bill.hint',
+                          'A photograph takes longer than a PDF, because every ' +
+                            'line has to be recognised before it can be checked.'
+                        )}
                       />
                     )
                   }
@@ -717,17 +748,25 @@ export default function App() {
 }
 
 function StayGone({ onHome, onNew }) {
+  const t = useT()
   return (
     <div className="mx-auto max-w-md px-4 py-20 text-center motion-safe:animate-rise">
-      <h2 className="text-lg font-semibold">This stay is not on this device</h2>
+      <h2 className="text-lg font-semibold">
+        {t('gone.title', 'This stay is not on this device')}
+      </h2>
       <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">
-        Stays are saved on the device they were created on. If this link came
-        from another phone or another browser, the admission it points to is
-        still there, not here.
+        {t(
+          'gone.why',
+          'Stays are saved on the device they were created on. If this link ' +
+            'came from another phone or another browser, the admission it ' +
+            'points to is still there, not here.'
+        )}
       </p>
       <div className="mt-5 flex justify-center gap-2.5">
-        <Button variant="secondary" onClick={onHome}>Your stays</Button>
-        <Button onClick={onNew}>Start a new stay</Button>
+        <Button variant="secondary" onClick={onHome}>
+          {t('gone.home', 'Your stays')}
+        </Button>
+        <Button onClick={onNew}>{t('gone.new', 'Start a new stay')}</Button>
       </div>
     </div>
   )
@@ -801,7 +840,7 @@ function Shell({
           <button
             onClick={onHome}
             className="group flex items-center gap-2.5 text-left"
-            title="Your stays"
+            title={t('nav.home', 'Your stays')}
           >
             {/* The mark has no background of its own, so it sits on the header
                 in either theme without a pale tile around it. */}
@@ -820,7 +859,7 @@ function Shell({
           <div className="flex items-center gap-2">
             {showActivity && events.length > 0 && (
               <span className="hidden text-[0.75rem] text-muted sm:inline">
-                {events.length} steps
+                {t('nav.steps', '{count} steps', { count: events.length })}
               </span>
             )}
             <span className="hidden text-[0.875rem] text-muted sm:inline">{user}</span>
@@ -837,10 +876,10 @@ function Shell({
               onClick={onToggleText}
               aria-label={
                 settings.textSize === 'large'
-                  ? 'Use the normal text size'
-                  : 'Make the text larger'
+                  ? t('nav.text.normal', 'Use the normal text size')
+                  : t('nav.text.larger', 'Make the text larger')
               }
-              title="Text size"
+              title={t('settings.text_size', 'Text size')}
               aria-pressed={settings.textSize === 'large'}
               className={`rounded-lg border px-2.5 py-1.5 text-[0.9375rem] font-semibold leading-none transition ${
                 settings.textSize === 'large'
@@ -852,8 +891,8 @@ function Shell({
             </button>
             <button
               onClick={onOpenSettings}
-              aria-label="Settings"
-              title="Settings"
+              aria-label={t('nav.settings', 'Settings')}
+              title={t('nav.settings', 'Settings')}
               className="rounded-lg border border-line px-2.5 py-2 text-[0.875rem] text-muted transition hover:bg-canvas hover:text-ink"
             >
               <GearIcon />
@@ -926,7 +965,7 @@ function StepNav({ step, onGo, reachable }) {
   )
 
   return (
-    <nav aria-label="Sections" className="border-t border-line">
+    <nav aria-label={t('nav.sections', 'Sections')} className="border-t border-line">
       <ol className="mx-auto flex max-w-6xl items-stretch px-2">
         {item(
           SETUP_STEPS[0].id, t('nav.setup', 'Setting up'), true, inSetup,

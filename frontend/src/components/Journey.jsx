@@ -24,6 +24,17 @@ const STAGES = [
   ['settled', 'Claim settled'],
 ]
 
+// The server names stages too, in English, and sends those names back inside
+// labels, alerts and the list of what a skip passes over. The same four are
+// named here, so a label can be turned back into its key and read in the
+// reader's language rather than the server's.
+const STAGE_KEY = Object.fromEntries(STAGES.map(([value, label]) => [label, value]))
+
+function stageName(t, label) {
+  const value = STAGE_KEY[label]
+  return value ? t(`journey.stage.${value}`, label) : label
+}
+
 const SEVERITY = {
   urgent: { tone: 'bad', border: 'border-danger/25', bg: 'bg-danger-soft', text: 'text-danger' },
   attention: { tone: 'warn', border: 'border-warn/25', bg: 'bg-warn-soft', text: 'text-warn' },
@@ -44,13 +55,21 @@ export function Journey({
     <div className="space-y-4">
       <Card>
         <CardHeader
-          title={journey.hospital_name || 'Your stay'}
+          title={journey.hospital_name || t('journey.title', 'Your stay')}
           subtitle={
-            [journey.room, journey.room_rate && `₹${journey.room_rate.toLocaleString('en-IN')} a day`]
+            [
+              journey.room_category
+                ? t(`room.${journey.room_category}`, journey.room)
+                : journey.room,
+              journey.room_rate &&
+                t('journey.per_day', '₹{amount} a day', {
+                  amount: journey.room_rate.toLocaleString('en-IN'),
+                }),
+            ]
               .filter(Boolean)
               .join(' · ')
           }
-          aside={<Badge tone="good">{journey.stage_label}</Badge>}
+          aside={<Badge tone="good">{stageName(t, journey.stage_label)}</Badge>}
         />
 
         <div className="px-5 py-4">
@@ -175,7 +194,7 @@ export function Journey({
                       disabled={busy}
                       onClick={onFilePreauth}
                     >
-                      Mark pre-authorisation as filed
+                      {t('journey.preauth.file', 'Mark pre-authorisation as filed')}
                     </Button>
                   )}
                 </div>
@@ -218,7 +237,9 @@ export function Journey({
               )}
               {event.skipped?.length > 0 && (
                 <p className="mt-1 text-[0.75rem] text-muted">
-                  Skipped {listOf(event.skipped)}.
+                  {t('journey.timeline.skipped', 'Skipped {stages}.', {
+                    stages: listOf(t, event.skipped.map((s) => stageName(t, s))),
+                  })}
                 </p>
               )}
               {event.reason && (
@@ -250,7 +271,11 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
     <Card>
       <CardHeader
         title={t('journey.charges', 'Charges so far')}
-        subtitle={`${journey.costs.length} recorded, ${journey.accrued_display} in total`}
+        subtitle={t(
+          'journey.charges.count',
+          '{count} recorded, {total} in total',
+          { count: journey.costs.length, total: journey.accrued_display }
+        )}
       />
       <ul className="divide-y divide-line">
         {[...journey.costs].reverse().map((cost) => (
@@ -298,7 +323,9 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
 
                 <div className="relative shrink-0">
                   <button
-                    aria-label={`Options for ${cost.head}`}
+                    aria-label={t('journey.charge.options', 'Options for {head}', {
+                      head: cost.head,
+                    })}
                     aria-haspopup="menu"
                     aria-expanded={menuFor === cost.id}
                     onClick={() => setMenuFor(menuFor === cost.id ? null : cost.id)}
@@ -310,7 +337,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                   {menuFor === cost.id && (
                     <>
                       <button
-                        aria-label="Close menu"
+                        aria-label={t('journey.charge.close_menu', 'Close menu')}
                         onClick={() => setMenuFor(null)}
                         className="fixed inset-0 z-10 cursor-default"
                       />
@@ -326,7 +353,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                           }}
                           className="block w-full px-3 py-2 text-left text-[0.8125rem] hover:bg-canvas"
                         >
-                          Edit
+                          {t('journey.charge.edit', 'Edit')}
                         </button>
                         <button
                           role="menuitem"
@@ -337,7 +364,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                           }}
                           className="block w-full px-3 py-2 text-left text-[0.8125rem] text-danger hover:bg-danger-soft"
                         >
-                          Delete
+                          {t('journey.charge.delete', 'Delete')}
                         </button>
                       </div>
                     </>
@@ -363,6 +390,7 @@ function toLocalInput(iso) {
 }
 
 function EditCharge({ cost, onSave, onClose, busy }) {
+  const t = useT()
   const [head, setHead] = useState(cost.head_value)
   const [amount, setAmount] = useState(String(cost.amount))
   const [at, setAt] = useState(toLocalInput(cost.at))
@@ -370,15 +398,15 @@ function EditCharge({ cost, onSave, onClose, busy }) {
   return (
     <div className="rounded-lg border border-brand/30 bg-canvas p-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="What is it for?">
+        <Field label={t('journey.charge.head', 'What is it for?')}>
           <Select value={head} onChange={(event) => setHead(event.target.value)}>
             {HEADS.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(`head.${value}`, label)}</option>
             ))}
           </Select>
         </Field>
 
-        <Field label="Amount">
+        <Field label={t('journey.charge.amount', 'Amount')}>
           <Input
             type="number"
             value={amount}
@@ -387,7 +415,7 @@ function EditCharge({ cost, onSave, onClose, busy }) {
         </Field>
 
         <div className="sm:col-span-2">
-          <Field label="When">
+          <Field label={t('journey.charge.when', 'When')}>
             <Input
               type="datetime-local"
               value={at}
@@ -408,10 +436,10 @@ function EditCharge({ cost, onSave, onClose, busy }) {
             })
           }
         >
-          Save
+          {t('journey.charge.save', 'Save')}
         </Button>
         <Button variant="secondary" onClick={onClose}>
-          Close
+          {t('journey.charge.cancel', 'Close')}
         </Button>
       </div>
     </div>
@@ -459,10 +487,10 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
     <Card>
       <CardHeader
         title={t('journey.checklist', 'Before you leave this stage')}
-        subtitle={stageLabel}
+        subtitle={stageName(t, stageLabel)}
         aside={
           <Badge tone={complete ? 'good' : 'neutral'}>
-            {done} of {total}
+            {t('journey.checklist.count', '{done} of {total}', { done, total })}
           </Badge>
         }
       />
@@ -505,7 +533,7 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
               </span>
               {item.urgent && !item.done && (
                 <span className="shrink-0 self-start">
-                  <Badge tone="warn">Now</Badge>
+                  <Badge tone="warn">{t('journey.checklist.now', 'Now')}</Badge>
                 </span>
               )}
             </label>
@@ -517,13 +545,16 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
 }
 
 function Position({ position, accrued }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   if (!position) return null
 
   return (
     <Card className="motion-safe:animate-rise">
       <div className="px-5 py-5">
-        <p className="text-[0.875rem] text-muted">You will pay, so far</p>
+        <p className="text-[0.875rem] text-muted">
+          {t('journey.position.you_pay', 'You will pay, so far')}
+        </p>
         <p
           key={position.you_pay}
           className="mt-1 rounded text-[2rem] font-semibold leading-tight tabular-nums motion-safe:animate-settle"
@@ -531,8 +562,11 @@ function Position({ position, accrued }) {
           {position.you_pay_display}
         </p>
         <p className="mt-1.5 text-[0.875rem] leading-relaxed text-muted">
-          The hospital has billed {accrued}. Your insurer covers{' '}
-          {position.insurer_pays_display} of that.
+          {t(
+            'journey.position.split',
+            'The hospital has billed {billed}. Your insurer covers {covered} of that.',
+            { billed: accrued, covered: position.insurer_pays_display }
+          )}
         </p>
 
         {position.steps.length > 0 && (
@@ -542,7 +576,9 @@ function Position({ position, accrued }) {
               aria-expanded={open}
               className="mt-3 text-[0.875rem] font-medium text-brand transition hover:underline"
             >
-              {open ? 'Hide' : 'Show'} where the difference comes from
+              {open
+                ? t('journey.position.hide', 'Hide where the difference comes from')
+                : t('journey.position.show', 'Show where the difference comes from')}
             </button>
 
             {open && (
@@ -570,6 +606,7 @@ function Position({ position, accrued }) {
 }
 
 function BurnDown({ burn, accrued }) {
+  const t = useT()
   const used = Math.min(100, burn.consumed_fraction * 100)
   const projected = Math.min(
     100,
@@ -579,9 +616,14 @@ function BurnDown({ burn, accrued }) {
   return (
     <div className="border-t border-line px-5 py-4">
       <div className="flex items-baseline justify-between">
-        <span className="text-[0.8125rem] text-muted">Cover used so far</span>
+        <span className="text-[0.8125rem] text-muted">
+          {t('journey.burn.used', 'Cover used so far')}
+        </span>
         <span className="text-[0.875rem] font-medium tabular-nums">
-          {accrued} of ₹{burn.sum_insured.toLocaleString('en-IN')}
+          {t('journey.burn.of', '{used} of {total}', {
+            used: accrued,
+            total: `₹${burn.sum_insured.toLocaleString('en-IN')}`,
+          })}
         </span>
       </div>
 
@@ -601,20 +643,26 @@ function BurnDown({ burn, accrued }) {
       </div>
 
       <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[0.8125rem] text-muted">
-        <span>{burn.remaining_display} left</span>
+        <span>
+          {t('journey.burn.left', '{amount} left', { amount: burn.remaining_display })}
+        </span>
         {/* The rate excludes one-off charges. A theatre bill on day one is not
             a daily rate, and a family told their cover ends tomorrow when it
             does not will stop believing anything else on this screen. */}
         {burn.daily_run_rate > 0 && (
           <span className={burn.will_exceed ? 'text-warn' : ''}>
-            {burn.daily_run_rate_display} a day
+            {t('journey.burn.rate', '{amount} a day', {
+              amount: burn.daily_run_rate_display,
+            })}
             {burn.days_of_cover_left !== null &&
               burn.days_of_cover_left !== undefined && (
                 <>
                   {' · '}
                   {burn.days_of_cover_left === 0
-                    ? 'cover reached today'
-                    : `about ${burn.days_of_cover_left} days of cover left`}
+                    ? t('journey.burn.reached', 'cover reached today')
+                    : t('journey.burn.days_left', 'about {days} days of cover left', {
+                        days: burn.days_of_cover_left,
+                      })}
                 </>
               )}
           </span>
@@ -625,6 +673,7 @@ function BurnDown({ burn, accrued }) {
 }
 
 function AdvanceCard({ journey, onAdvance, busy }) {
+  const t = useT()
   // Keyed on the current stage, so the selection resets to the next step in
   // sequence every time the journey moves. Holding it in state across a move
   // is what left the control offering a stage that had already passed.
@@ -653,21 +702,31 @@ function AdvanceCard({ journey, onAdvance, busy }) {
   return (
     <Card>
       <CardHeader
-        title={done ? 'Your claim is settled' : 'Where are you now?'}
+        title={
+          done
+            ? t('journey.advance.settled', 'Your claim is settled')
+            : t('journey.advance.title', 'Where are you now?')
+        }
         subtitle={
           done
-            ? 'You can still go back to an earlier stage if something changes.'
-            : 'Update this as things move. You can go back at any point.'
+            ? t(
+                'journey.advance.settled.hint',
+                'You can still go back to an earlier stage if something changes.'
+              )
+            : t(
+                'journey.advance.hint',
+                'Update this as things move. You can go back at any point.'
+              )
         }
       />
       <div className="space-y-3 p-5">
-        <Field label="Stage">
+        <Field label={t('journey.advance.stage', 'Stage')}>
           <Select value={stage} onChange={(event) => setStage(event.target.value)}>
             {stages.map((s) => (
               <option key={s.value} value={s.value}>
-                {s.label}
-                {s.kind === 'current' ? '  (you are here)' : ''}
-                {s.kind === 'back' ? '  (go back)' : ''}
+                {stageName(t, s.label)}
+                {s.kind === 'current' ? `  (${t('journey.advance.here', 'you are here')})` : ''}
+                {s.kind === 'back' ? `  (${t('journey.advance.back', 'go back')})` : ''}
               </option>
             ))}
           </Select>
@@ -675,8 +734,11 @@ function AdvanceCard({ journey, onAdvance, busy }) {
 
         {chosen?.kind === 'back' && (
           <p className="text-[0.8125rem] leading-relaxed text-muted">
-            This moves your stay back to {chosen.label.toLowerCase()}. Nothing
-            you have recorded is lost.
+            {t(
+              'journey.advance.back.hint',
+              'This moves your stay back to {stage}. Nothing you have recorded is lost.',
+              { stage: stageName(t, chosen.label).toLowerCase() }
+            )}
           </p>
         )}
 
@@ -685,7 +747,9 @@ function AdvanceCard({ journey, onAdvance, busy }) {
           disabled={busy || !chosen || chosen.kind === 'current'}
           onClick={submit}
         >
-          {chosen?.kind === 'back' ? 'Go back to this stage' : 'Update'}
+          {chosen?.kind === 'back'
+            ? t('journey.advance.go_back', 'Go back to this stage')
+            : t('journey.advance.update', 'Update')}
         </Button>
       </div>
 
@@ -708,6 +772,7 @@ function AdvanceCard({ journey, onAdvance, busy }) {
 // it may be standing in a hospital corridor, and nothing here is an error. It
 // states what is being skipped, offers to go on, and offers a way back out.
 function SkipDialog({ target, onConfirm, onCancel, busy }) {
+  const t = useT()
   const [explain, setExplain] = useState(false)
   const [reason, setReason] = useState('')
   const box = useDialog(true, onCancel)
@@ -716,7 +781,11 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
-      <button aria-label="Cancel" onClick={onCancel} className="absolute inset-0 bg-ink/30" />
+      <button
+        aria-label={t('journey.skip.cancel', 'Cancel')}
+        onClick={onCancel}
+        className="absolute inset-0 bg-ink/30"
+      />
 
       <div
         ref={box}
@@ -728,16 +797,25 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
       >
         <div className="px-5 py-4">
           <h3 id="skip-title" className="text-[0.9375rem] font-semibold">
-            Just so you know
+            {t('journey.skip.title', 'Just so you know')}
           </h3>
           <p className="mt-2 text-[0.875rem] leading-relaxed">
-            Moving straight to <strong>{target.label.toLowerCase()}</strong> passes
-            over {listOf(skipped)}.
+            {t(
+              'journey.skip.body',
+              'Moving straight to {stage} passes over {skipped}.',
+              {
+                stage: stageName(t, target.label).toLowerCase(),
+                skipped: listOf(t, skipped.map((s) => stageName(t, s))),
+              }
+            )}
           </p>
           <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
-            That is often exactly right. Plenty of admissions never involve some
-            of these. Your estimate stays accurate either way, and you can come
-            back to any stage later.
+            {t(
+              'journey.skip.reassure',
+              'That is often exactly right. Plenty of admissions never involve ' +
+                'some of these. Your estimate stays accurate either way, and you ' +
+                'can come back to any stage later.'
+            )}
           </p>
 
           <label className="mt-4 flex items-start gap-2 text-[0.8125rem] text-muted">
@@ -747,7 +825,7 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
               onChange={(event) => setExplain(event.target.checked)}
               className="mt-0.5 rounded border-line"
             />
-            I would like to note why (optional)
+            {t('journey.skip.note', 'I would like to note why (optional)')}
           </label>
 
           {explain && (
@@ -757,7 +835,11 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               maxLength={600}
-              placeholder="For example: admitted through emergency, so there was no time for pre-approval."
+              placeholder={t(
+                'journey.skip.placeholder',
+                'For example: admitted through emergency, so there was no time ' +
+                  'for pre-approval.'
+              )}
               className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[0.875rem] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
             />
           )}
@@ -765,10 +847,12 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
 
         <div className="flex flex-wrap gap-2 border-t border-line px-5 py-3">
           <Button disabled={busy} onClick={() => onConfirm(reason)}>
-            Skip to {target.label.toLowerCase()}
+            {t('journey.skip.confirm', 'Skip to {stage}', {
+              stage: stageName(t, target.label).toLowerCase(),
+            })}
           </Button>
           <Button variant="secondary" disabled={busy} onClick={onCancel}>
-            Not yet
+            {t('journey.skip.decline', 'Not yet')}
           </Button>
         </div>
       </div>
@@ -776,11 +860,14 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
   )
 }
 
-function listOf(items) {
+// "a, b and c". The conjunction is translated because it is a word, and the
+// comma is not because it is punctuation these scripts share.
+function listOf(t, items) {
   const names = items.map((s) => s.toLowerCase())
-  if (names.length === 0) return 'a stage'
+  if (names.length === 0) return t('list.a_stage', 'a stage')
   if (names.length === 1) return names[0]
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  const last = names[names.length - 1]
+  return `${names.slice(0, -1).join(', ')} ${t('list.and', 'and')} ${last}`
 }
 
 const HEADS = [
@@ -814,8 +901,9 @@ function CostCard({ onRecordCost, busy }) {
     if (!file) return
     if (file.size > MAX_RECEIPT_MB * 1024 * 1024) {
       setTooLarge(
-        `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB. ` +
-          `The largest we can take is ${MAX_RECEIPT_MB} MB.`
+        t('journey.receipt.too_large',
+          'That file is {size} MB. The largest we can take is {limit} MB.',
+          { size: (file.size / 1024 / 1024).toFixed(0), limit: MAX_RECEIPT_MB })
       )
       if (fileRef.current) fileRef.current.value = ''
       return
@@ -828,18 +916,21 @@ function CostCard({ onRecordCost, busy }) {
     <Card>
       <CardHeader
         title={t('journey.add_charge', 'Add a charge')}
-        subtitle="Enter bills as they arrive to keep the estimate current."
+        subtitle={t(
+          'journey.add_charge.hint',
+          'Enter bills as they arrive to keep the estimate current.'
+        )}
       />
       <div className="space-y-3 p-5">
-        <Field label="What is it for?">
+        <Field label={t('journey.charge.head', 'What is it for?')}>
           <Select value={head} onChange={(event) => setHead(event.target.value)}>
             {HEADS.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(`head.${value}`, label)}</option>
             ))}
           </Select>
         </Field>
 
-        <Field label="Amount">
+        <Field label={t('journey.charge.amount', 'Amount')}>
           <Input
             type="number"
             placeholder="0"
@@ -870,7 +961,7 @@ function CostCard({ onRecordCost, busy }) {
                 }}
                 className="shrink-0 text-[0.75rem] text-muted underline"
               >
-                remove
+                {t('journey.receipt.remove', 'remove')}
               </button>
             </div>
           ) : (
@@ -878,7 +969,7 @@ function CostCard({ onRecordCost, busy }) {
               onClick={() => fileRef.current?.click()}
               className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
             >
-              Attach the bill or receipt (optional)
+              {t('journey.receipt.attach', 'Attach the bill or receipt (optional)')}
             </button>
           )}
           {tooLarge && (
@@ -895,7 +986,7 @@ function CostCard({ onRecordCost, busy }) {
             onChange={(event) => setAdvanceDay(event.target.checked)}
             className="rounded border-line"
           />
-          This is a new day of the stay
+          {t('journey.charge.new_day', 'This is a new day of the stay')}
         </label>
 
         <Button
@@ -913,7 +1004,7 @@ function CostCard({ onRecordCost, busy }) {
             if (fileRef.current) fileRef.current.value = ''
           }}
         >
-          Add charge
+          {t('journey.charge.add', 'Add charge')}
         </Button>
       </div>
     </Card>

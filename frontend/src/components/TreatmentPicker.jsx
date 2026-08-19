@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 
 // Choosing a treatment by typing, but only ever choosing a real one.
 //
@@ -48,6 +49,7 @@ function score(procedure, needle) {
 }
 
 export function TreatmentPicker({ procedures, value, onChange, id }) {
+  const t = useT()
   const selected = procedures.find((p) => p.code === value) ?? null
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -118,7 +120,10 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
         aria-autocomplete="list"
         autoComplete="off"
         value={text}
-        placeholder="Type what you were told, e.g. stent, delivery, gall bladder"
+        placeholder={t(
+          'treatment.placeholder',
+          'Type what you were told, e.g. stent, delivery, gall bladder'
+        )}
         onFocus={() => { setQuery(''); setOpen(true) }}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onKeyDown={onKeyDown}
@@ -133,8 +138,11 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
         >
           {matches.length === 0 && (
             <li className="px-3 py-3 text-[0.875rem] leading-relaxed text-muted">
-              Nothing matched that. Try a simpler word, like the part of the
-              body, or the word on your doctor&apos;s note.
+              {t(
+                'treatment.no_match',
+                'Nothing matched that. Try a simpler word, like the part of ' +
+                  "the body, or the word on your doctor's note."
+              )}
             </li>
           )}
           {matches.map((procedure, index) => (

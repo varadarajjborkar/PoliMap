@@ -55,7 +55,10 @@ export function SignIn({ onSignIn }) {
               autoFocus
               value={name}
               maxLength={40}
-              placeholder="Your name, or anything you will remember"
+              placeholder={t(
+                'signin.placeholder',
+                'Your name, or anything you will remember'
+              )}
               onChange={(e) => setName(e.target.value)}
             />
           </label>
@@ -95,15 +98,18 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
           </h1>
           <p className="mt-1.5 text-[0.9375rem] text-muted">
             {stays.length
-              ? 'Pick up where you left off, or start a new admission.'
-              : 'Start by reading a policy. Everything after that is saved here.'}
+              ? t('home.resume', 'Pick up where you left off, or start a new admission.')
+              : t(
+                  'home.first',
+                  'Start by reading a policy. Everything after that is saved here.'
+                )}
           </p>
         </div>
         <button
           onClick={onSwitchUser}
           className="shrink-0 text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
         >
-          Not you?
+          {t('home.switch_user', 'Not you?')}
         </button>
       </div>
 
@@ -137,25 +143,31 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
                     </span>
                     <span className="mt-0.5 block truncate text-[0.875rem] text-muted">
                       {[stay.procedure, stay.stageLabel]
-                        .filter(Boolean).join(' · ') || 'Policy read'}
+                        .filter(Boolean).join(' · ') ||
+                        t('home.policy_read', 'Policy read')}
                       {' · '}
-                      {relativeTime(stay.updatedAt)}
+                      {relativeTime(t, stay.updatedAt)}
                     </span>
                   </button>
                   <button
                     onClick={() => onDelete(stay)}
-                    aria-label={`Delete ${describeStay(stay)}`}
+                    aria-label={t('home.delete', 'Delete {stay}', {
+                      stay: describeStay(stay),
+                    })}
                     className="shrink-0 rounded-lg px-2.5 py-2 text-[0.8125rem] text-muted transition hover:bg-danger-soft hover:text-danger"
                   >
-                    Delete
+                    {t('home.delete.short', 'Delete')}
                   </button>
                 </Card>
               </li>
             ))}
           </ul>
           <p className="mt-4 text-[0.875rem] leading-relaxed text-muted">
-            These are stored on this device only. Clearing your browser data
-            removes them.
+            {t(
+              'home.stored_locally',
+              'These are stored on this device only. Clearing your browser data ' +
+                'removes them.'
+            )}
           </p>
         </>
       )}
@@ -165,13 +177,15 @@ export function StayList({ user, stays, onOpen, onNew, onDelete, onSwitchUser })
   )
 }
 
-function relativeTime(at) {
-  if (!at) return 'just now'
+function relativeTime(t, at) {
+  if (!at) return t('time.now', 'just now')
   const minutes = Math.round((Date.now() - at) / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 1) return t('time.now', 'just now')
+  if (minutes < 60) return t('time.minutes', '{count} min ago', { count: minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} hr ago`
+  if (hours < 24) return t('time.hours', '{count} hr ago', { count: hours })
   const days = Math.round(hours / 24)
-  return days === 1 ? 'yesterday' : `${days} days ago`
+  return days === 1
+    ? t('time.yesterday', 'yesterday')
+    : t('time.days', '{count} days ago', { count: days })
 }

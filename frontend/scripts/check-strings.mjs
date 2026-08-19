@@ -15,12 +15,37 @@ const SRC = new URL('../src/', import.meta.url).pathname
 
 // Keys built from a variable at the call site, with the values that variable
 // can take. Listed here because a static read cannot know them.
+//
+// Keyed on the fixed part of the key, not on the expression that fills the
+// rest: the same family is built from different variables in different files,
+// and the variable's name is not what identifies it.
 const TEMPLATES = {
-  'journey.stage.${value}': [
+  'journey.stage.': [
     'pre_admission', 'admitted', 'discharge_planning', 'settled',
   ],
-  'step.${id}': ['upload', 'policy', 'search'],
-  'step.short.${id}': ['upload', 'policy', 'search'],
+  'step.': ['upload', 'policy', 'search'],
+  'step.short.': ['upload', 'policy', 'search'],
+  // The server sends each of these as an enum value beside its English label,
+  // so the label is the fallback and the value is the key. Every list mirrors
+  // an enum in backend/app/schemas: a value added there without a line here
+  // fails this check rather than quietly rendering English.
+  'head.': [
+    'room_rent', 'icu_charges', 'investigations', 'pharmacy', 'consumables',
+    'surgeon_fee', 'ot_charges', 'nursing', 'implants', 'non_medical',
+  ],
+  'preference.': [
+    'protect_money', 'best_care', 'nearest', 'balanced',
+  ],
+  'exclusion.': [
+    'too_far', 'procedure_unavailable', 'specialty_unavailable', 'not_cashless',
+    'no_bed_available', 'no_eligible_room', 'scheme_not_empanelled',
+  ],
+  'room.': [
+    'general_ward', 'twin_sharing', 'single_private', 'deluxe', 'suite', 'icu',
+  ],
+  'settlement.': [
+    'cashless', 'reimbursement', 'scheme_package',
+  ],
 }
 
 function walk(dir) {
@@ -38,12 +63,12 @@ for (const path of walk(SRC).filter((p) => p.endsWith('.jsx'))) {
     if (key.includes('.') || key === 'disclaimer') used.add(key)
   }
   for (const [, template] of text.matchAll(/\bt\(`([^`]+)`/g)) {
-    const values = TEMPLATES[template]
+    const stem = template.slice(0, template.indexOf('${'))
+    const values = TEMPLATES[stem]
     if (!values) {
       console.error(`unknown key template ${template} in ${path}`)
       process.exit(1)
     }
-    const stem = template.slice(0, template.indexOf('${'))
     for (const value of values) used.add(stem + value)
   }
 }

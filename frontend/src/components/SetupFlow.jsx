@@ -156,7 +156,7 @@ function Thread({ step, reached, onGo }) {
 
   return (
     <nav
-      aria-label="Setting up"
+      aria-label={t('nav.setup', 'Setting up')}
       className="sticky top-[calc(var(--header-h)+1.5rem)] hidden h-fit w-44 shrink-0 lg:block"
     >
       <ol>
@@ -224,7 +224,7 @@ function ThreadBar({ step, reached, onGo }) {
   // its own space and needs nobody to reserve it.
   return (
     <nav
-      aria-label="Setting up"
+      aria-label={t('nav.setup', 'Setting up')}
       className="sticky top-[var(--header-h)] z-10 -mx-4 border-b border-line bg-surface/95 px-4 backdrop-blur lg:hidden"
     >
       <ol className="mx-auto flex max-w-3xl items-center px-4 py-2">
@@ -295,13 +295,14 @@ export function Locked({ title, children }) {
 // against are the ones they read two sections ago. Each line takes you back to
 // where it can be changed.
 export function SettledRail({ items }) {
+  const t = useT()
   const shown = items.filter(Boolean)
   if (!shown.length) return null
 
   return (
     <div className="rounded-xl border border-line bg-surface motion-safe:animate-fade">
       <h2 className="border-b border-line px-4 py-2.5 text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
-        So far
+        {t('rail.title', 'So far')}
       </h2>
       <dl className="divide-y divide-line">
         {shown.map((item) => (
@@ -315,7 +316,7 @@ export function SettledRail({ items }) {
                 onClick={item.onChange}
                 className="mt-1 text-[0.75rem] text-brand transition hover:underline"
               >
-                {item.changeLabel ?? 'Change'}
+                {item.changeLabel ?? t('rail.change', 'Change')}
               </button>
             )}
           </div>

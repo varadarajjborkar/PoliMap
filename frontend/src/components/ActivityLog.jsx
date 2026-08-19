@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { Badge } from './Primitives'
 
 // Live view of what the server is doing, fed by the same PipelineEvent objects
@@ -28,6 +29,7 @@ function formatDetail(detail) {
 }
 
 export function ActivityLog({ events, connected }) {
+  const t = useT()
   const [expanded, setExpanded] = useState(null)
   const scrollRef = useRef(null)
   const pinnedToBottom = useRef(true)
@@ -48,14 +50,18 @@ export function ActivityLog({ events, connected }) {
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
-          <h2 className="text-[0.875rem] font-semibold">Activity</h2>
-          <p className="text-[0.75rem] text-muted">Every step the system takes</p>
+          <h2 className="text-[0.875rem] font-semibold">
+            {t('activity.title', 'Activity')}
+          </h2>
+          <p className="text-[0.75rem] text-muted">
+            {t('activity.subtitle', 'Every step the system takes')}
+          </p>
         </div>
         <span className="flex items-center gap-1.5 text-[0.75rem] text-muted">
           <span
             className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-brand' : 'bg-line'}`}
           />
-          {connected ? 'live' : 'idle'}
+          {connected ? t('activity.live', 'live') : t('activity.idle', 'idle')}
         </span>
       </header>
 
@@ -66,7 +72,7 @@ export function ActivityLog({ events, connected }) {
       >
         {events.length === 0 && (
           <p className="px-2 py-6 text-center text-[0.8125rem] text-muted">
-            Steps will appear here as your policy is read.
+            {t('activity.empty', 'Steps will appear here as your policy is read.')}
           </p>
         )}
 
@@ -124,10 +130,12 @@ export function ActivityLog({ events, connected }) {
 
       {events.length > 0 && (
         <footer className="border-t border-line px-4 py-2 text-[0.75rem] text-muted">
-          {events.length} step{events.length === 1 ? '' : 's'}
+          {t('activity.count', '{count} steps', { count: events.length })}
           {events.some((e) => e.status === 'warn') && (
             <Badge tone="warn">
-              {events.filter((e) => e.status === 'warn').length} need attention
+              {t('activity.attention', '{count} need attention', {
+                count: events.filter((e) => e.status === 'warn').length,
+              })}
             </Badge>
           )}
         </footer>

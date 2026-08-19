@@ -81,11 +81,15 @@ function Upload({ busy, progress, onCheck }) {
   return (
     <div className="p-5">
       <p className="text-[0.875rem] leading-relaxed text-muted">
-        Ask for the itemised bill, not the one-line total, and photograph it.
-        We read it line by line and tell you what is worth raising before you
-        sign: items the regulator says are already inside another charge, lines
-        entered twice, figures that do not multiply out, and the deduction your
-        insurer will make that the billing desk will not mention.
+        {t(
+          'bill.what_we_do',
+          'Ask for the itemised bill, not the one-line total, and photograph ' +
+            'it. We read it line by line and tell you what is worth raising ' +
+            'before you sign: items the regulator says are already inside ' +
+            'another charge, lines entered twice, figures that do not multiply ' +
+            'out, and the deduction your insurer will make that the billing ' +
+            'desk will not mention.'
+        )}
       </p>
 
       <input
@@ -103,7 +107,10 @@ function Upload({ busy, progress, onCheck }) {
         <p className="mt-2 text-[0.75rem] leading-relaxed text-warn">{tooLarge}</p>
       )}
       <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
-        Square-on, in good light. A PDF from the billing desk reads exactly.
+        {t(
+          'bill.photo_hint',
+          'Square-on, in good light. A PDF from the billing desk reads exactly.'
+        )}
       </p>
     </div>
   )
@@ -236,7 +243,10 @@ function Settlement({ settlement }) {
         {t('bill.settles_to', 'What this bill settles to')}
       </h3>
       <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">
-        The same calculation as the estimate, run on the real bill.
+        {t(
+          'bill.settles_to.hint',
+          'The same calculation as the estimate, run on the real bill.'
+        )}
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-3">
@@ -275,15 +285,18 @@ function Settlement({ settlement }) {
 }
 
 function Lines({ items }) {
+  const t = useT()
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[0.8125rem]">
         <thead className="bg-canvas text-left text-[0.75rem] text-muted">
           <tr>
-            <th className="px-5 py-2 font-medium">Line</th>
-            <th className="py-2 font-medium">Item</th>
-            <th className="py-2 font-medium">Head</th>
-            <th className="px-5 py-2 text-right font-medium">Amount</th>
+            <th className="px-5 py-2 font-medium">{t('bill.col.line', 'Line')}</th>
+            <th className="py-2 font-medium">{t('bill.col.item', 'Item')}</th>
+            <th className="py-2 font-medium">{t('bill.col.head', 'Head')}</th>
+            <th className="px-5 py-2 text-right font-medium">
+              {t('bill.col.amount', 'Amount')}
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">

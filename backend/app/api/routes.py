@@ -1156,6 +1156,9 @@ def _journey_payload(session: Session) -> dict[str, Any]:
         "stage_order": state.stage.order,
         "hospital_name": state.hospital_name,
         "room": state.room_category.label if state.room_category else None,
+        # The enum value beside its English label, so the interface can render
+        # the room in the reader's language rather than the server's.
+        "room_category": state.room_category.value if state.room_category else None,
         "room_rate": float(state.room_rate_per_day) if state.room_rate_per_day else None,
         "days_elapsed": state.days_elapsed,
         "pre_auth_filed": state.pre_auth_filed,

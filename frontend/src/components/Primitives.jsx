@@ -154,13 +154,14 @@ export function EmptyState({ title, children }) {
 }
 
 export function ErrorNote({ children, onDismiss }) {
+  const t = useT()
   if (!children) return null
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-[0.875rem] text-danger">
       <span>{children}</span>
       {onDismiss && (
         <button onClick={onDismiss} className="shrink-0 text-[0.8125rem] underline">
-          dismiss
+          {t('error.dismiss', 'dismiss')}
         </button>
       )}
     </div>

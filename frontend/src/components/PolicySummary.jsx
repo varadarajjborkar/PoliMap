@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../hooks/useLanguage'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // What we read from the policy, and the things we could not settle.
@@ -12,28 +13,37 @@ import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primiti
 // beneficiary and told them consumables were theirs to pay, which is false and
 // false in the frightening direction. It is described in its own terms instead.
 function SchemeFacts({ policy }) {
+  const t = useT()
   return (
     <>
       <div className="grid gap-px bg-line sm:grid-cols-2">
         <Fact
-          label="Cover this year"
+          label={t('scheme.cover', 'Cover this year')}
           value={policy.sum_insured_display}
-          note="Shared across your family for the year."
+          note={t('scheme.cover.note', 'Shared across your family for the year.')}
           emphasis
         />
         <Fact
-          label="What you pay at an empanelled hospital"
-          value="Nothing"
-          note="Treatment is bought at a fixed package rate. There is no bill to settle and nothing to claim back."
+          label={t('scheme.you_pay', 'What you pay at an empanelled hospital')}
+          value={t('scheme.you_pay.value', 'Nothing')}
+          note={t(
+            'scheme.you_pay.note',
+            'Treatment is bought at a fixed package rate. There is no bill to ' +
+              'settle and nothing to claim back.'
+          )}
         />
         <Fact
-          label="Room included"
+          label={t('scheme.room', 'Room included')}
           value={policy.room_limit.description}
-          note="A higher room is yours to pay for, but it does not reduce what the scheme covers on anything else."
+          note={t(
+            'scheme.room.note',
+            'A higher room is yours to pay for, but it does not reduce what ' +
+              'the scheme covers on anything else.'
+          )}
         />
         <Fact
-          label="Consumables, implants, medicines, tests"
-          value="Included in the package"
+          label={t('scheme.consumables', 'Consumables, implants, medicines, tests')}
+          value={t('scheme.consumables.value', 'Included in the package')}
         />
       </div>
       {policy.scheme_note && (
@@ -45,9 +55,13 @@ function SchemeFacts({ policy }) {
       )}
       <div className="border-t border-line bg-warn-soft px-5 py-3.5">
         <p className="text-[0.875rem] leading-relaxed text-warn">
-          This only works at a hospital empanelled for {policy.scheme_label}.
-          Anywhere else the scheme pays nothing, and there is no claim to make
-          afterwards. The hospitals we show you are filtered on this.
+          {t(
+            'scheme.empanelled_only',
+            'This only works at a hospital empanelled for {scheme}. Anywhere ' +
+              'else the scheme pays nothing, and there is no claim to make ' +
+              'afterwards. The hospitals we show you are filtered on this.',
+            { scheme: policy.scheme_label }
+          )}
         </p>
       </div>
     </>
@@ -58,6 +72,7 @@ export function PolicySummary({
   policy, onAnswer, onSkip, onEditField, onContinue, answering,
   onAddSecondPolicy, onDropSecondPolicy,
 }) {
+  const t = useT()
   const question = policy.questions?.[0]
 
   return (
@@ -76,7 +91,7 @@ export function PolicySummary({
         <Card className="border-warn/30 bg-warn-soft">
           <div className="px-5 py-4">
             <h3 className="text-[0.875rem] font-semibold text-warn">
-              About the document you uploaded
+              {t('policy.warnings', 'About the document you uploaded')}
             </h3>
             <ul className="mt-2 space-y-1 text-[0.875rem] leading-relaxed text-warn">
               {policy.warnings.map((warning) => (
@@ -89,7 +104,7 @@ export function PolicySummary({
 
       <Card>
         <CardHeader
-          title="Your cover"
+          title={t('policy.title', 'Your cover')}
           subtitle={
             [policy.insurer_name, policy.plan_name].filter(Boolean).join(' · ') ||
             policy.document
@@ -102,95 +117,149 @@ export function PolicySummary({
         ) : (
           <div className="grid gap-px bg-line sm:grid-cols-2 [&>*:last-child:nth-child(odd)]:sm:col-span-2">
             <Fact
-              label="Total cover this year"
+              label={t('policy.sum_insured', 'Total cover this year')}
               value={policy.sum_insured_display}
               field="sum_insured"
               current={policy.sum_insured}
-              hint="However it appears on your policy, e.g. 5 lakh or 500000"
+              hint={t(
+                'policy.sum_insured.hint',
+                'However it appears on your policy, e.g. 5 lakh or 500000'
+              )}
               onEdit={onEditField}
               emphasis
             />
             <Fact
-              label="Cover left this year"
+              label={t('policy.remaining', 'Cover left this year')}
               value={policy.available_cover_display}
               field="sum_insured_remaining"
               current={policy.sum_insured_remaining ?? policy.sum_insured}
-              hint="What is left after any claim made earlier this policy year."
+              hint={t(
+                'policy.remaining.hint',
+                'What is left after any claim made earlier this policy year.'
+              )}
               onEdit={onEditField}
               note={
                 policy.sum_insured_remaining == null
-                  ? 'We have assumed no claims yet this year. If you have already claimed, correct this: it changes every estimate.'
+                  ? t(
+                      'policy.remaining.assumed',
+                      'We have assumed no claims yet this year. If you have ' +
+                        'already claimed, correct this: it changes every estimate.'
+                    )
                   : policy.restore_benefit
-                    ? 'Your policy restores the cover once per year if it runs out.'
+                    ? t(
+                        'policy.remaining.restore',
+                        'Your policy restores the cover once per year if it runs out.'
+                      )
                     : null
               }
             />
             <Fact
-              label="Room you are covered for"
+              label={t('policy.room', 'Room you are covered for')}
               value={policy.room_limit.description}
               field="room_limit"
               current={policy.room_limit.daily_cap ?? ''}
-              hint="A daily amount, a percentage like 1%, a room type, or 'no limit'"
+              hint={t(
+                'policy.room.hint',
+                "A daily amount, a percentage like 1%, a room type, or 'no limit'"
+              )}
               onEdit={onEditField}
               note={
                 policy.room_limit.daily_cap
-                  ? 'A costlier room also reduces what your insurer pays on surgeon, theatre and nursing charges.'
+                  ? t(
+                      'policy.room.note',
+                      'A costlier room also reduces what your insurer pays on ' +
+                        'surgeon, theatre and nursing charges.'
+                    )
                   : null
               }
             />
             <Fact
-              label="Your share of every claim"
-              value={policy.copay_pct > 0 ? `${policy.copay_pct}%` : 'None'}
+              label={t('policy.copay', 'Your share of every claim')}
+              value={
+                policy.copay_pct > 0
+                  ? `${policy.copay_pct}%`
+                  : t('policy.copay.none', 'None')
+              }
               field="copay_pct"
               current={policy.copay_pct}
-              hint="A percentage, e.g. 10. Enter 0 if you have none."
+              hint={t(
+                'policy.copay.hint',
+                'A percentage, e.g. 10. Enter 0 if you have none.'
+              )}
               onEdit={onEditField}
               note={
                 policy.copay_pct > 0 && policy.copay_above_age
-                  ? `Only on members aged ${policy.copay_above_age} and above. ` +
-                    `A younger member's claim has no co-payment.`
+                  ? t(
+                      'policy.copay.age',
+                      'Only on members aged {age} and above. A younger ' +
+                        "member's claim has no co-payment.",
+                      { age: policy.copay_above_age }
+                    )
                   : null
               }
             />
-            <Fact label="ICU cover" value={policy.icu_limit} />
+            <Fact label={t('policy.icu', 'ICU cover')} value={policy.icu_limit} />
             <Fact
-              label="You pay first"
+              label={t('policy.deductible', 'You pay first')}
               value={
                 policy.deductible > 0
                   ? `₹${policy.deductible.toLocaleString('en-IN')}`
-                  : 'Nothing'
+                  : t('policy.deductible.none', 'Nothing')
               }
               field="deductible"
               current={policy.deductible}
-              hint="Only top-up policies have this. Enter 0 if yours does not."
+              hint={t(
+                'policy.deductible.hint',
+                'Only top-up policies have this. Enter 0 if yours does not.'
+              )}
               onEdit={onEditField}
               note={
                 policy.deductible > 0
-                  ? 'This is a top-up policy. It pays only above this amount.'
+                  ? t(
+                      'policy.deductible.note',
+                      'This is a top-up policy. It pays only above this amount.'
+                    )
                   : null
               }
             />
             <Fact
-              label="Consumables"
-              value={policy.covers_consumables ? 'Covered' : 'Not covered'}
+              label={t('policy.consumables', 'Consumables')}
+              value={
+                policy.covers_consumables
+                  ? t('policy.covered', 'Covered')
+                  : t('policy.not_covered', 'Not covered')
+              }
               note={
                 policy.covers_consumables
                   ? null
-                  : 'Gloves, syringes and similar items are yours to pay.'
+                  : t(
+                      'policy.consumables.note',
+                      'Gloves, syringes and similar items are yours to pay.'
+                    )
               }
             />
             <Fact
-              label="Treatment under a day"
+              label={t('policy.daycare', 'Treatment under a day')}
               value={
                 policy.covers_daycare == null
-                  ? 'Not stated'
-                  : policy.covers_daycare ? 'Covered' : 'Not covered'
+                  ? t('policy.not_stated', 'Not stated')
+                  : policy.covers_daycare
+                    ? t('policy.covered', 'Covered')
+                    : t('policy.not_covered', 'Not covered')
               }
               note={
                 policy.covers_daycare === false
-                  ? 'Cover needs a full day of admission. Cataract, dialysis and similar treatments would not be paid for.'
+                  ? t(
+                      'policy.daycare.no',
+                      'Cover needs a full day of admission. Cataract, dialysis ' +
+                        'and similar treatments would not be paid for.'
+                    )
                   : policy.covers_daycare == null
-                    ? 'Your document does not say. Worth asking, because cover normally needs 24 hours of admission.'
+                    ? t(
+                        'policy.daycare.unknown',
+                        'Your document does not say. Worth asking, because ' +
+                          'cover normally needs 24 hours of admission.'
+                      )
                     : null
               }
             />
@@ -199,7 +268,9 @@ export function PolicySummary({
 
         {policy.sublimits?.length > 0 && (
           <div className="border-t border-line px-5 py-4">
-            <h3 className="text-[0.8125rem] font-medium text-muted">Separate limits</h3>
+            <h3 className="text-[0.8125rem] font-medium text-muted">
+              {t('policy.sublimits', 'Separate limits')}
+            </h3>
             <ul className="mt-2 space-y-1.5">
               {policy.sublimits.map((limit) => (
                 <li key={limit.label} className="flex justify-between text-[0.875rem]">
@@ -222,7 +293,7 @@ export function PolicySummary({
 
         <div className="border-t border-line px-5 py-4">
           <Button onClick={onContinue} className="w-full sm:w-auto">
-            Find hospitals I am covered at
+            {t('policy.continue', 'Find hospitals I am covered at')}
           </Button>
         </div>
       </Card>
@@ -242,6 +313,7 @@ export function PolicySummary({
 // Held apart rather than merged, because they settle in sequence against their
 // own terms; merged, they would be one policy that exists nowhere.
 function SecondPolicy({ policy, onAdd, onDrop, busy }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const second = policy.second_policy
 
@@ -250,38 +322,47 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
       <div className="border-t border-line px-5 py-4 motion-safe:animate-fade">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-[0.8125rem] font-medium text-muted">
-            Your second policy
+            {t('second.title', 'Your second policy')}
           </h3>
           <button
             onClick={onDrop}
             disabled={busy}
             className="text-[0.75rem] text-muted underline-offset-2 transition hover:text-danger hover:underline disabled:opacity-50"
           >
-            Remove
+            {t('second.remove', 'Remove')}
           </button>
         </div>
 
         <p className="mt-1.5 text-[0.9375rem] font-medium">{second.label}</p>
         <dl className="mt-1.5 space-y-1 text-[0.8125rem] text-muted">
           <div className="flex justify-between gap-4">
-            <dt>Cover</dt>
+            <dt>{t('second.cover', 'Cover')}</dt>
             <dd className="tabular-nums">{second.sum_insured_display}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt>Room</dt>
+            <dt>{t('second.room', 'Room')}</dt>
             <dd>{second.room_limit}</dd>
           </div>
           {second.is_top_up && (
             <div className="flex justify-between gap-4">
-              <dt>Pays only above</dt>
+              <dt>{t('second.above', 'Pays only above')}</dt>
               <dd className="tabular-nums">{second.deductible_display}</dd>
             </div>
           )}
         </dl>
         <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
           {second.is_top_up
-            ? 'A top-up pays what is left once the band above has been covered. We settle your first policy, then this one against the balance.'
-            : 'We settle one policy, then put the balance to the other, and tell you which order costs you less.'}
+            ? t(
+                'second.topup.how',
+                'A top-up pays what is left once the band above has been ' +
+                  'covered. We settle your first policy, then this one against ' +
+                  'the balance.'
+              )
+            : t(
+                'second.how',
+                'We settle one policy, then put the balance to the other, and ' +
+                  'tell you which order costs you less.'
+              )}
         </p>
       </div>
     )
@@ -294,11 +375,14 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
           onClick={() => setAdding(true)}
           className="text-[0.875rem] font-medium text-brand transition hover:underline"
         >
-          + I have another policy
+          {t('second.add', '+ I have another policy')}
         </button>
         <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
-          An employer's cover, or a top-up. A second policy pays what the first
-          one leaves, and most people never claim from it.
+          {t(
+            'second.add.why',
+            "An employer's cover, or a top-up. A second policy pays what the " +
+              'first one leaves, and most people never claim from it.'
+          )}
         </p>
       </div>
     )
@@ -308,13 +392,13 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
     <div className="border-t border-line px-5 py-4 motion-safe:animate-fade">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[0.8125rem] font-medium text-muted">
-          Your other policy
+          {t('second.other', 'Your other policy')}
         </h3>
         <button
           onClick={() => setAdding(false)}
           className="text-[0.75rem] text-muted transition hover:text-ink"
         >
-          Cancel
+          {t('second.cancel', 'Cancel')}
         </button>
       </div>
       <SecondPolicyForm onSubmit={onAdd} busy={busy} />
@@ -325,6 +409,7 @@ function SecondPolicy({ policy, onAdd, onDrop, busy }) {
 // Typed rather than uploaded, because most people holding two policies have the
 // personal document and not the employer's.
 function SecondPolicyForm({ onSubmit, busy }) {
+  const t = useT()
   const [values, setValues] = useState({
     insurer_name: '',
     sum_insured: '500000',
@@ -337,24 +422,32 @@ function SecondPolicyForm({ onSubmit, busy }) {
 
   return (
     <div className="mt-3 space-y-3">
-      <Field label="Who is it with?" hint="The insurer's name, or your employer's.">
+      <Field
+        label={t('second.form.insurer', 'Who is it with?')}
+        hint={t('second.form.insurer.hint', "The insurer's name, or your employer's.")}
+      >
         <Input
           value={values.insurer_name}
           onChange={set('insurer_name')}
-          placeholder="e.g. my employer's group cover"
+          placeholder={t(
+            'second.form.insurer.placeholder',
+            "e.g. my employer's group cover"
+          )}
         />
       </Field>
-      <Field label="How much cover?">
+      <Field label={t('second.form.cover', 'How much cover?')}>
         <Input type="number" value={values.sum_insured} onChange={set('sum_insured')} />
       </Field>
-      <Field label="Room rent limit">
+      <Field label={t('second.form.room', 'Room rent limit')}>
         <Select value={values.room_limit_type} onChange={set('room_limit_type')}>
-          <option value="none">No limit</option>
-          <option value="flat">A fixed amount per day</option>
+          <option value="none">{t('second.form.room.none', 'No limit')}</option>
+          <option value="flat">
+            {t('second.form.room.flat', 'A fixed amount per day')}
+          </option>
         </Select>
       </Field>
       {values.room_limit_type === 'flat' && (
-        <Field label="Amount per day">
+        <Field label={t('second.form.room.amount', 'Amount per day')}>
           <Input
             type="number"
             value={values.room_limit_amount}
@@ -363,8 +456,11 @@ function SecondPolicyForm({ onSubmit, busy }) {
         </Field>
       )}
       <Field
-        label="Does it only pay above an amount?"
-        hint="Top-up policies do. Leave it at 0 if yours does not."
+        label={t('second.form.deductible', 'Does it only pay above an amount?')}
+        hint={t(
+          'second.form.deductible.hint',
+          'Top-up policies do. Leave it at 0 if yours does not.'
+        )}
       >
         <Input type="number" value={values.deductible} onChange={set('deductible')} />
       </Field>
@@ -382,7 +478,9 @@ function SecondPolicyForm({ onSubmit, busy }) {
           })
         }
       >
-        {busy ? 'Adding…' : 'Add this policy'}
+        {busy
+          ? t('second.form.adding', 'Adding\u2026')
+          : t('second.form.submit', 'Add this policy')}
       </Button>
     </div>
   )
@@ -395,16 +493,25 @@ function SecondPolicyForm({ onSubmit, busy }) {
 // depends on who is being admitted. It is also the fastest way for someone to
 // see that we read their document correctly.
 function WhoIsCovered({ policy }) {
+  const t = useT()
   if (!policy.insured?.length) return null
 
   return (
     <div className="border-t border-line px-5 py-4">
       <div className="flex items-baseline justify-between gap-4">
-        <h3 className="text-[0.8125rem] font-medium text-muted">Who is covered</h3>
+        <h3 className="text-[0.8125rem] font-medium text-muted">
+          {t('insured.title', 'Who is covered')}
+        </h3>
         {policy.period?.start && (
           <span className="text-[0.75rem] text-muted">
-            Cover from {shortDate(policy.period.start)}
-            {policy.period.end ? ` to ${shortDate(policy.period.end)}` : ''}
+            {policy.period.end
+              ? t('insured.period', 'Cover from {from} to {to}', {
+                  from: shortDate(policy.period.start),
+                  to: shortDate(policy.period.end),
+                })
+              : t('insured.period.open', 'Cover from {from}', {
+                  from: shortDate(policy.period.start),
+                })}
           </span>
         )}
       </div>
@@ -428,11 +535,18 @@ function WhoIsCovered({ policy }) {
       {policy.period?.days_left != null && policy.period.days_left <= 45 && (
         <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-warn">
           {policy.period.days_left > 0
-            ? `This policy year ends in ${policy.period.days_left} days. Your ` +
-              `cover starts again on renewal, so an admission either side of ` +
-              `that date draws on a different year's cover.`
-            : 'This policy year has ended. Check that it was renewed before ' +
-              'relying on these figures.'}
+            ? t(
+                'insured.ending',
+                'This policy year ends in {days} days. Your cover starts again ' +
+                  'on renewal, so an admission either side of that date draws ' +
+                  "on a different year's cover.",
+                { days: policy.period.days_left }
+              )
+            : t(
+                'insured.ended',
+                'This policy year has ended. Check that it was renewed before ' +
+                  'relying on these figures.'
+              )}
         </p>
       )}
     </div>
@@ -445,13 +559,16 @@ function WhoIsCovered({ policy }) {
 // its own is not usable: "two years" from a start date nobody stated does not
 // answer "can I have this operation". The date does.
 function WaitingPeriods({ policy }) {
+  const t = useT()
   if (!policy.waiting_periods?.length) return null
 
   const pending = policy.waiting_periods.filter((w) => w.cleared === false)
 
   return (
     <div className="border-t border-line px-5 py-4">
-      <h3 className="text-[0.8125rem] font-medium text-muted">Waiting periods</h3>
+      <h3 className="text-[0.8125rem] font-medium text-muted">
+        {t('waiting.title', 'Waiting periods')}
+      </h3>
       <ul className="mt-2 space-y-2">
         {policy.waiting_periods.map((wait, index) => (
           <li key={index} className="text-[0.875rem]">
@@ -464,8 +581,12 @@ function WaitingPeriods({ policy }) {
             {wait.clears_on && (
               <p className="mt-0.5 text-[0.75rem] text-muted">
                 {wait.cleared
-                  ? `Served. Covered since ${shortDate(wait.clears_on)}.`
-                  : `Covered from ${shortDate(wait.clears_on)}.`}
+                  ? t('waiting.served', 'Served. Covered since {date}.', {
+                      date: shortDate(wait.clears_on),
+                    })
+                  : t('waiting.from', 'Covered from {date}.', {
+                      date: shortDate(wait.clears_on),
+                    })}
               </p>
             )}
           </li>
@@ -474,14 +595,21 @@ function WaitingPeriods({ policy }) {
 
       {!policy.period?.start && (
         <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-warn">
-          We could not read when this policy started, so we cannot tell you
-          whether these still apply. You will be asked once you pick a treatment.
+          {t(
+            'waiting.no_start',
+            'We could not read when this policy started, so we cannot tell you ' +
+              'whether these still apply. You will be asked once you pick a ' +
+              'treatment.'
+          )}
         </p>
       )}
       {policy.period?.start && pending.length > 0 && (
         <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-muted">
-          A claim made before the date shown would be declined. We check this
-          against the treatment you choose.
+          {t(
+            'waiting.pending',
+            'A claim made before the date shown would be declined. We check ' +
+              'this against the treatment you choose.'
+          )}
         </p>
       )}
     </div>
@@ -495,13 +623,20 @@ const shortDate = (iso) =>
 
 
 function ConfidenceBadge({ policy }) {
+  const t = useT()
   if (policy.questions?.length) {
-    return <Badge tone="warn">{policy.questions.length} to confirm</Badge>
+    return (
+      <Badge tone="warn">
+        {t('policy.to_confirm', '{count} to confirm', {
+          count: policy.questions.length,
+        })}
+      </Badge>
+    )
   }
   if (policy.needed_ocr && policy.read_quality < 0.85) {
-    return <Badge tone="warn">Read from a scan</Badge>
+    return <Badge tone="warn">{t('policy.from_scan', 'Read from a scan')}</Badge>
   }
-  return <Badge tone="good">Read cleanly</Badge>
+  return <Badge tone="good">{t('policy.read_cleanly', 'Read cleanly')}</Badge>
 }
 
 // One read figure, with a way to correct it.
@@ -515,6 +650,7 @@ function ConfidenceBadge({ policy }) {
 // what the document says rather than only digits: "5 lakh" and "1% of my cover"
 // both work, through the same reader the questions use.
 function Fact({ label, value, note, emphasis, field, current, onEdit, hint }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
@@ -548,8 +684,10 @@ function Fact({ label, value, note, emphasis, field, current, onEdit, hint }) {
         {editable && !editing && (
           <button
             onClick={open}
-            aria-label={`Correct ${label.toLowerCase()}`}
-            title="Correct this"
+            aria-label={t('fact.correct.label', 'Correct {field}', {
+              field: label.toLowerCase(),
+            })}
+            title={t('fact.correct', 'Correct this')}
             className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-muted transition hover:bg-canvas hover:text-brand"
           >
             <PencilIcon />
@@ -575,7 +713,7 @@ function Fact({ label, value, note, emphasis, field, current, onEdit, hint }) {
           {error && <p className="mt-1 text-[0.75rem] text-danger">{error}</p>}
           <div className="mt-2 flex gap-2">
             <Button disabled={saving} onClick={save} className="px-3 py-1.5">
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('fact.saving', 'Saving\u2026') : t('fact.save', 'Save')}
             </Button>
             <Button
               variant="secondary"
@@ -583,7 +721,7 @@ function Fact({ label, value, note, emphasis, field, current, onEdit, hint }) {
               onClick={() => setEditing(false)}
               className="px-3 py-1.5"
             >
-              Cancel
+              {t('fact.cancel', 'Cancel')}
             </Button>
           </div>
         </div>
@@ -624,6 +762,7 @@ function PencilIcon() {
 // into the field that was asked about and no other, and anything the server had
 // to interpret comes back as a confirmation before it is used.
 function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
+  const t = useT()
   const [typed, setTyped] = useState(
     question.suggested != null ? String(question.suggested) : ''
   )
@@ -638,8 +777,8 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
 
   const placeholder =
     question.expects === 'percent'
-      ? 'For example 10%, or ten percent'
-      : 'For example 5 lakh, 5,00,000, or no limit'
+      ? t('ask.placeholder.percent', 'For example 10%, or ten percent')
+      : t('ask.placeholder.amount', 'For example 5 lakh, 5,00,000, or no limit')
 
   const showBox = other || !(question.options?.length > 0)
 
@@ -648,11 +787,13 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
       <div className="px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[0.875rem] font-semibold text-brand">
-            {question.confirming ? 'Just checking' : 'We need one thing from you'}
+            {question.confirming
+              ? t('ask.confirming', 'Just checking')
+              : t('ask.title', 'We need one thing from you')}
           </h3>
           {remaining > 0 && (
             <span className="shrink-0 text-[0.75rem] text-muted">
-              {remaining} more after this
+              {t('ask.remaining', '{count} more after this', { count: remaining })}
             </span>
           )}
         </div>
@@ -663,7 +804,9 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
         )}
         {question.page && (
           <p className="mt-1 text-[0.75rem] text-muted">
-            We were looking at page {question.page} of your document.
+            {t('ask.page', 'We were looking at page {page} of your document.', {
+              page: question.page,
+            })}
           </p>
         )}
 
@@ -679,8 +822,13 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
                 <span className="text-[0.9375rem] font-medium">{option.label}</span>
                 {option.source && (
                   <span className="text-[0.75rem] text-muted">
-                    from the {option.source}
-                    {option.page ? `, page ${option.page}` : ''}
+                    {option.page
+                      ? t('ask.source.page', 'from the {source}, page {page}', {
+                          source: option.source, page: option.page,
+                        })
+                      : t('ask.source', 'from the {source}', {
+                          source: option.source,
+                        })}
                   </span>
                 )}
               </button>
@@ -693,7 +841,7 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
               className="flex w-full items-center justify-between rounded-lg border border-dashed border-line px-4 py-3 text-left transition hover:border-brand hover:bg-brand-soft disabled:opacity-50"
             >
               <span className="text-[0.9375rem] font-medium">
-                None of these, let me explain
+                {t('ask.other', 'None of these, let me explain')}
               </span>
             </button>
           )}
@@ -714,12 +862,15 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
                   disabled={busy || !typed}
                   onClick={() => onAnswer(question.id, typed)}
                 >
-                  {busy ? 'Reading…' : 'Confirm'}
+                  {busy ? t('ask.reading', 'Reading\u2026') : t('ask.confirm', 'Confirm')}
                 </Button>
               </div>
               <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
-                Write it however it appears on your document, in words or
-                figures. We will read it back to you before using it.
+                {t(
+                  'ask.free_text',
+                  'Write it however it appears on your document, in words or ' +
+                    'figures. We will read it back to you before using it.'
+                )}
               </p>
             </div>
           )}
@@ -732,10 +883,10 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
               onClick={() => onSkip(question.id)}
               className="text-[0.8125rem] text-muted underline-offset-2 transition hover:text-ink hover:underline disabled:opacity-50"
             >
-              I do not know this
+              {t('ask.skip', 'I do not know this')}
             </button>
             <span className="text-[0.75rem] text-muted">
-              We will carry on and say where we are unsure.
+              {t('ask.skip.hint', 'We will carry on and say where we are unsure.')}
             </span>
           </div>
         )}
@@ -745,6 +896,7 @@ function ClarificationCard({ question, remaining, onAnswer, onSkip, busy }) {
 }
 
 function EvidenceTable({ clauses }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const shown = (clauses ?? []).filter((c) => c.status !== 'rejected')
 
@@ -758,13 +910,17 @@ function EvidenceTable({ clauses }) {
       >
         <div>
           <h2 className="text-[0.9375rem] font-semibold tracking-tight">
-            Where these figures came from
+            {t('evidence.title', 'Where these figures came from')}
           </h2>
           <p className="mt-0.5 text-[0.875rem] text-muted">
-            {shown.length} passages read from your document
+            {t('evidence.count', '{count} passages read from your document', {
+              count: shown.length,
+            })}
           </p>
         </div>
-        <span className="text-[0.8125rem] text-brand">{open ? 'Hide' : 'Show'}</span>
+        <span className="text-[0.8125rem] text-brand">
+          {open ? t('evidence.hide', 'Hide') : t('evidence.show', 'Show')}
+        </span>
       </button>
 
       {open && (
@@ -777,9 +933,13 @@ function EvidenceTable({ clauses }) {
                     {clause.kind.replace(/_/g, ' ')}
                   </span>
                   <span className="text-[0.75rem] text-muted">
-                    page {clause.page} · {clause.section}
+                    {t('evidence.page', 'page {page}', { page: clause.page })}
+                    {' · '}
+                    {clause.section}
                   </span>
-                  {clause.confidence < 0.55 && <Badge tone="warn">uncertain</Badge>}
+                  {clause.confidence < 0.55 && (
+                    <Badge tone="warn">{t('evidence.uncertain', 'uncertain')}</Badge>
+                  )}
                 </div>
                 <blockquote className="mt-1.5 border-l-2 border-line pl-3 text-[0.8125rem] leading-relaxed text-muted">
                   {clause.quote}
