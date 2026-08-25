@@ -87,6 +87,14 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
     return () => document.removeEventListener('mousedown', away)
   }, [open])
 
+  // Opening is one thing whichever way it is asked for, and it always starts
+  // from an empty query so the common admissions are offered rather than the
+  // name already chosen, which matches nothing.
+  function openList() {
+    setQuery('')
+    setOpen(true)
+  }
+
   function choose(procedure) {
     onChange(procedure.code)
     setQuery('')
@@ -124,7 +132,12 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
           'treatment.placeholder',
           'Type what you were told, e.g. stent, delivery, gall bladder'
         )}
-        onFocus={() => { setQuery(''); setOpen(true) }}
+        onFocus={openList}
+        // Choosing never moves focus away from this box, so coming back to it
+        // fires no focus event and the list would stay shut. A click while it
+        // is already open is somebody putting the cursor somewhere in what
+        // they have typed, and must not wipe it.
+        onClick={() => { if (!open) openList() }}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onKeyDown={onKeyDown}
         className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[0.9375rem] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -150,6 +163,11 @@ export function TreatmentPicker({ procedures, value, onChange, id }) {
               <button
                 type="button"
                 onMouseEnter={() => setActive(index)}
+                // Pressing an option must not take focus off the box. It is
+                // the standard behaviour for a list like this, and here it is
+                // also what stops anything outside from reacting to the box
+                // being focused all over again a moment after a choice.
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(procedure)}
                 className={`flex w-full items-baseline justify-between gap-3 px-3 py-2.5 text-left transition ${
                   index === active ? 'bg-brand-soft' : ''

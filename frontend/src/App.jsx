@@ -16,6 +16,7 @@ import {
   SETUP_STEPS, SIGNIN_PATH, TRACK_STEP, stayPath, useRoute,
 } from './hooks/useRoute'
 import { capped } from './lib/i18n'
+import { demoStay } from './lib/demoStay'
 import { deleteAllTickets } from './lib/tickets'
 import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
@@ -38,6 +39,18 @@ const MAX_EVENTS = 400
 // people who want it will look and nowhere the people who do not will trip
 // over it. Read once: turning it on is a reload either way.
 const SHOW_ACTIVITY = new URLSearchParams(window.location.search).has('activity')
+
+// The stay screen, with a recorded stay on it, at `?demo=stay`.
+//
+// It is the last screen in the application and the only one that cannot be
+// looked at without first working through every screen before it, which made
+// changing its layout a matter of rebuilding a whole admission between each
+// look. Read once, and only while developing: `import.meta.env.DEV` becomes
+// `false` at build time, so this is `false`, the branch below folds away and
+// the recording is dropped from the bundle with it.
+const DEMO_STAY =
+  import.meta.env.DEV &&
+  new URLSearchParams(window.location.search).get('demo') === 'stay'
 
 const DEFAULT_SEARCH = {
   procedure_code: '',
@@ -182,8 +195,8 @@ export default function App() {
   // Where the reader is right now, readable from a promise that settles later.
   // A restore takes a second or two, and what has to be asked when it lands is
   // whether they are still on the stay it belongs to.
-  const whereRef = useRef({ view, stayId })
-  whereRef.current = { view, stayId }
+  const whereRef = useRef({ view, stayId, step })
+  whereRef.current = { view, stayId, step }
 
   // Opening a stay from a link, a reload, or the home screen all arrive here.
   //
@@ -234,14 +247,24 @@ export default function App() {
   // Keep the address bar on the section being read, so a link copied halfway
   // through the flow reopens where the reader was. `replace`, because scrolling
   // is not navigation: filling the history with a dozen entries would make the
-  // back button useless for leaving.
-  // The address bar following the section on screen. It describes where the
-  // reader already is, so it must not move them: scrolling here would fight
-  // the scroll that caused it.
+  // back button useless for leaving. It describes where the reader already is,
+  // so it must not move them either: scrolling here would fight the scroll
+  // that caused it.
+  //
+  // Read from the ref rather than from this render's values, and refuse to act
+  // once the flow has been left. What reports a section is an intersection
+  // observer belonging to the setup flow, and it can deliver one last
+  // observation after the flow is gone: starting a stay scrolls the page to
+  // the top, which brings the first section into view a moment before React
+  // takes the flow off screen, so the observer then reported the upload step
+  // and replaced the stay in history with it. Pressing the button appeared to
+  // do nothing at all, and whether it did was a matter of timing.
   const markStepInView = useCallback((id) => {
-    if (!stayId || id === step) return
-    navigate(stayPath(stayId, id), { replace: true, scroll: false })
-  }, [stayId, step, navigate])
+    const here = whereRef.current
+    if (!here.stayId || id === here.step) return
+    if (!SETUP_STEPS.some((s) => s.id === here.step)) return
+    navigate(stayPath(here.stayId, id), { replace: true, scroll: false })
+  }, [navigate])
 
   // What this stay is, so the home screen lists it recognisably a day later.
   // The hospital and the treatment are what someone recognises; the id is not.
@@ -406,6 +429,12 @@ export default function App() {
         stageLabel: result.stage_label,
       })
       navigate(stayPath(stayId, 'journey'))
+    } else {
+      // The banner is at the top of a page that is long by the time there are
+      // results to choose from, so a refusal here is otherwise silent: the
+      // button comes back to life and nothing else happens. Bring the reason
+      // to where it can be read.
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -514,6 +543,20 @@ export default function App() {
     />
   )
 
+  if (DEMO_STAY) {
+    return (
+      <LanguageContext.Provider value={t}>
+        <DemoStay
+          settings={settings}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onToggleText={() =>
+            set('textSize', settings.textSize === 'large' ? 'default' : 'large')}
+        />
+        {briefSettings}
+      </LanguageContext.Provider>
+    )
+  }
+
   if (!user) {
     return (
       <LanguageContext.Provider value={t}>
@@ -586,6 +629,9 @@ export default function App() {
     events, connected, settings,
     onOpenSettings: () => setSettingsOpen(true),
     step, reachable,
+    // The stay screen lays itself out in columns and wants the screen. The
+    // setup screens are read a paragraph at a time and must not have it.
+    wide: step === TRACK_STEP.id,
     onGo: (id) => navigate(stayPath(stayId, id)),
     onHome: goHome,
     onStartOver: discardStay,
@@ -725,55 +771,55 @@ export default function App() {
             />
           </>
         ) : (
-          <div className="mx-auto max-w-3xl space-y-5 py-6 motion-safe:animate-fade">
+          /* No reading column here. The stay is a board of figures read against
+             each other rather than a document read top to bottom, and it lays
+             itself out across the whole width it is given. */
+          <div className="space-y-3 py-4 motion-safe:animate-fade">
             <ErrorNote onDismiss={() => setError(null)}>{error}</ErrorNote>
 
-            {step === 'journey' && (
-              <>
-                <BackLink onClick={() => navigate(stayPath(stayId, 'search'))}>
-                  {t('nav.back.hospitals', 'Back to hospitals')}
-                </BackLink>
-                <Journey
-                  journey={journey}
-                  onToggleChecklist={handleToggleChecklist}
-                  onCheckBill={handleCheckBill}
-                  onDropBill={handleDropBill}
-                  billBusy={busy === 'bill'}
-                  billProgress={
-                    busy === 'bill' && (
-                      <ReadingProgress
-                        events={events}
-                        phases={BILL_PHASES}
-                        title={t('reading.bill', 'Reading your bill')}
-                        waiting={t(
-                          'reading.bill.waiting',
-                          'Sending the bill. Keep this page open.'
-                        )}
-                        hint={t(
-                          'reading.bill.hint',
-                          'A photo takes longer than a PDF: every line has to be recognised ' +
-                            'first.')}
-                      />
-                    )
-                  }
-                  busy={busy === 'journey'}
-                  sessionId={sessionId}
-                  onAdvance={journeyAction((stage, opts) =>
-                    api.advance(sessionId, stage, opts)
-                  )}
-                  onRecordCost={journeyAction((payload) =>
-                    api.recordCost(sessionId, payload)
-                  )}
-                  onUpdateCost={journeyAction((entryId, patch) =>
-                    api.updateCost(sessionId, entryId, patch)
-                  )}
-                  onDeleteCost={journeyAction((entryId) =>
-                    api.deleteCost(sessionId, entryId)
-                  )}
-                  onFilePreauth={journeyAction(() => api.filePreauth(sessionId))}
-                />
-              </>
-            )}
+            <BackLink onClick={() => navigate(stayPath(stayId, 'search'))}>
+              {t('nav.back.hospitals', 'Back to hospitals')}
+            </BackLink>
+
+            <Journey
+              journey={journey}
+              onToggleChecklist={handleToggleChecklist}
+              onCheckBill={handleCheckBill}
+              onDropBill={handleDropBill}
+              billBusy={busy === 'bill'}
+              billProgress={
+                busy === 'bill' && (
+                  <ReadingProgress
+                    events={events}
+                    phases={BILL_PHASES}
+                    title={t('reading.bill', 'Reading your bill')}
+                    waiting={t(
+                      'reading.bill.waiting',
+                      'Sending the bill. Keep this page open.'
+                    )}
+                    hint={t(
+                      'reading.bill.hint',
+                      'A photo takes longer than a PDF: every line has to be recognised ' +
+                        'first.')}
+                  />
+                )
+              }
+              busy={busy === 'journey'}
+              sessionId={sessionId}
+              onAdvance={journeyAction((stage, opts) =>
+                api.advance(sessionId, stage, opts)
+              )}
+              onRecordCost={journeyAction((payload) =>
+                api.recordCost(sessionId, payload)
+              )}
+              onUpdateCost={journeyAction((entryId, patch) =>
+                api.updateCost(sessionId, entryId, patch)
+              )}
+              onDeleteCost={journeyAction((entryId) =>
+                api.deleteCost(sessionId, entryId)
+              )}
+              onFilePreauth={journeyAction(() => api.filePreauth(sessionId))}
+            />
           </div>
         )}
       </Shell>
@@ -789,6 +835,49 @@ export default function App() {
 
       <HelpDesk key={user} screen={step} user={user} language={settings.language} />
     </LanguageContext.Provider>
+  )
+}
+
+// The stay screen with a recorded stay on it. Reached only at `?demo=stay`
+// and only while developing; see DEMO_STAY above. Nothing here writes: every
+// handler is a stub, so the recording cannot be changed out from under the
+// layout it exists to show.
+function DemoStay({ settings, onOpenSettings, onToggleText }) {
+  const noop = () => {}
+  return (
+    <Shell
+      wide
+      events={[]}
+      connected={false}
+      settings={settings}
+      onOpenSettings={onOpenSettings}
+      step={TRACK_STEP.id}
+      reachable={{ upload: true, policy: true, search: true, journey: true }}
+      onGo={noop}
+      onHome={noop}
+      onStartOver={noop}
+      hasSession={false}
+      user="demo"
+      onToggleText={onToggleText}
+    >
+      <div className="space-y-3 py-4">
+        <Journey
+          journey={demoStay}
+          sessionId="demo"
+          busy={false}
+          billBusy={false}
+          billProgress={null}
+          onAdvance={noop}
+          onRecordCost={noop}
+          onUpdateCost={noop}
+          onDeleteCost={noop}
+          onFilePreauth={noop}
+          onToggleChecklist={noop}
+          onCheckBill={noop}
+          onDropBill={noop}
+        />
+      </div>
+    </Shell>
   )
 }
 
@@ -869,10 +958,20 @@ function useMeasuredHeader() {
 function Shell({
   children, events, connected, settings, onOpenSettings,
   step, reachable, onGo, onHome, onStartOver, hasSession, user, onToggleText,
+  wide,
 }) {
   const t = useT()
   const showActivity = SHOW_ACTIVITY
   const header = useMeasuredHeader()
+
+  // How much of the screen this page is allowed. 72rem is right for reading
+  // and wrong for a board of figures: on a laptop it left the stay screen
+  // sitting in the middle third with the rest of the monitor blank. The bar
+  // above follows whichever width the page below takes, or the two would sit
+  // on different centre lines.
+  const band = wide
+    ? 'mx-auto w-full max-w-[1800px] px-4 sm:px-6'
+    : 'mx-auto w-full max-w-6xl px-4'
 
   return (
     <div className="min-h-screen">
@@ -880,7 +979,7 @@ function Shell({
         ref={header}
         className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
+        <div className={`flex items-center justify-between gap-2 py-2 ${band}`}>
           <button
             onClick={onHome}
             className="group flex items-center gap-2.5 text-left"
@@ -906,7 +1005,9 @@ function Shell({
                 {t('nav.steps', '{count} steps', { count: events.length })}
               </span>
             )}
-            <span className="hidden text-[0.875rem] text-muted sm:inline">{user}</span>
+            <span className="hidden max-w-[10rem] truncate text-[0.875rem] text-muted sm:inline">
+              {user}
+            </span>
             {hasSession && (
               <Button
                 variant="secondary"
@@ -937,10 +1038,10 @@ function Shell({
           </div>
         </div>
 
-        <StepNav step={step} onGo={onGo} reachable={reachable} />
+        <StepNav step={step} onGo={onGo} reachable={reachable} band={band} />
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-5 px-4">
+      <div className={`flex gap-5 ${band}`}>
         {/* Runs once, when a stay is opened from the home screen: this mounts
             then and not between the steps inside it. */}
         {/* The help desk floats over the bottom right corner. Without room
@@ -978,7 +1079,7 @@ function Shell({
 //
 // The three live on the thread now. This says which of the two halves of the
 // application you are in, which is the only thing it was ever good at.
-function StepNav({ step, onGo, reachable }) {
+function StepNav({ step, onGo, reachable, band }) {
   const inSetup = step !== TRACK_STEP.id
   const t = useT()
 
@@ -1003,7 +1104,7 @@ function StepNav({ step, onGo, reachable }) {
 
   return (
     <nav aria-label={t('nav.sections', 'Sections')} className="border-t border-line">
-      <ol className="mx-auto flex max-w-6xl items-stretch px-2">
+      <ol className={`flex items-stretch ${band}`}>
         {item(
           SETUP_STEPS[0].id, t('nav.setup', 'Setting up'), true, inSetup,
         )}

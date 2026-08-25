@@ -41,7 +41,6 @@ export default {
     'మీ కవర్, అంచనా, ఇప్పటివరకు బిల్లు, ఇంకా మిగిలినది. బీమా కౌంటర్ కోసం ఒక పేజీ.',
   'journey.charges': 'ఇప్పటివరకు ఖర్చు',
   'journey.add_charge': 'ఖర్చు జోడించండి',
-  'journey.timeline': 'ఇప్పటివరకు ఏమి జరిగింది',
   'journey.checklist': 'ఇప్పుడు ఏమి చేయాలి',
 
   'bill.title': 'చివరి బిల్లు తనిఖీ చేయండి',
@@ -535,8 +534,10 @@ export default {
 
   'journey.title': 'మీ చికిత్స',
   'journey.per_day': 'రోజుకు ₹{amount}',
+  'journey.alert.open': 'ఏదో మీ దృష్టిని కోరుతోంది',
   'journey.preauth.file': 'ముందస్తు అనుమతి పంపబడింది అని గుర్తించండి',
-  'journey.timeline.skipped': '{stages} దాటవేయబడ్డాయి.',
+  'journey.charges.none':
+    'ఇంకా ఏమీ నమోదు కాలేదు. ప్రతి ఖర్చును వచ్చిన వెంటనే జోడించండి, పైన ఉన్న అంచనా దానితో పాటు నడుస్తుంది.',
   'journey.charges.count': '{count} నమోదు, మొత్తం {total}',
   'journey.charge.options': '{head} కోసం ఎంపికలు',
   'journey.charge.close_menu': 'మెనూ మూసివేయండి',
@@ -573,13 +574,9 @@ export default {
   'journey.advance.settled.hint': 'ఏదైనా మారితే మీరు ఇప్పటికీ మునుపటి దశకు వెళ్లవచ్చు.',
   'journey.advance.hint':
     'విషయాలు ముందుకు సాగిన కొద్దీ దీన్ని మార్చుతూ ఉండండి. మీరు ఎప్పుడైనా వెనక్కి వెళ్లవచ్చు.',
-  'journey.advance.stage': 'దశ',
   'journey.advance.here': 'మీరు ఇక్కడ ఉన్నారు',
-  'journey.advance.back': 'వెనక్కి వెళ్లు',
-  'journey.advance.back.hint':
-    'దీనితో మీ చికిత్స {stage}కు తిరిగి వెళ్తుంది. మీరు నమోదు చేసినది ఏదీ పోదు.',
+  'journey.advance.next': '{stage}కు వెళ్లండి',
   'journey.advance.go_back': 'ఈ దశకు తిరిగి వెళ్లండి',
-  'journey.advance.update': 'నవీకరించు',
   'journey.skip.cancel': 'వద్దు',
   'journey.skip.title': 'ఒక్క మాట',
   'journey.skip.body': 'నేరుగా {stage}కు వెళ్తే {skipped} దాటవేయబడతాయి.',
@@ -837,15 +834,6 @@ export default {
   'alert.pre_auth_due.msg':
     'క్యాష్‌లెస్‌కు ఆపరేషన్ ముందు బీమా సంస్థ ఆమోదం కావాలి. అది లేకుంటే మీరు ఆసుపత్రికి చెల్లించి తర్వాత క్లెయిమ్ చేయాలి.',
   'alert.pre_auth_due.do': 'దీన్ని ఇప్పుడే పంపమని బీమా కౌంటర్‌కు చెప్పండి.',
-  'timeline.start': 'చికిత్స ప్రణాళిక',
-  'timeline.back': 'తిరిగి {stage}కు',
-  'timeline.skipped': '{stage} (ముందుకు దూకి)',
-  'timelinenote.start': '{cover} కవర్.',
-  'timelinenote.start_hospital': '{cover} కవర్. {hospital} చూస్తున్నాం.',
-  'timelinenote.admitted': '{room}లో చేరిక.',
-  'timelinenote.admitted_rate': '{room}లో చేరిక, రోజుకు {rate}.',
-  'timelinenote.discharge': 'డిశ్చార్జి పత్రాలు సిద్ధమవుతున్నాయి.',
-  'timelinenote.settled': 'మొత్తం బిల్లు {total}.',
 
   // What stands between this policy and this claim.
   'dur.days': '{n} రోజులు',

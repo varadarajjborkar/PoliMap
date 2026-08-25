@@ -95,13 +95,6 @@ const TEMPLATES = {
     'pre_auth_due', 'room_over_limit', 'room_over_limit_knock_on',
     'room_rate_conflict', 'sublimit_nearly_used',
   ],
-  // A move forward is titled with the stage's own name, which the interface
-  // already knows, so only the two moves that are not have a title here.
-  'timeline.': ['back', 'skipped', 'start'],
-  'timelinenote.': [
-    'admitted', 'admitted_rate', 'discharge', 'settled', 'start',
-    'start_hospital',
-  ],
   'billnote.': ['icu_days', 'nights', 'non_medical', 'tier_scaled'],
   'elig.': [
     'daycare_excluded', 'daycare_unknown', 'initial_accident', 'initial_days',

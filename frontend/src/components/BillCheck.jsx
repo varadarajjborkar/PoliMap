@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
 import { readable, said } from '../lib/i18n'
-import { Badge, Button, Card, CardHeader, Spinner } from './Primitives'
+import { Badge, Button, Spinner } from './Primitives'
 
 // The final bill, read and checked.
 //
@@ -21,33 +21,55 @@ const SEVERITY = {
   info: { tone: 'neutral', border: 'border-line', bg: 'bg-canvas', text: 'text-ink' },
 }
 
-export function BillCheck({ bill, busy, progress, onCheck, onDrop }) {
+// The two halves, used in two places.
+//
+// Reading the bill is something you do, so the control for it sits with the
+// other thing you do on this screen, in the card where a charge is entered.
+// What comes back is a statement about the charges, so it is shown with them,
+// at the head of the ledger. It used to be one card holding both, a third
+// panel down a column that already had two.
+export function BillUpload({ busy, progress, onCheck }) {
   const t = useT()
   return (
-    <Card>
-      <CardHeader
-        title={t('bill.title', 'Check the final bill')}
-        subtitle={t(
+    <div className="border-t border-line px-5 py-4">
+      <h3 className="text-[0.875rem] font-medium">
+        {t('bill.title', 'Check the final bill')}
+      </h3>
+      <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
+        {t(
           'bill.subtitle',
           'Against the IRDAI list of items no policy pays, and against your ' +
             'own cover.'
         )}
-        aside={
-          bill && !busy && (
-            <Badge tone={bill.worth_asking > 0 ? 'warn' : 'good'}>
-              {bill.worth_asking > 0
-                ? `${bill.worth_asking} ${t('bill.to_ask', 'to ask about')}`
-                : t('bill.nothing_to_raise', 'Nothing to raise')}
-            </Badge>
-          )
-        }
-      />
-      {bill && !busy ? (
-        <Checked bill={bill} busy={busy} onDrop={onDrop} />
-      ) : (
-        <Upload busy={busy} progress={progress} onCheck={onCheck} />
-      )}
-    </Card>
+      </p>
+      <Upload busy={busy} progress={progress} onCheck={onCheck} />
+    </div>
+  )
+}
+
+export function BillReview({ bill, busy, onDrop }) {
+  if (!bill) return null
+  // No heading of its own. It opens by saying how many lines were read from
+  // which document, which names it better than a title would, and the one
+  // thing a title was carrying is the badge, which has gone up to the card
+  // this sits inside.
+  return (
+    <div className="border-b border-line">
+      <Checked bill={bill} busy={busy} onDrop={onDrop} />
+    </div>
+  )
+}
+
+// What a read bill is worth saying in two words, for the card that holds it.
+export function BillVerdict({ bill }) {
+  const t = useT()
+  if (!bill) return null
+  return (
+    <Badge tone={bill.worth_asking > 0 ? 'warn' : 'good'}>
+      {bill.worth_asking > 0
+        ? `${bill.worth_asking} ${t('bill.to_ask', 'to ask about')}`
+        : t('bill.nothing_to_raise', 'Nothing to raise')}
+    </Badge>
   )
 }
 
@@ -73,15 +95,15 @@ function Upload({ busy, progress, onCheck }) {
 
   if (busy) {
     return (
-      <div className="p-5">
+      <div className="mt-3">
         {progress ?? <Spinner label={t('bill.reading', 'Reading the bill\u2026')} />}
       </div>
     )
   }
 
   return (
-    <div className="p-5">
-      <p className="text-[0.875rem] leading-relaxed text-muted">
+    <div className="mt-3">
+      <p className="text-[0.8125rem] leading-relaxed text-muted">
         {t(
           'bill.what_we_do',
           'Ask for the itemised bill, not the one-line total, and photograph ' +
@@ -98,7 +120,14 @@ function Upload({ busy, progress, onCheck }) {
         className="hidden"
         onChange={(event) => choose(event.target.files?.[0])}
       />
-      <Button className="mt-4 w-full" onClick={() => fileRef.current?.click()}>
+      {/* Secondary, because the primary action in the card this now sits in
+          is adding a charge, which happens several times a day against this
+          once. */}
+      <Button
+        variant="secondary"
+        className="mt-3 w-full sm:w-auto"
+        onClick={() => fileRef.current?.click()}
+      >
         {t('bill.upload', 'Photograph or upload the bill')}
       </Button>
 

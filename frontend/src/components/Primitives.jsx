@@ -38,12 +38,35 @@ export function Button({ variant = 'primary', className = '', ...props }) {
   )
 }
 
-export function Field({ label, hint, children }) {
+// A label wrapping its control associates the two with no ids to keep in step,
+// which is right for a field that is one element and wrong for one that is not.
+// Clicking anywhere inside a label focuses the control it labels, so a click on
+// an option in the treatment list was forwarded to the search box sitting above
+// it: the choice was made and then undone in the same breath by the box
+// reopening on focus. `htmlFor` names the control instead of enclosing it,
+// which leaves everything else inside the field alone.
+export function Field({ label, hint, htmlFor, children }) {
+  const caption = (
+    <span className="mb-1.5 block text-[0.8125rem] font-medium text-muted">{label}</span>
+  )
+  const note = hint && (
+    <span className="mt-1 block text-[0.75rem] text-muted">{hint}</span>
+  )
+
+  if (htmlFor) {
+    return (
+      <div className="block">
+        <label htmlFor={htmlFor}>{caption}</label>
+        {children}
+        {note}
+      </div>
+    )
+  }
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[0.8125rem] font-medium text-muted">{label}</span>
+      {caption}
       {children}
-      {hint && <span className="mt-1 block text-[0.75rem] text-muted">{hint}</span>}
+      {note}
     </label>
   )
 }

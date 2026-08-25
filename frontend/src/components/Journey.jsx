@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
 import { useT } from '../hooks/useLanguage'
+import { pinAlerts } from '../lib/alerts'
 import { moment, readable } from '../lib/i18n'
-import { BillCheck } from './BillCheck'
+import { AlertPin } from './AlertPin'
+import { BillReview, BillUpload, BillVerdict } from './BillCheck'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // The care journey: where the paperwork stands, what has been billed, and what
@@ -36,12 +39,6 @@ function stageName(t, label) {
   return value ? t(`journey.stage.${value}`, label) : label
 }
 
-const SEVERITY = {
-  urgent: { tone: 'bad', border: 'border-danger/25', bg: 'bg-danger-soft', text: 'text-danger' },
-  attention: { tone: 'warn', border: 'border-warn/25', bg: 'bg-warn-soft', text: 'text-warn' },
-  info: { tone: 'neutral', border: 'border-line', bg: 'bg-canvas', text: 'text-ink' },
-}
-
 export function Journey({
   journey, sessionId, busy, billBusy, billProgress,
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
@@ -50,231 +47,398 @@ export function Journey({
   const t = useT()
   if (!journey) return null
 
-  const currentIndex = STAGES.findIndex(([value]) => value === journey.stage)
+  // Three columns rather than one long scroll.
+  //
+  // A stay is read by holding two things against each other: what is left of
+  // the cover against what has just been billed, what is still outstanding
+  // against where the paperwork has got to. Stacked one under another, every
+  // one of those comparisons was a scroll, and on a laptop the page spent two
+  // thirds of the screen on empty margin while it happened.
+  //
+  // So the figures sit on the right, what needs doing sits on the left, both
+  // stay where they are, and the middle column is the only part that moves.
+  // Below a wide screen it all comes back into one column, in the order
+  // somebody standing in a corridor needs it: where they are, what it costs,
+  // what to do.
+  //
+  // The widths below are arithmetic rather than the usual breakpoints. Two
+  // 17rem columns and the gaps between them take 640px before the middle gets
+  // anything, so splitting at Tailwind's 1024px left the column everything is
+  // read in about 250px wide. Each of these is the width at which the thing it
+  // turns on has room to be worth turning on.
+  const aside =
+    'space-y-4 min-[1180px]:sticky min-[1180px]:top-[calc(var(--header-h)+1rem)] ' +
+    'min-[1180px]:max-h-[calc(100vh-var(--header-h)-2rem)] ' +
+    'min-[1180px]:overflow-y-auto min-[1180px]:overscroll-contain min-[1180px]:pb-1'
+
+  // The middle column is three things: which stay this is, what it costs to
+  // add to, and what is on record. Nothing is paired, because paired cards are never
+  // the same height and every pair left a hole beside the shorter one.
+  //
+  // What is missing from it is the alerts, which were a stack of cards here
+  // and are now marks beside the figures they are about. See AlertPin.
+  const middle = 'min-w-0 min-[1180px]:col-start-2'
+
+  const pinned = pinAlerts(journey.alerts)
+
+  // The one alert that carries a control rather than a sentence. It travels
+  // with the alert into whichever panel that alert ends up in.
+  const alertAction = (alert) =>
+    alert.kind === 'pre_auth_due' && !journey.pre_auth_filed ? (
+      <Button
+        variant="secondary"
+        className="mt-3"
+        disabled={busy}
+        onClick={onFilePreauth}
+      >
+        {t('journey.preauth.file', 'Mark pre-authorisation as filed')}
+      </Button>
+    ) : null
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader
-          title={journey.hospital_name || t('journey.title', 'Your stay')}
-          subtitle={
-            [
-              journey.room_category
-                ? t(`room.${journey.room_category}`, journey.room)
-                : journey.room,
-              journey.room_rate &&
-                t('journey.per_day', '₹{amount} a day', {
-                  amount: journey.room_rate.toLocaleString('en-IN'),
-                }),
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          }
-          aside={<Badge tone="good">{stageName(t, journey.stage_label)}</Badge>}
-        />
-
-        <div className="px-5 py-4">
-          <ol className="flex items-start">
-            {STAGES.map(([value, label], index) => {
-              const done = index < currentIndex
-              const current = index === currentIndex
-              return (
-                <li key={value} className="flex flex-1 items-start last:flex-none">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <span
-                      className={`flex h-4 w-4 items-center justify-center rounded-full border text-[0.5rem] leading-none transition ${
-                        done
-                          ? 'border-brand bg-brand text-on-brand'
-                          : current
-                            ? 'border-brand bg-surface ring-4 ring-brand/15'
-                            : 'border-line bg-surface'
-                      }`}
-                    >
-                      {done ? '✓' : ''}
-                    </span>
-                    {/* Five labels across a phone leaves about fifty pixels
-                        each, so every one of them wrapped to three or four
-                        lines and the tracker became the tallest thing on the
-                        screen. On a phone only the stage you are at is named,
-                        which is the only one being read; the rest are dots
-                        until there is room, and stay available to a screen
-                        reader throughout. */}
-                    <span
-                      className={`max-w-[6.5rem] text-center text-[0.6875rem] leading-tight ${
-                        current
-                          ? 'font-semibold text-ink'
-                          : 'sr-only text-muted sm:not-sr-only'
-                      }`}
-                    >
-                      {t(`journey.stage.${value}`, label)}
-                    </span>
-                  </div>
-                  {index < STAGES.length - 1 && (
-                    <span
-                      className={`mt-2 h-px flex-1 ${done ? 'bg-brand/40' : 'bg-line'}`}
-                    />
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-        </div>
-
-        <BurnDown burn={journey.burn_down} accrued={journey.accrued_display} />
-
-        {/* A screen cannot be put in front of a hospital insurance desk, and a
-            phone battery does not last a five-day admission. This is the
-            version somebody can argue from, or hand to a relative who has just
-            arrived. */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
-          <a
-            href={api.reportUrl(sessionId)}
-            className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
-          >
-            <DownloadIcon />
-            {t('journey.download', 'Download this stay')}
-          </a>
-          <span className="text-[0.75rem] leading-relaxed text-muted">
-            {t(
-              'journey.download.why',
-              'Your cover, the estimate, what is billed, what is left to do. One ' +
-                'page for the insurance desk.')}
-          </span>
-        </div>
-      </Card>
-
-      <Position position={journey.position} accrued={journey.accrued_display} />
-
-      <Checklist
-        checklist={journey.checklist}
-        stageLabel={journey.stage_label}
-        onToggle={onToggleChecklist}
-        busy={busy}
+    <div className="mx-auto grid max-w-3xl items-start gap-4 min-[1180px]:max-w-none min-[1180px]:grid-cols-[17rem_minmax(0,1fr)_17rem] min-[1440px]:grid-cols-[19rem_minmax(0,1fr)_19rem]">
+      <StayHead
+        journey={journey}
+        pins={pinned.room}
+        alertAction={alertAction}
+        className={`order-1 ${middle} min-[1180px]:row-start-1`}
       />
 
-      {/* Not before admission, when there is no bill to check yet. Interim
-          bills do arrive mid-stay, so it does not wait for discharge either. */}
-      {journey.stage !== 'pre_admission' && (
-        <BillCheck
-          bill={journey.bill}
-          busy={billBusy}
-          progress={billProgress}
-          onCheck={onCheckBill}
-          onDrop={onDropBill}
+      <div className={`order-2 min-[1180px]:col-start-3 min-[1180px]:row-start-1 min-[1180px]:row-span-3 ${aside}`}>
+        <Standing
+          journey={journey}
+          sessionId={sessionId}
+          busy={busy}
+          onAdvance={onAdvance}
+          pinned={pinned}
+          alertAction={alertAction}
         />
-      )}
-
-      {journey.alerts.length > 0 && (
-        <div className="space-y-3">
-          {journey.alerts.map((alert, index) => {
-            const style = SEVERITY[alert.severity] ?? SEVERITY.info
-            return (
-              <Card key={index} className={`${style.border} ${style.bg}`}>
-                <div className="px-5 py-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className={`text-[0.9375rem] font-semibold ${style.text}`}>
-                      {t(`alert.${alert.key}`, alert.title, readable(t, alert.values))}
-                    </h3>
-                    {alert.amount_display && (
-                      <span className={`shrink-0 text-[0.9375rem] font-semibold tabular-nums ${style.text}`}>
-                        {alert.amount_display}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1.5 text-[0.875rem] leading-relaxed">
-                    {t(`alert.${alert.key}.msg`, alert.message, readable(t, alert.values))}
-                  </p>
-                  {alert.action && (
-                    <p className="mt-2 text-[0.875rem] font-medium leading-relaxed">
-                      → {t(`alert.${alert.key}.do`, alert.action, readable(t, alert.values))}
-                    </p>
-                  )}
-                  {alert.kind === 'pre_auth_due' && !journey.pre_auth_filed && (
-                    <Button
-                      variant="secondary"
-                      className="mt-3"
-                      disabled={busy}
-                      onClick={onFilePreauth}
-                    >
-                      {t('journey.preauth.file', 'Mark pre-authorisation as filed')}
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AdvanceCard journey={journey} onAdvance={onAdvance} busy={busy} />
-        <CostCard onRecordCost={onRecordCost} busy={busy} />
       </div>
+
+      <div className={`order-3 min-[1180px]:col-start-1 min-[1180px]:row-start-1 min-[1180px]:row-span-3 ${aside}`}>
+        <Checklist
+          checklist={journey.checklist}
+          stageLabel={journey.stage_label}
+          onToggle={onToggleChecklist}
+          busy={busy}
+        />
+      </div>
+
+      <CostCard
+        onRecordCost={onRecordCost}
+        busy={busy}
+        showBill={journey.stage !== 'pre_admission'}
+        bill={journey.bill}
+        billBusy={billBusy}
+        billProgress={billProgress}
+        onCheckBill={onCheckBill}
+        className={`order-4 ${middle} min-[1180px]:row-start-2`}
+      />
 
       <ChargesCard
         journey={journey}
         sessionId={sessionId}
         busy={busy}
+        billBusy={billBusy}
         onUpdateCost={onUpdateCost}
         onDeleteCost={onDeleteCost}
+        onDropBill={onDropBill}
+        className={`order-5 ${middle} min-[1180px]:row-start-3`}
       />
-
-      <Card>
-        <CardHeader title={t('journey.timeline', 'What has happened so far')} />
-        <ol className="divide-y divide-line">
-          {[...journey.timeline].reverse().map((event) => (
-            <li key={event.id} className="px-5 py-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[0.875rem] font-medium">
-                  {event.title_key
-                    ? t(`timeline.${event.title_key}`, event.title, {
-                        ...event.values,
-                        stage: t(`journey.stage.${event.stage}`, event.values.stage),
-                      })
-                    : t(`journey.stage.${event.stage}`, event.title)}
-                </span>
-                <span className="shrink-0 text-[0.75rem] text-muted">
-                  {moment(event.at)}
-                </span>
-              </div>
-              {event.description && (
-                <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                  {event.note_key
-                    ? t(`timelinenote.${event.note_key}`, event.description, {
-                        ...event.values,
-                        room: event.values.room_key
-                          ? t(`room.${event.values.room_key}`, event.values.room)
-                          : event.values.room,
-                      })
-                    : event.description}
-                </p>
-              )}
-              {event.skipped?.length > 0 && (
-                <p className="mt-1 text-[0.75rem] text-muted">
-                  {t('journey.timeline.skipped', 'Skipped {stages}.', {
-                    stages: listOf(t, event.skipped.map((s) => stageName(t, s))),
-                  })}
-                </p>
-              )}
-              {event.reason && (
-                <p className="mt-1 border-l-2 border-line pl-2 text-[0.75rem] italic leading-relaxed text-muted">
-                  {event.reason}
-                </p>
-              )}
-            </li>
-          ))}
-        </ol>
-      </Card>
     </div>
   )
 }
 
-// Charges recorded so far, each correctable.
+// Who, where, and how far along.
 //
-// Money entered in a hurry is money entered wrong, so every row can be edited
-// or removed. Editing happens inline, next to the row it changes, rather than
-// in a modal that hides the list you are checking it against.
-function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
+// The stage control used to live under this as a strip with a dropdown in it.
+// It has gone to the marker on the right, which was already drawing the four
+// stages and is the natural place to move between them: you press the step you
+// want, or the button under it for the next one.
+function StayHead({ journey, pins, alertAction, className = '' }) {
+  const t = useT()
+  const room = [
+    journey.room_category
+      ? t(`room.${journey.room_category}`, journey.room)
+      : journey.room,
+    journey.room_rate &&
+      t('journey.per_day', '\u20b9{amount} a day', {
+        amount: journey.room_rate.toLocaleString('en-IN'),
+      }),
+  ]
+    .filter(Boolean)
+    .join(' \u00b7 ')
+
+  return (
+    <Card className={className}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-5 py-3.5">
+        <div className="min-w-0">
+          <h2 className="truncate text-[1.0625rem] font-semibold tracking-tight">
+            {journey.hospital_name || t('journey.title', 'Your stay')}
+          </h2>
+          {room && (
+            // Beside the rate, because what the mark has to say is that this
+            // rate and the one being billed are not the same number.
+            <p className="mt-0.5 flex items-center gap-2 text-[0.8125rem] text-muted">
+              <span className="truncate">{room}</span>
+              <AlertPin alerts={pins} action={alertAction} />
+            </p>
+          )}
+        </div>
+        <Badge tone="good">{stageName(t, journey.stage_label)}</Badge>
+      </div>
+    </Card>
+  )
+}
+
+// Where the stay stands and what it has cost, in one block.
+//
+// These were four cards spread down the page, which meant the figure somebody
+// came to this screen for was underneath the tracker, the tracker was above
+// the cover bar, and reading the three together took two scrolls. They answer
+// the same question and belong in the same place.
+function Standing({ journey, sessionId, busy, onAdvance, pinned, alertAction }) {
+  return (
+    <Card className="motion-safe:animate-rise">
+      <StageTrack
+        journey={journey}
+        busy={busy}
+        onAdvance={onAdvance}
+        pins={pinned.stage}
+        alertAction={alertAction}
+      />
+      <Position
+        position={journey.position}
+        accrued={journey.accrued_display}
+        pins={pinned.money}
+        alertAction={alertAction}
+      />
+      <BurnDown
+        burn={journey.burn_down}
+        accrued={journey.accrued_display}
+        pins={pinned.cover}
+        alertAction={alertAction}
+      />
+      <TakeAway sessionId={sessionId} />
+    </Card>
+  )
+}
+
+// The four stages, stood on end, and the way to move between them.
+//
+// Laid across the page, four labels shared the width of a column and every one
+// of them wrapped, so the marker was the tallest thing on the screen and said
+// the least. Standing them up reads at a glance, which is the whole job of a
+// marker on a wall.
+//
+// It is the control as well now. Moving a stay on used to be a dropdown and a
+// button in a card of their own, which asked somebody to find the stage they
+// were already looking at in a list and pick it again. The step you want is on
+// the screen: press it. The button underneath is the next one along, which is
+// what nearly every move is, and it says where it goes.
+function StageTrack({ journey, busy, onAdvance, pins, alertAction }) {
+  const t = useT()
+  const [pending, setPending] = useState(null)
+
+  const stages = journey.stages ?? []
+  const byValue = Object.fromEntries(stages.map((one) => [one.value, one]))
+  const next = byValue[journey.next_stage]
+  const currentIndex = STAGES.findIndex(([value]) => value === journey.stage)
+
+  function go(target) {
+    if (!target || target.kind === 'current' || busy) return
+    // A skip is the only move worth interrupting for. Going back is a
+    // correction, and correcting something should never need a permission slip.
+    if (target.kind === 'skip') {
+      setPending(target)
+      return
+    }
+    onAdvance(target.value, {})
+  }
+
+  return (
+    <div className="px-5 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[0.8125rem] font-medium">
+          {t('journey.advance.title', 'Where are you now?')}
+        </h3>
+        <AlertPin alerts={pins} action={alertAction} />
+      </div>
+
+      <ol className="mt-3">
+        {STAGES.map(([value, label], index) => {
+          const done = index < currentIndex
+          const current = index === currentIndex
+          const last = index === STAGES.length - 1
+          const target = byValue[value]
+          const movable = Boolean(target) && target.kind !== 'current' && !busy
+
+          return (
+            <li key={value} className="flex gap-2.5">
+              <div className="flex flex-col items-center">
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[0.5rem] leading-none transition ${
+                    done
+                      ? 'border-brand bg-brand text-on-brand'
+                      : current
+                        ? 'border-brand bg-surface ring-4 ring-brand/15'
+                        : 'border-line bg-surface'
+                  }`}
+                >
+                  {done ? '\u2713' : ''}
+                </span>
+                {!last && (
+                  <span
+                    className={`w-px flex-1 ${done ? 'bg-brand/40' : 'bg-line'}`}
+                  />
+                )}
+              </div>
+
+              <button
+                type="button"
+                disabled={!movable}
+                aria-current={current ? 'step' : undefined}
+                aria-label={
+                  target?.kind === 'back'
+                    ? `${t(`journey.stage.${value}`, label)}: ${t('journey.advance.go_back', 'Go back to this stage')}`
+                    : undefined
+                }
+                onClick={() => go(target)}
+                className={`-mt-px rounded pb-3 text-left text-[0.8125rem] leading-snug transition ${
+                  current
+                    ? 'cursor-default font-semibold text-ink'
+                    : movable
+                      ? 'text-muted hover:text-brand hover:underline'
+                      : 'cursor-default text-muted/50'
+                }`}
+              >
+                {t(`journey.stage.${value}`, label)}
+                {current && (
+                  <span className="sr-only">
+                    {' '}
+                    ({t('journey.advance.here', 'you are here')})
+                  </span>
+                )}
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+
+      {next ? (
+        <>
+          <Button
+            className="w-full"
+            disabled={busy}
+            onClick={() => go(next)}
+          >
+            {t('journey.advance.next', 'Move to {stage}', {
+              stage: stageName(t, next.label).toLowerCase(),
+            })}
+          </Button>
+          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+            {t(
+              'journey.advance.hint',
+              'Update this as things move. You can go back at any point.'
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="text-[0.75rem] leading-relaxed text-muted">
+          <span className="font-medium text-ink">
+            {t('journey.advance.settled', 'Your claim is settled')}
+          </span>{' '}
+          {t(
+            'journey.advance.settled.hint',
+            'You can still go back to an earlier stage if something changes.'
+          )}
+        </p>
+      )}
+
+      {pending && (
+        <SkipDialog
+          target={pending}
+          busy={busy}
+          onCancel={() => setPending(null)}
+          onConfirm={(reason) => {
+            setPending(null)
+            onAdvance(pending.value, { confirmSkip: true, reason })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// A screen cannot be put in front of a hospital insurance desk, and a phone
+// battery does not last a five-day admission. This is the version somebody can
+// argue from, or hand to a relative who has just arrived.
+function TakeAway({ sessionId }) {
+  const t = useT()
+  return (
+    <div className="border-t border-line px-5 py-3.5">
+      <a
+        href={api.reportUrl(sessionId)}
+        className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
+      >
+        <DownloadIcon />
+        {t('journey.download', 'Download this stay')}
+      </a>
+      <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+        {t(
+          'journey.download.why',
+          'Your cover, the estimate, what is billed, what is left to do. One ' +
+            'page for the insurance desk.')}
+      </p>
+    </div>
+  )
+}
+
+// The ledger, and what the hospital's own bill says about it.
+//
+// This was three panels taking turns: the charges, a timeline of the stay, and
+// the bill check. The timeline said nothing the charges and the stage marker
+// did not already say, and the bill check is entered from the card above now
+// and reported here, at the head of the charges it is a statement about. What
+// is left is one list with one job.
+function ChargesCard({
+  journey, sessionId, busy, billBusy, onUpdateCost, onDeleteCost, onDropBill,
+  className = '',
+}) {
+  const t = useT()
+  const bill = billBusy ? null : journey.bill
+
+  return (
+    <Card className={className}>
+      <CardHeader
+        title={t('journey.charges', 'Charges so far')}
+        aside={<BillVerdict bill={bill} />}
+      />
+
+      {bill && <BillReview bill={bill} busy={busy} onDrop={onDropBill} />}
+
+      {journey.costs?.length > 0 ? (
+        <ChargesList
+          journey={journey}
+          sessionId={sessionId}
+          busy={busy}
+          onUpdateCost={onUpdateCost}
+          onDeleteCost={onDeleteCost}
+        />
+      ) : (
+        <p className="px-5 py-6 text-center text-[0.875rem] leading-relaxed text-muted">
+          {t(
+            'journey.charges.none',
+            'Nothing recorded yet. Add each charge as it arrives and the ' +
+              'estimate above keeps up with it.'
+          )}
+        </p>
+      )}
+    </Card>
+  )
+}
+
+function ChargesList({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
   const t = useT()
   const [editing, setEditing] = useState(null)
   const [menuFor, setMenuFor] = useState(null)
@@ -282,15 +446,7 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
   if (!journey.costs?.length) return null
 
   return (
-    <Card>
-      <CardHeader
-        title={t('journey.charges', 'Charges so far')}
-        subtitle={t(
-          'journey.charges.count',
-          '{count} recorded, {total} in total',
-          { count: journey.costs.length, total: journey.accrued_display }
-        )}
-      />
+    <>
       <ul className="divide-y divide-line">
         {[...journey.costs].reverse().map((cost) => (
           <li key={cost.id} className="px-5 py-3">
@@ -386,7 +542,15 @@ function ChargesCard({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
           </li>
         ))}
       </ul>
-    </Card>
+
+      {/* At the foot, where the total of a ledger belongs. It was the card's
+          subtitle, and there is no card to be the subtitle of any more. */}
+      <p className="border-t border-line px-5 py-2.5 text-right text-[0.75rem] text-muted">
+        {t('journey.charges.count', '{count} recorded, {total} in total', {
+          count: journey.costs.length, total: journey.accrued_display,
+        })}
+      </p>
+    </>
   )
 }
 
@@ -457,13 +621,6 @@ function EditCharge({ cost, onSave, onClose, busy }) {
   )
 }
 
-// The one figure this screen exists to show.
-//
-// It used to show the accrued total, which is what the hospital has billed. The
-// hospital's number and the family's number are different, and the estimator on
-// the previous screen had already worked out the difference. Showing the first
-// while the previous screen showed the second left two numbers contradicting
-// each other with no way for a reader to tell which one to plan against.
 function DownloadIcon() {
   return (
     <svg
@@ -513,58 +670,82 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
         />
       </div>
 
+      {/* The reason under an instruction is worth four lines where being late
+          costs money and is worth none where it does not. Every item carried
+          one, which made a list of eight into a wall of text in a column a
+          phone wide, and the four that matter were lost in the four that did
+          not. The rest keep theirs where a pointer can find it. */}
       <ul className="divide-y divide-line">
-        {items.map((item) => (
-          <li key={item.id}>
-            <label
-              className={`flex cursor-pointer gap-3 px-5 py-3 transition hover:bg-canvas ${
-                item.done ? 'opacity-55' : ''
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={item.done}
-                disabled={busy}
-                onChange={(e) => onToggle(item.id, e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand)]"
-              />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block text-[0.875rem] leading-snug ${
-                    item.done ? 'line-through' : 'font-medium'
-                  }`}
-                >
-                  {t(`checklist.${item.key}`, item.text, readable(t, item.values))}
-                </span>
-                {item.why && !item.done && (
-                  <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
-                    {t(`checklist.${item.key}.why`, item.why, readable(t, item.values))}
+        {items.map((item) => {
+          const said = t(`checklist.${item.key}`, item.text, readable(t, item.values))
+          const why =
+            item.why &&
+            t(`checklist.${item.key}.why`, item.why, readable(t, item.values))
+          const explain = Boolean(why) && item.urgent && !item.done
+
+          return (
+            <li key={item.id}>
+              <label
+                className={`flex cursor-pointer gap-2.5 px-5 py-2.5 transition hover:bg-canvas ${
+                  item.done ? 'opacity-55' : ''
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  disabled={busy}
+                  onChange={(e) => onToggle(item.id, e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand)]"
+                />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block text-[0.875rem] leading-snug ${
+                      item.done ? 'line-through' : 'font-medium'
+                    }`}
+                    title={explain ? undefined : why || undefined}
+                  >
+                    {said}
+                    {item.urgent && !item.done && (
+                      <span className="ml-1.5 align-[0.1em] text-[0.6875rem] font-semibold uppercase tracking-wide text-warn">
+                        {t('journey.checklist.now', 'Now')}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              {item.urgent && !item.done && (
-                <span className="shrink-0 self-start">
-                  <Badge tone="warn">{t('journey.checklist.now', 'Now')}</Badge>
+                  {explain && (
+                    <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">
+                      {why}
+                    </span>
+                  )}
                 </span>
-              )}
-            </label>
-          </li>
-        ))}
+              </label>
+            </li>
+          )
+        })}
       </ul>
     </Card>
   )
 }
 
-function Position({ position, accrued }) {
+// The one figure this screen exists to show, and where it came from.
+//
+// It is what the family pays, not what the hospital has billed. The two
+// differ, the estimator on the previous screen had already worked out by how
+// much, and showing the hospital's number here left two figures contradicting
+// each other with no way for a reader to tell which one to plan against.
+function Position({ position, accrued, pins, alertAction }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   if (!position) return null
 
   return (
-    <Card className="motion-safe:animate-rise">
-      <div className="px-5 py-5">
-        <p className="text-[0.875rem] text-muted">
+    <div className="border-t border-line">
+      <div className="px-5 py-4">
+        {/* The mark sits on the line naming the figure, not on the figure
+            itself: what it has to say is always a reason this number is
+            higher than it should be. */}
+        <p className="flex items-center gap-2 text-[0.875rem] text-muted">
           {t('journey.position.you_pay', 'You will pay, so far')}
+          <AlertPin alerts={pins} action={alertAction} />
         </p>
         <p
           key={position.you_pay}
@@ -614,11 +795,11 @@ function Position({ position, accrued }) {
           </>
         )}
       </div>
-    </Card>
+    </div>
   )
 }
 
-function BurnDown({ burn, accrued }) {
+function BurnDown({ burn, accrued, pins, alertAction }) {
   const t = useT()
   const used = Math.min(100, burn.consumed_fraction * 100)
   const projected = Math.min(
@@ -628,9 +809,12 @@ function BurnDown({ burn, accrued }) {
 
   return (
     <div className="border-t border-line px-5 py-4">
-      <div className="flex items-baseline justify-between">
-        <span className="text-[0.8125rem] text-muted">
+      {/* Wrapping rather than squeezing: in a column this narrow the label
+          otherwise breaks mid-phrase to keep the figure on the same line. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="flex items-center gap-2 text-[0.8125rem] text-muted">
           {t('journey.burn.used', 'Cover used so far')}
+          <AlertPin alerts={pins} action={alertAction} />
         </span>
         <span className="text-[0.875rem] font-medium tabular-nums">
           {t('journey.burn.of', '{used} of {total}', {
@@ -685,105 +869,17 @@ function BurnDown({ burn, accrued }) {
   )
 }
 
-function AdvanceCard({ journey, onAdvance, busy }) {
-  const t = useT()
-  // Keyed on the current stage, so the selection resets to the next step in
-  // sequence every time the journey moves. Holding it in state across a move
-  // is what left the control offering a stage that had already passed.
-  const [stage, setStage] = useState(journey.next_stage ?? journey.stage)
-  const [pending, setPending] = useState(null)
-
-  useEffect(() => {
-    setStage(journey.next_stage ?? journey.stage)
-  }, [journey.stage, journey.next_stage])
-
-  const stages = journey.stages ?? []
-  const chosen = stages.find((s) => s.value === stage)
-  const done = !journey.next_stage
-
-  function submit() {
-    if (!chosen || chosen.kind === 'current') return
-    // A skip is the only move worth interrupting for. Going back is a
-    // correction, and correcting something should never need a permission slip.
-    if (chosen.kind === 'skip') {
-      setPending(chosen)
-      return
-    }
-    onAdvance(stage, {})
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title={
-          done
-            ? t('journey.advance.settled', 'Your claim is settled')
-            : t('journey.advance.title', 'Where are you now?')
-        }
-        subtitle={
-          done
-            ? t(
-                'journey.advance.settled.hint',
-                'You can still go back to an earlier stage if something changes.'
-              )
-            : t(
-                'journey.advance.hint',
-                'Update this as things move. You can go back at any point.'
-              )
-        }
-      />
-      <div className="space-y-3 p-5">
-        <Field label={t('journey.advance.stage', 'Stage')}>
-          <Select value={stage} onChange={(event) => setStage(event.target.value)}>
-            {stages.map((s) => (
-              <option key={s.value} value={s.value}>
-                {stageName(t, s.label)}
-                {s.kind === 'current' ? `  (${t('journey.advance.here', 'you are here')})` : ''}
-                {s.kind === 'back' ? `  (${t('journey.advance.back', 'go back')})` : ''}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {chosen?.kind === 'back' && (
-          <p className="text-[0.8125rem] leading-relaxed text-muted">
-            {t(
-              'journey.advance.back.hint',
-              'This moves your stay back to {stage}. Nothing you have recorded is lost.',
-              { stage: stageName(t, chosen.label).toLowerCase() }
-            )}
-          </p>
-        )}
-
-        <Button
-          className="w-full"
-          disabled={busy || !chosen || chosen.kind === 'current'}
-          onClick={submit}
-        >
-          {chosen?.kind === 'back'
-            ? t('journey.advance.go_back', 'Go back to this stage')
-            : t('journey.advance.update', 'Update')}
-        </Button>
-      </div>
-
-      {pending && (
-        <SkipDialog
-          target={pending}
-          busy={busy}
-          onCancel={() => setPending(null)}
-          onConfirm={(reason) => {
-            setPending(null)
-            onAdvance(pending.value, { confirmSkip: true, reason })
-          }}
-        />
-      )}
-    </Card>
-  )
-}
-
 // Shown when a move passes over stages. Deliberately quiet: the person reading
 // it may be standing in a hospital corridor, and nothing here is an error. It
 // states what is being skipped, offers to go on, and offers a way back out.
+//
+// Rendered into the body rather than where it is written. `position: fixed` is
+// measured against the viewport only until some ancestor has a transform, and
+// then it is measured against that ancestor instead: this is raised from a
+// control inside a card that animates in, and an animation that has finished
+// still leaves an identity transform behind. The notice appeared inside that
+// card, a third of a screen wide, with the dimming behind it covering one
+// column of the page and nothing else.
 function SkipDialog({ target, onConfirm, onCancel, busy }) {
   const t = useT()
   const [explain, setExplain] = useState(false)
@@ -792,7 +888,7 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
 
   const skipped = target.skips ?? []
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <button
         aria-label={t('journey.skip.cancel', 'Cancel')}
@@ -867,7 +963,8 @@ function SkipDialog({ target, onConfirm, onCancel, busy }) {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -899,7 +996,17 @@ const HEADS = [
 // connection in a hospital and rejected at the far end.
 const MAX_RECEIPT_MB = 10
 
-function CostCard({ onRecordCost, busy }) {
+// One charge, entered in a hurry.
+//
+// It was a column: a labelled dropdown, a labelled box, a full-width dashed
+// button, a checkbox and a full-width button, five rows deep for two facts.
+// The two facts and the button that files them are one row now; what is
+// optional sits under them, out of the way of somebody entering the fourth
+// charge of the day.
+function CostCard({
+  onRecordCost, busy, className = '',
+  showBill, bill, billBusy, billProgress, onCheckBill,
+}) {
   const t = useT()
   const [head, setHead] = useState('room_rent')
   const [amount, setAmount] = useState('')
@@ -924,7 +1031,7 @@ function CostCard({ onRecordCost, busy }) {
   }
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader
         title={t('journey.add_charge', 'Add a charge')}
         subtitle={t(
@@ -932,27 +1039,46 @@ function CostCard({ onRecordCost, busy }) {
           'Enter bills as they arrive to keep the estimate current.'
         )}
       />
-      <div className="space-y-3 p-5">
-        <Field label={t('journey.charge.head', 'What is it for?')}>
-          <Select value={head} onChange={(event) => setHead(event.target.value)}>
-            {HEADS.map(([value, label]) => (
-              <option key={value} value={value}>{t(`head.${value}`, label)}</option>
-            ))}
-          </Select>
-        </Field>
+      <div className="p-5">
+        {/* `items-end` puts the button on the line of the boxes rather than of
+            the labels above them. */}
+        <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_auto]">
+          <Field label={t('journey.charge.head', 'What is it for?')}>
+            <Select value={head} onChange={(event) => setHead(event.target.value)}>
+              {HEADS.map(([value, label]) => (
+                <option key={value} value={value}>{t(`head.${value}`, label)}</option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label={t('journey.charge.amount', 'Amount')}>
-          <Input
-            type="number"
-            placeholder="0"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-        </Field>
+          <Field label={t('journey.charge.amount', 'Amount')}>
+            <Input
+              type="number"
+              placeholder="0"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </Field>
 
-        {/* Attaching the bill now saves hunting for it at claim time, which is
-            the part of this people actually dread. Entirely optional. */}
-        <div>
+          <Button
+            // Not merely "something was typed": a charge of nothing is a row
+            // in a ledger that says nothing, and the box beside this one has
+            // always refused it.
+            disabled={busy || !(Number(amount) > 0)}
+            onClick={() => {
+              onRecordCost({ head, amount: Number(amount), advanceDay, receipt })
+              setAmount('')
+              setReceipt(null)
+              if (fileRef.current) fileRef.current.value = ''
+            }}
+          >
+            {t('journey.charge.add', 'Add charge')}
+          </Button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Attaching the bill now saves hunting for it at claim time, which
+              is the part of this people actually dread. Entirely optional. */}
           <input
             ref={fileRef}
             type="file"
@@ -961,10 +1087,8 @@ function CostCard({ onRecordCost, busy }) {
             onChange={(event) => attach(event.target.files?.[0])}
           />
           {receipt ? (
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-[0.8125rem]">
-                {receipt.name}
-              </span>
+            <span className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5">
+              <span className="min-w-0 truncate text-[0.8125rem]">{receipt.name}</span>
               <button
                 onClick={() => {
                   setReceipt(null)
@@ -974,50 +1098,44 @@ function CostCard({ onRecordCost, busy }) {
               >
                 {t('journey.receipt.remove', 'remove')}
               </button>
-            </div>
+            </span>
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
+              className="rounded-lg border border-dashed border-line px-3 py-1.5 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
             >
               {t('journey.receipt.attach', 'Attach the bill or receipt (optional)')}
             </button>
           )}
-          {tooLarge && (
-            <p className="mt-1.5 text-[0.75rem] leading-relaxed text-warn">
-              {tooLarge}
-            </p>
-          )}
+
+          <label className="flex items-center gap-2 text-[0.8125rem] text-muted">
+            <input
+              type="checkbox"
+              checked={advanceDay}
+              onChange={(event) => setAdvanceDay(event.target.checked)}
+              className="rounded border-line"
+            />
+            {t('journey.charge.new_day', 'This is a new day of the stay')}
+          </label>
         </div>
 
-        <label className="flex items-center gap-2 text-[0.8125rem] text-muted">
-          <input
-            type="checkbox"
-            checked={advanceDay}
-            onChange={(event) => setAdvanceDay(event.target.checked)}
-            className="rounded border-line"
-          />
-          {t('journey.charge.new_day', 'This is a new day of the stay')}
-        </label>
-
-        <Button
-          className="w-full"
-          disabled={busy || !amount}
-          onClick={() => {
-            onRecordCost({
-              head,
-              amount: Number(amount),
-              advanceDay,
-              receipt,
-            })
-            setAmount('')
-            setReceipt(null)
-            if (fileRef.current) fileRef.current.value = ''
-          }}
-        >
-          {t('journey.charge.add', 'Add charge')}
-        </Button>
+        {tooLarge && (
+          <p className="mt-2 text-[0.75rem] leading-relaxed text-warn">{tooLarge}</p>
+        )}
       </div>
+
+      {/* The other thing that arrives on paper. Not before admission, when
+          there is no bill to read yet, and not once one has been read, when
+          what matters is what it said rather than another chance to send it.
+          Interim bills do arrive mid-stay, so it does not wait for
+          discharge. */}
+      {showBill && !bill && (
+        <BillUpload
+          busy={billBusy}
+          progress={billProgress}
+          onCheck={onCheckBill}
+        />
+      )}
     </Card>
   )
 }

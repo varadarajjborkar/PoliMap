@@ -157,6 +157,20 @@ costing against what has actually been billed, and reports the cover remaining.
 
 ![Tracking a stay](docs/images/07-journey.png)
 
+This screen is read for days rather than once, and it is read by comparing: what
+is left of the cover against what has just been billed, what is still to do
+against where the paperwork has got to. So it is laid out as a board rather than
+a column. What needs doing is fixed on the left, the figures are fixed on the
+right, and only the middle moves. Where the stay has got to is both the marker
+and the control: press the step you want, or the button under it for the next
+one along.
+
+What the system has noticed is not a stack of warnings at the top. Each one is a
+mark in its own colour beside the figure it is about, and it says nothing until
+it is asked: that a room costs more than the cover is a fact about what you will
+pay, so it sits on that number, and a room billing at a rate the stay was not
+set up with sits on the line naming the rate.
+
 Real admissions do not follow the diagram. People are discharged without a
 procedure, go back to investigation after a complication, and update the app
 hours after the fact. So the model bends where reality does:
@@ -213,7 +227,7 @@ line moved.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 770 keys, each resolving in all five. Not
+Every word it writes itself: 762 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -381,7 +395,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 1056 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1070 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface

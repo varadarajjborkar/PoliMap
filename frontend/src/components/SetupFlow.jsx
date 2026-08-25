@@ -81,13 +81,18 @@ export function SetupFlow({
   const report = useRef(onStepInView)
   report.current = onStepInView
 
+  // An observation already queued when this comes off screen is still
+  // delivered afterwards, and it would report a section of a flow the reader
+  // has left. Disconnecting is not enough on its own; this says so outright.
+  const watching = useRef(true)
+
   useEffect(() => {
     const nodes = SETUP_STEPS.map((s) => refs.current[s.id]).filter(Boolean)
     if (!nodes.length) return
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (settling.current) return
+        if (settling.current || !watching.current) return
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
@@ -97,8 +102,12 @@ export function SetupFlow({
       // is there, not at the very top where the header sits.
       { rootMargin: '-20% 0px -55% 0px', threshold: 0 }
     )
+    watching.current = true
     nodes.forEach((node) => observer.observe(node))
-    return () => observer.disconnect()
+    return () => {
+      watching.current = false
+      observer.disconnect()
+    }
   }, [])
 
   return (

@@ -180,19 +180,12 @@ def test_every_alert_reads_in_every_language(tables):
     _assert_reads(keys, "alert.", tables)
 
 
-def test_every_timeline_entry_reads_in_every_language(tables):
-    policy = _policy()
-    state = tracker.start_journey(policy, hospital_name="Test Hospital")
-    tracker.advance(state, JourneyStage.ADMITTED, policy)
-    tracker.advance(state, JourneyStage.DISCHARGE_PLANNING, policy)
-    tracker.advance(state, JourneyStage.ADMITTED, policy)
-    tracker.advance(state, JourneyStage.SETTLED, policy, force=True)
-
-    titles = {e.title_key for e in state.timeline if e.title_key}
-    notes = {e.note_key for e in state.timeline if e.note_key}
-    assert titles and notes
-    _assert_reads(titles, "timeline.", tables)
-    _assert_reads(notes, "timelinenote.", tables)
+# The stay's timeline is recorded and carried in the journey payload, but no
+# longer drawn: "what has happened so far" was a panel on the stay screen and
+# said nothing the charges and the stage marker did not already say. There is
+# accordingly nothing for a reader's own language to be checked against, and a
+# test asserting otherwise would be asserting against tables that no call site
+# reaches. If it is ever put back on screen, its keys come back with it.
 
 
 def test_every_eligibility_finding_reads_in_every_language(tables):

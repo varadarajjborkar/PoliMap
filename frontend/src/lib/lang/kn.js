@@ -41,7 +41,6 @@ export default {
     'ನಿಮ್ಮ ಕವರ್, ಅಂದಾಜು, ಇಲ್ಲಿಯವರೆಗಿನ ಬಿಲ್, ಮತ್ತು ಉಳಿದದ್ದು. ವಿಮಾ ಕೌಂಟರ್‌ಗೆ ಒಂದು ಪುಟ.',
   'journey.charges': 'ಇಲ್ಲಿಯವರೆಗಿನ ಖರ್ಚು',
   'journey.add_charge': 'ಖರ್ಚು ಸೇರಿಸಿ',
-  'journey.timeline': 'ಇಲ್ಲಿಯವರೆಗೆ ಏನಾಯಿತು',
   'journey.checklist': 'ಈಗ ಏನು ಮಾಡಬೇಕು',
 
   'bill.title': 'ಕೊನೆಯ ಬಿಲ್ ಪರಿಶೀಲಿಸಿ',
@@ -536,8 +535,10 @@ export default {
 
   'journey.title': 'ನಿಮ್ಮ ಚಿಕಿತ್ಸೆ',
   'journey.per_day': 'ದಿನಕ್ಕೆ ₹{amount}',
+  'journey.alert.open': 'ಏನೋ ನಿಮ್ಮ ಗಮನ ಕೇಳುತ್ತಿದೆ',
   'journey.preauth.file': 'ಪೂರ್ವ-ಅನುಮೋದನೆ ಸಲ್ಲಿಸಲಾಗಿದೆ ಎಂದು ಗುರುತಿಸಿ',
-  'journey.timeline.skipped': '{stages} ಬಿಟ್ಟುಬಿಡಲಾಗಿದೆ.',
+  'journey.charges.none':
+    'ಇನ್ನೂ ಏನೂ ದಾಖಲಾಗಿಲ್ಲ. ಪ್ರತಿ ಶುಲ್ಕ ಬಂದ ಕೂಡಲೇ ಸೇರಿಸಿ, ಮೇಲಿನ ಅಂದಾಜು ಅದರೊಂದಿಗೆ ನಡೆಯುತ್ತದೆ.',
   'journey.charges.count': '{count} ದಾಖಲು, ಒಟ್ಟು {total}',
   'journey.charge.options': '{head} ಗಾಗಿ ಆಯ್ಕೆಗಳು',
   'journey.charge.close_menu': 'ಪಟ್ಟಿ ಮುಚ್ಚಿ',
@@ -574,13 +575,9 @@ export default {
   'journey.advance.settled.hint': 'ಏನಾದರೂ ಬದಲಾದರೆ ನೀವು ಈಗಲೂ ಹಿಂದಿನ ಹಂತಕ್ಕೆ ಹೋಗಬಹುದು.',
   'journey.advance.hint':
     'ವಿಷಯ ಮುಂದುವರಿದಂತೆ ಇದನ್ನು ಬದಲಾಯಿಸುತ್ತಿರಿ. ನೀವು ಯಾವಾಗ ಬೇಕಾದರೂ ಹಿಂದೆ ಹೋಗಬಹುದು.',
-  'journey.advance.stage': 'ಹಂತ',
   'journey.advance.here': 'ನೀವು ಇಲ್ಲಿದ್ದೀರಿ',
-  'journey.advance.back': 'ಹಿಂದೆ ಹೋಗಿ',
-  'journey.advance.back.hint':
-    'ಇದರಿಂದ ನಿಮ್ಮ ಚಿಕಿತ್ಸೆ {stage} ಗೆ ಹಿಂತಿರುಗುತ್ತದೆ. ನೀವು ದಾಖಲಿಸಿದ್ದು ಏನೂ ಹೋಗುವುದಿಲ್ಲ.',
+  'journey.advance.next': '{stage} ಗೆ ಹೋಗಿ',
   'journey.advance.go_back': 'ಈ ಹಂತಕ್ಕೆ ಹಿಂತಿರುಗಿ',
-  'journey.advance.update': 'ನವೀಕರಿಸಿ',
   'journey.skip.cancel': 'ಬೇಡ',
   'journey.skip.title': 'ಒಂದು ಮಾತು',
   'journey.skip.body': 'ನೇರವಾಗಿ {stage} ಗೆ ಹೋದರೆ {skipped} ಬಿಟ್ಟುಹೋಗುತ್ತವೆ.',
@@ -841,15 +838,6 @@ export default {
   'alert.pre_auth_due.msg':
     'ಕ್ಯಾಶ್‌ಲೆಸ್‌ಗೆ ಶಸ್ತ್ರಚಿಕಿತ್ಸೆಗೆ ಮೊದಲು ವಿಮಾ ಕಂಪನಿಯ ಅನುಮೋದನೆ ಬೇಕು. ಅದಿಲ್ಲದೆ ನೀವು ಆಸ್ಪತ್ರೆಗೆ ಕೊಟ್ಟು ನಂತರ ಕ್ಲೇಮ್ ಮಾಡಬೇಕು.',
   'alert.pre_auth_due.do': 'ಈಗಲೇ ಸಲ್ಲಿಸಲು ವಿಮಾ ಕೌಂಟರ್‌ಗೆ ಹೇಳಿ.',
-  'timeline.start': 'ಚಿಕಿತ್ಸೆಯ ಯೋಜನೆ',
-  'timeline.back': 'ಮತ್ತೆ {stage}ಗೆ',
-  'timeline.skipped': '{stage} (ಮುಂದೆ ಜಿಗಿದು)',
-  'timelinenote.start': '{cover} ಕವರ್.',
-  'timelinenote.start_hospital': '{cover} ಕವರ್. {hospital} ಪರಿಶೀಲನೆಯಲ್ಲಿದೆ.',
-  'timelinenote.admitted': '{room} ನಲ್ಲಿ ದಾಖಲು.',
-  'timelinenote.admitted_rate': '{room} ನಲ್ಲಿ ದಾಖಲು, ದಿನಕ್ಕೆ {rate}.',
-  'timelinenote.discharge': 'ಡಿಸ್ಚಾರ್ಜ್ ದಾಖಲೆಗಳು ಸಿದ್ಧವಾಗುತ್ತಿವೆ.',
-  'timelinenote.settled': 'ಒಟ್ಟು ಬಿಲ್ {total}.',
 
   // What stands between this policy and this claim.
   'dur.days': '{n} ದಿನ',

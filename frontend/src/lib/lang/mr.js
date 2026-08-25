@@ -127,7 +127,6 @@ export default {
     'तुमचे कव्हर, अंदाज, आतापर्यंतचे बिल, आणि काय बाकी. विमा काउंटरसाठी एक पान.',
   'journey.charges': 'आतापर्यंतचा खर्च',
   'journey.add_charge': 'खर्च नोंदवा',
-  'journey.timeline': 'आतापर्यंत काय झाले',
   'journey.checklist': 'आता काय करायचे',
 
   'bill.title': 'अंतिम बिल तपासा',
@@ -540,8 +539,10 @@ export default {
 
   'journey.title': 'तुमचा उपचार',
   'journey.per_day': 'रोज ₹{amount}',
+  'journey.alert.open': 'काहीतरी तुमचे लक्ष मागते आहे',
   'journey.preauth.file': 'पूर्व-मंजुरी पाठवली आहे असे नोंदवा',
-  'journey.timeline.skipped': '{stages} वगळले गेले.',
+  'journey.charges.none':
+    'अजून काहीही नोंदवलेले नाही. प्रत्येक खर्च येताच जोडा, वरचा अंदाज त्याच्यासोबत चालत राहील.',
   'journey.charges.count': '{count} नोंदवले, एकूण {total}',
   'journey.charge.options': '{head} चे पर्याय',
   'journey.charge.close_menu': 'मेनू बंद करा',
@@ -578,13 +579,9 @@ export default {
     'काही बदलले तर तुम्ही आताही मागच्या टप्प्यावर जाऊ शकता.',
   'journey.advance.hint':
     'गोष्टी पुढे सरकतील तसे हे बदलत राहा. तुम्ही कधीही मागे जाऊ शकता.',
-  'journey.advance.stage': 'टप्पा',
   'journey.advance.here': 'तुम्ही इथे आहात',
-  'journey.advance.back': 'मागे जा',
-  'journey.advance.back.hint':
-    'यामुळे तुमचा उपचार {stage} वर परत जाईल. तुम्ही नोंदवलेले काहीही जाणार नाही.',
+  'journey.advance.next': '{stage} वर जा',
   'journey.advance.go_back': 'या टप्प्यावर परत जा',
-  'journey.advance.update': 'बदला',
   'journey.skip.cancel': 'राहू द्या',
   'journey.skip.title': 'फक्त सांगून ठेवतो',
   'journey.skip.body': 'थेट {stage} वर गेल्यास {skipped} वगळले जातात.',
@@ -841,15 +838,6 @@ export default {
   'alert.pre_auth_due.msg':
     'कॅशलेससाठी शस्त्रक्रियेपूर्वी विमा कंपनीची मंजुरी लागते. तिच्याशिवाय तुम्ही रुग्णालयाला देऊन नंतर दावा कराल.',
   'alert.pre_auth_due.do': 'ते आताच पाठवायला विमा काउंटरला सांगा.',
-  'timeline.start': 'उपचाराचे नियोजन',
-  'timeline.back': 'पुन्हा {stage} वर',
-  'timeline.skipped': '{stage} (पुढे उडी मारून)',
-  'timelinenote.start': '{cover} चे कव्हर.',
-  'timelinenote.start_hospital': '{cover} चे कव्हर. {hospital} पाहत आहोत.',
-  'timelinenote.admitted': '{room} मध्ये दाखल.',
-  'timelinenote.admitted_rate': '{room} मध्ये दाखल, दिवसाला {rate}.',
-  'timelinenote.discharge': 'डिस्चार्जची कागदपत्रे तयार होत आहेत.',
-  'timelinenote.settled': 'एकूण बिल {total}.',
 
   // What stands between this policy and this claim.
   'dur.days': '{n} दिवस',

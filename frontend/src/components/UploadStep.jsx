@@ -276,13 +276,33 @@ function ManualForm({ insurerId, onSubmit, busy }) {
   const set = (key) => (event) =>
     setValues((current) => ({ ...current, [key]: event.target.value }))
 
+  // Only send figures that mean what they say.
+  //
+  // The guard used to be "the cover box is not empty", and "0" is not empty:
+  // a cover of zero reached the server, which refuses anything at or below it,
+  // and came back as "Something went wrong (422)" over a form that had just
+  // been filled in correctly-looking. A room limit of zero was worse than an
+  // error, because it was accepted: a flat cap of nothing is read as no cap at
+  // all, so the answer stored was the opposite of the one given.
+  const cover = Number(values.sum_insured)
+  const perDay = Number(values.room_limit_amount)
+  const pct = Number(values.room_limit_pct)
+  const copay = Number(values.copay_pct)
+
+  const usable =
+    cover > 0 &&
+    copay >= 0 &&
+    copay <= 100 &&
+    (values.room_limit_type !== 'flat' || perDay > 0) &&
+    (values.room_limit_type !== 'pct' || pct > 0)
+
   return (
     <div className="space-y-4">
       <Field
         label={t('manual.sum_insured', 'Total cover amount')}
         hint={t('manual.sum_insured.hint', 'The most your insurer pays in a year.')}
       >
-        <Input type="number" value={values.sum_insured} onChange={set('sum_insured')} />
+        <Input type="number" min="1" value={values.sum_insured} onChange={set('sum_insured')} />
       </Field>
 
       <Field
@@ -301,12 +321,12 @@ function ManualForm({ insurerId, onSubmit, busy }) {
 
       {values.room_limit_type === 'flat' && (
         <Field label={t('manual.room.amount', 'Amount per day')}>
-          <Input type="number" value={values.room_limit_amount} onChange={set('room_limit_amount')} />
+          <Input type="number" min="1" value={values.room_limit_amount} onChange={set('room_limit_amount')} />
         </Field>
       )}
       {values.room_limit_type === 'pct' && (
         <Field label={t('manual.room.percent', 'Percentage of cover, per day')}>
-          <Input type="number" step="0.5" value={values.room_limit_pct} onChange={set('room_limit_pct')} />
+          <Input type="number" min="0.5" step="0.5" value={values.room_limit_pct} onChange={set('room_limit_pct')} />
         </Field>
       )}
 
@@ -317,12 +337,12 @@ function ManualForm({ insurerId, onSubmit, busy }) {
           'The share of every claim you pay yourself. Enter 0 if none.'
         )}
       >
-        <Input type="number" value={values.copay_pct} onChange={set('copay_pct')} />
+        <Input type="number" min="0" max="100" value={values.copay_pct} onChange={set('copay_pct')} />
       </Field>
 
       <Button
         className="w-full"
-        disabled={busy || !values.sum_insured}
+        disabled={busy || !usable}
         onClick={() =>
           onSubmit({
             insurer_id: insurerId,

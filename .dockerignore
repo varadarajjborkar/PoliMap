@@ -6,15 +6,22 @@ data/
 .venv/
 venv/
 node_modules/
-frontend/dist/
 
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 
-bench/reports/
-docs/images/
+# Nothing outside backend/ and datagen/ is copied into the image, and the
+# whole tree is still sent to the builder before the COPY lines are read.
+# The frontend alone is 74 MB of it.
+frontend/
+bench/
+docs/
+assets/
+scripts/
+.github/
+README.md
 
 .env
 *.db

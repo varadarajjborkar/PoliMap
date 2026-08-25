@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useT } from '../hooks/useLanguage'
 import { readable, said } from '../lib/i18n'
 import { Badge, Button, Card, CardHeader, Disclaimer, Field, Input, Select } from './Primitives'
@@ -13,6 +13,10 @@ import { TreatmentPicker } from './TreatmentPicker'
 export function SearchPanel({ reference, value, onChange, onSearch, busy, policy }) {
   const t = useT()
   const set = (key) => (event) => onChange({ ...value, [key]: event.target.value })
+  // Named rather than wrapped: the treatment box carries a list of options
+  // below it, and a label around the pair sends a click on an option back to
+  // the box, which reopens the list and drops the choice.
+  const treatmentId = useId()
 
   // Only worth asking where the policy names more than one person and the
   // answer would change something. On an individual policy it is a question
@@ -33,6 +37,7 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
         <div className="sm:col-span-2">
           <Field
             label={t('search.treatment', 'Treatment')}
+            htmlFor={treatmentId}
             hint={t(
               'search.treatment.hint',
               'Type what you were told. We will match it to the closest ' +
@@ -40,6 +45,7 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
             )}
           >
             <TreatmentPicker
+              id={treatmentId}
               procedures={reference?.procedures ?? []}
               value={value.procedure_code}
               onChange={(code) => onChange({ ...value, procedure_code: code })}
@@ -315,6 +321,7 @@ function AnswerBox({ question, busy, onAnswer, onTell }) {
 export function Results({ results, onStartJourney, starting }) {
   const t = useT()
   const [query, setQuery] = useState('')
+  const [pressed, setPressed] = useState(null)
 
   const shown = useMemo(() => {
     if (!results) return []
@@ -438,8 +445,17 @@ export function Results({ results, onStartJourney, starting }) {
           // A badge every card carries tells the user nothing; it is only worth
           // showing when it actually separates some options from others.
           showFrontierBadge={!allOnFrontier}
-          onStart={() => onStartJourney(option)}
+          onStart={() => {
+            setPressed(option.hospital.id)
+            onStartJourney(option)
+          }}
           starting={starting}
+          // Which card is waiting, not merely that one is. Starting a stay
+          // greys out the button on every card while it runs, and on a server
+          // that has to wake up first that is several seconds of a page that
+          // looks like it ignored the press. Somebody who presses again gets
+          // nothing, because the button they are pressing is the disabled one.
+          working={starting && pressed === option.hospital.id}
         />
       ))}
 
@@ -448,7 +464,7 @@ export function Results({ results, onStartJourney, starting }) {
   )
 }
 
-function OptionCard({ option, onStart, starting, showFrontierBadge }) {
+function OptionCard({ option, onStart, starting, working, showFrontierBadge }) {
   const t = useT()
   const [showDetail, setShowDetail] = useState(false)
   const reimbursement = option.settlement === 'reimbursement'
@@ -592,6 +608,12 @@ function OptionCard({ option, onStart, starting, showFrontierBadge }) {
             : t('results.show_breakdown', 'Where does my money go?')}
         </Button>
         <Button onClick={onStart} disabled={starting}>
+          {working && (
+            <span
+              aria-hidden="true"
+              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-brand/30 border-t-on-brand"
+            />
+          )}
           {t('results.track', 'Track my stay here')}
         </Button>
       </div>
