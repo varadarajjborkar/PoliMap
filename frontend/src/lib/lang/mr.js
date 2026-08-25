@@ -484,6 +484,11 @@ export default {
   'eligibility.one_answer': 'एका उत्तराने हे ठरेल.',
   'eligibility.why_ask':
     'कोणतीही पॉलिसी हे सांगत नाही आणि यामुळे उत्तर बदलते, म्हणून विचारतो. हे याच डिव्हाइसवर राहते.',
+  'eligibility.date_placeholder': 'उदाहरणार्थ 19/04/2026, किंवा एप्रिल 2026',
+  'eligibility.tell': 'हेच वापरा',
+  'eligibility.saving': 'जतन करत आहे…',
+  'eligibility.free_text':
+    'तुमच्याकडे आहे तसेच लिहा. वापरण्याआधी आम्ही ते तुम्हाला वाचून दाखवतो.',
   'eligibility.had_before': 'होय, हे आधीपासून होते',
   'eligibility.came_after': 'नाही, हे नंतर झाले',
   'eligibility.accident': 'हा अपघात होता',

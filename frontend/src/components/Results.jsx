@@ -142,7 +142,7 @@ export function SearchPanel({ reference, value, onChange, onSearch, busy, policy
 // Placed above the options rather than instead of them. Someone whose waiting
 // period has not run still wants to know what the treatment costs, because
 // they are now the one paying for it. What changes is who the figure is for.
-export function EligibilityNotice({ eligibility, onAnswer, busy }) {
+export function EligibilityNotice({ eligibility, onAnswer, onTell, busy }) {
   const t = useT()
   if (!eligibility || eligibility.verdict === 'covered') return null
 
@@ -189,43 +189,126 @@ export function EligibilityNotice({ eligibility, onAnswer, busy }) {
         </ul>
 
         {question && (
-          <div className="rounded-lg border border-line bg-surface px-3 py-3">
-            <p className="text-[0.875rem] font-medium">
-              {t(`eligask.${question.key}`, question.question, readable(t, question.values))}
-            </p>
-            <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-              {t(
-                'eligibility.why_ask',
-                'No policy states this and it changes the answer, so we ask. It stays ' +
-                  'on this device.')}
-            </p>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() => onAnswer({ pre_existing: true })}
-              >
-                {t('eligibility.had_before', 'Yes, I had it before')}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() => onAnswer({ pre_existing: false })}
-              >
-                {t('eligibility.came_after', 'No, it came up after')}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => onAnswer({ accident: true })}
-              >
-                {t('eligibility.accident', 'It was an accident')}
-              </Button>
-            </div>
-          </div>
+          <AnswerBox
+            question={question}
+            busy={busy}
+            onAnswer={onAnswer}
+            onTell={onTell}
+          />
         )}
       </div>
     </Card>
+  )
+}
+
+// The controls that settle one open question.
+//
+// Which controls those are is the finding's decision, not this component's. It
+// used to be neither: three buttons about pre-existing conditions were printed
+// under whatever question arrived, so a policy whose start date could not be
+// read asked "when did this policy start?" and offered "Yes, I had it before".
+// Pressing it sent an answer to a different question, the start date stayed
+// missing, and the same notice came back on the next search for as long as
+// anybody kept trying.
+function AnswerBox({ question, busy, onAnswer, onTell }) {
+  const t = useT()
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const choices = question.expects === 'choice'
+
+  async function submit(event) {
+    event.preventDefault()
+    const said = text.trim()
+    if (!said || sending) return
+    setSending(true)
+    setError('')
+    try {
+      await onTell(question.asks, said)
+      setText('')
+    } catch (e) {
+      // Reported here rather than in the page banner: the message is about
+      // what was typed, and it belongs next to the box it was typed into.
+      setError(e.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-line bg-surface px-3 py-3">
+      <p className="text-[0.875rem] font-medium">
+        {t(`eligask.${question.key}`, question.question, readable(t, question.values))}
+      </p>
+      <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
+        {t(
+          'eligibility.why_ask',
+          'No policy states this and it changes the answer, so we ask. It stays ' +
+            'on this device.')}
+      </p>
+
+      {choices ? (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => onAnswer({ pre_existing: true })}
+          >
+            {t('eligibility.had_before', 'Yes, I had it before')}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => onAnswer({ pre_existing: false })}
+          >
+            {t('eligibility.came_after', 'No, it came up after')}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => onAnswer({ accident: true })}
+          >
+            {t('eligibility.accident', 'It was an accident')}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="mt-2.5">
+          <div className="flex flex-wrap items-start gap-2">
+            <Input
+              value={text}
+              disabled={busy || sending}
+              onChange={(e) => { setText(e.target.value); setError('') }}
+              placeholder={t(
+                'eligibility.date_placeholder',
+                'For example 19/04/2026, or April 2026'
+              )}
+              className="min-w-0 flex-1"
+              aria-label={t(
+                `eligask.${question.key}`, question.question,
+                readable(t, question.values)
+              )}
+            />
+            <Button type="submit" disabled={busy || sending || !text.trim()}>
+              {sending
+                ? t('eligibility.saving', 'Saving\u2026')
+                : t('eligibility.tell', 'Use this')}
+            </Button>
+          </div>
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+            {t(
+              'eligibility.free_text',
+              'Write it however you have it. We read it back to you before it ' +
+                'is used.')}
+          </p>
+          {error && (
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-danger">
+              {error}
+            </p>
+          )}
+        </form>
+      )}
+    </div>
   )
 }
 

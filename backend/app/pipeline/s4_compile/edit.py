@@ -18,9 +18,15 @@ about again.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
-from app.pipeline.s4_compile.interpret import interpret, parse_amount, parse_percent
+from app.pipeline.s4_compile.interpret import (
+    interpret,
+    parse_amount,
+    parse_date,
+    parse_percent,
+)
 from app.schemas.money import format_inr
 from app.schemas.policy import (
     ClauseStatus,
@@ -51,6 +57,9 @@ EDITABLE: dict[str, str] = {
     "covers_consumables": "boolean",
     "pre_hospitalisation_days": "days",
     "post_hospitalisation_days": "days",
+    # Not a figure on the schedule but a date on it, and the one field whose
+    # absence stops the waiting periods being answerable at all.
+    "start_date": "date",
 }
 
 LABELS: dict[str, str] = {
@@ -62,6 +71,7 @@ LABELS: dict[str, str] = {
     "covers_consumables": "Consumables cover",
     "pre_hospitalisation_days": "Days covered before admission",
     "post_hospitalisation_days": "Days covered after discharge",
+    "start_date": "Policy start date",
 }
 
 
@@ -85,6 +95,30 @@ def _amount(value: object, label: str, *, allow_zero: bool = False) -> Decimal:
             "We could not read that as an amount. Try 500000, or 5 lakh."
         )
     return parsed
+
+
+def _date(value: object, label: str) -> date:
+    """Read a start date, in whatever form somebody wrote it.
+
+    A start date is not a figure, and it is the field that most often goes
+    missing: a photographed schedule loses it more readily than it loses the
+    sum insured, because it is printed small and once. Every waiting period is
+    counted from it, so an unreadable answer is refused rather than guessed at.
+    """
+    if isinstance(value, date):
+        return value
+
+    text = str(value).strip()
+    if (parsed := parse_date(text)) is not None:
+        return parsed
+
+    reading = interpret(label, text, expects="date")
+    if reading.best and reading.best.day is not None:
+        return reading.best.day
+    raise Unreadable(
+        reading.reason
+        or "We could not read that as a date. Try 19/04/2026, or April 2026."
+    )
 
 
 def _percent(value: object, label: str) -> Decimal:
@@ -140,6 +174,8 @@ def edit_field(
             raise Unreadable("Enter a number of days.") from exc
     elif field == "room_limit":
         policy.room_limit = _room_limit(value, label)
+    elif field == "start_date":
+        policy.meta.start_date = _date(value, label)
 
     _mark_user_edited(policy, field)
     return policy
@@ -187,6 +223,9 @@ _FIELD_CLAUSES: dict[str, tuple[str, ...]] = {
     "copay_pct": ("copay",),
     "deductible": ("deductible",),
     "covers_consumables": ("consumables_cover",),
+    # The start date lives on a policy_meta clause, and confirming it is what
+    # stops the waiting-period question being asked again next search.
+    "start_date": ("policy_meta",),
 }
 
 

@@ -480,6 +480,11 @@ export default {
   'eligibility.one_answer': 'ಒಂದು ಉತ್ತರದಿಂದ ಇದು ಇತ್ಯರ್ಥವಾಗುತ್ತದೆ.',
   'eligibility.why_ask':
     'ಯಾವ ಪಾಲಿಸಿಯೂ ಇದನ್ನು ಹೇಳುವುದಿಲ್ಲ ಮತ್ತು ಇದರಿಂದ ಉತ್ತರ ಬದಲಾಗುತ್ತದೆ, ಆದ್ದರಿಂದ ಕೇಳುತ್ತೇವೆ. ಇದು ಈ ಸಾಧನದಲ್ಲೇ ಉಳಿಯುತ್ತದೆ.',
+  'eligibility.date_placeholder': 'ಉದಾಹರಣೆಗೆ 19/04/2026, ಅಥವಾ ಏಪ್ರಿಲ್ 2026',
+  'eligibility.tell': 'ಇದನ್ನೇ ಬಳಸಿ',
+  'eligibility.saving': 'ಉಳಿಸಲಾಗುತ್ತಿದೆ…',
+  'eligibility.free_text':
+    'ನಿಮ್ಮ ಬಳಿ ಇರುವಂತೆಯೇ ಬರೆಯಿರಿ. ಬಳಸುವ ಮೊದಲು ನಾವು ಅದನ್ನು ನಿಮಗೆ ಓದಿ ತೋರಿಸುತ್ತೇವೆ.',
   'eligibility.had_before': 'ಹೌದು, ಇದು ಮೊದಲಿನಿಂದ ಇತ್ತು',
   'eligibility.came_after': 'ಇಲ್ಲ, ಇದು ಆಮೇಲೆ ಬಂತು',
   'eligibility.accident': 'ಇದು ಅಪಘಾತ',

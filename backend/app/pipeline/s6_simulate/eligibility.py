@@ -60,6 +60,17 @@ class Finding:
     days_left: int | None = None
     question: str | None = None
     """What the user could answer to settle an ASK."""
+    asks: str = ""
+    """Which fact settles this, named as the field that would hold it.
+
+    A question and its answer controls used to be joined only by the order they
+    were written in, so the interface offered the pre-existing-condition
+    buttons under every question it was given, including "when did this policy
+    start?". Answering did nothing, the finding came back unchanged on the next
+    search, and there was no way out of it. The finding names what it wants
+    now, and the interface renders the control that fits."""
+    expects: str = ""
+    """The shape of that answer: "choice" for fixed options, "date" for a date."""
     label: str = ""
     """Shown instead of the kind's own name where the finding is not about a
     waiting period. Set only by findings that need it."""
@@ -272,6 +283,8 @@ def assess(
                     f"apply."
                 ),
                 question="When did this policy start?",
+                asks="start_date",
+                expects="date",
                 label="Policy start date",
                 clause_ids=[cid for w in relevant for cid in w.source_clause_ids],
                 key="no_start_date",
@@ -422,6 +435,8 @@ def _judge(
                 question=(
                     "Did you have this condition before this policy started?"
                 ),
+                asks="pre_existing",
+                expects="choice",
                 clause_ids=period.source_clause_ids,
                 key="pre_existing_ask",
                 values=_span("period", period) | {

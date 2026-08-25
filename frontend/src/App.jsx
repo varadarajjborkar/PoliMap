@@ -697,6 +697,15 @@ export default function App() {
                         setClaimFacts(facts)
                         handleSearch(facts)
                       }}
+                      // A fact that belongs to the policy rather than to this
+                      // claim: it is written onto the policy, which settles the
+                      // clause behind it, and then the search is run again so
+                      // the answer is visible in the same breath as the
+                      // question that asked for it.
+                      onTell={async (field, value) => {
+                        await handleEditField(field, value)
+                        await handleSearch()
+                      }}
                     />
                     <Results
                       results={results}

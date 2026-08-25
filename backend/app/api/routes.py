@@ -990,6 +990,11 @@ def _eligibility_payload(verdict: eligibility.Assessment) -> dict[str, Any]:
                 "clears_on": finding.clears_on.isoformat() if finding.clears_on else None,
                 "days_left": finding.days_left,
                 "question": finding.question,
+                # What would settle it, and what shape that answer takes. The
+                # interface renders its controls from these rather than
+                # assuming every question is the pre-existing one.
+                "asks": finding.asks,
+                "expects": finding.expects,
             }
             for finding in verdict.findings
         ],

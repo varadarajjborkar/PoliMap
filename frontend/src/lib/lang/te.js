@@ -479,6 +479,11 @@ export default {
   'eligibility.one_answer': 'ఒక సమాధానంతో ఇది తేలుతుంది.',
   'eligibility.why_ask':
     'ఏ పాలసీ దీన్ని చెప్పదు, దీనితో సమాధానం మారుతుంది, అందుకే అడుగుతాం. ఇది ఈ పరికరంలోనే ఉంటుంది.',
+  'eligibility.date_placeholder': 'ఉదాహరణకు 19/04/2026, లేదా ఏప్రిల్ 2026',
+  'eligibility.tell': 'దీన్నే వాడండి',
+  'eligibility.saving': 'సేవ్ చేస్తున్నాం…',
+  'eligibility.free_text':
+    'మీ దగ్గర ఉన్నట్టే రాయండి. వాడే ముందు మేము దాన్ని మీకు చదివి చూపిస్తాం.',
   'eligibility.had_before': 'అవును, ఇది ముందు నుంచే ఉంది',
   'eligibility.came_after': 'కాదు, ఇది తర్వాత వచ్చింది',
   'eligibility.accident': 'ఇది ప్రమాదం',

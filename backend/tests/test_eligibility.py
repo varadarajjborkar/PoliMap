@@ -15,6 +15,7 @@ from decimal import Decimal as D
 import pytest
 
 from app.pipeline.s4_compile.compiler import classify_waiting
+from app.pipeline.s4_compile.edit import edit_field
 from app.pipeline.s6_simulate import eligibility as E
 from app.schemas.policy import (
     InsuredPerson,
@@ -218,6 +219,52 @@ def test_an_unread_start_date_is_a_question_not_a_pass():
     assert verdict.verdict is E.Verdict.UNKNOWN
     assert not verdict.blocks
     assert verdict.findings[0].question == "When did this policy start?"
+
+
+def test_a_question_says_which_answer_settles_it():
+    """The bug this exists to stop.
+
+    Both open questions carried a sentence and nothing else, so the interface
+    printed the pre-existing-condition buttons under whichever one arrived. A
+    policy whose start date could not be read asked "when did this policy
+    start?" and offered "Yes, I had it before". Pressing it answered a
+    different question, the start date stayed missing, and the same notice came
+    back on every search after it.
+    """
+    missing = E.assess(
+        make_policy(waits=[INITIAL, PED], start=None), HEART, on=date(2026, 6, 1)
+    ).findings[0]
+    assert missing.asks == "start_date"
+    assert missing.expects == "date"
+
+    asked = E.assess(
+        make_policy(waits=[INITIAL, PED]), HEART, on=date(2026, 6, 1)
+    ).findings[0]
+    assert asked.asks == "pre_existing"
+    assert asked.expects == "choice"
+
+    # The two must not be answerable by the same control.
+    assert missing.expects != asked.expects
+
+
+def test_answering_pre_existing_does_not_settle_a_missing_start_date():
+    """What the loop looked like from the engine's side."""
+    policy = make_policy(waits=[INITIAL, PED], start=None)
+    for answer in (True, False):
+        verdict = E.assess(policy, HEART, on=date(2026, 6, 1), pre_existing=answer)
+        assert verdict.verdict is E.Verdict.UNKNOWN
+        assert verdict.findings[0].asks == "start_date"
+
+
+def test_telling_us_the_start_date_settles_it():
+    """And what breaks the loop: the fact the finding actually asked for."""
+    policy = make_policy(waits=[INITIAL, PED], start=None)
+    policy = edit_field(policy, "start_date", "19/04/2023")
+    assert policy.meta.start_date == date(2023, 4, 19)
+
+    verdict = E.assess(policy, HEART, on=date(2026, 6, 1), pre_existing=False)
+    assert verdict.verdict is E.Verdict.COVERED
+    assert not any(f.asks == "start_date" for f in verdict.findings)
 
 
 def test_a_policy_with_no_waiting_periods_needs_no_start_date():

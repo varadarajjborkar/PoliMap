@@ -479,6 +479,11 @@ export default {
   'eligibility.one_answer': 'एक जवाब से यह तय हो जाएगा।',
   'eligibility.why_ask':
     'कोई पॉलिसी यह नहीं बताती और इससे जवाब बदलता है, इसलिए पूछते हैं। यह इसी डिवाइस पर रहता है।',
+  'eligibility.date_placeholder': 'जैसे 19/04/2026, या अप्रैल 2026',
+  'eligibility.tell': 'यही उपयोग करें',
+  'eligibility.saving': 'सहेज रहे हैं…',
+  'eligibility.free_text':
+    'जैसे आपके पास है वैसे ही लिखें। उपयोग करने से पहले हम इसे आपको पढ़कर दिखाते हैं।',
   'eligibility.had_before': 'हाँ, यह पहले से था',
   'eligibility.came_after': 'नहीं, यह बाद में हुआ',
   'eligibility.accident': 'यह दुर्घटना थी',

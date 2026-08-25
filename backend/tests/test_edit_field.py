@@ -14,6 +14,7 @@ asking about something the user has already answered.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -284,3 +285,80 @@ def test_a_policy_without_restore_promises_nothing():
                         amount=Decimal(200000))],
     )
     assert not any("restores" in note for note in simulate(policy, bill).notes)
+
+
+# --- the start date, which is a date rather than a figure -------------------
+#
+# It goes missing more often than any amount on a schedule, because it is
+# printed once and small. Every waiting period is counted from it, so until it
+# could be given there was a question on screen that no control could answer.
+
+
+@pytest.mark.parametrize(
+    "typed,expected",
+    [
+        ("19/04/2026", date(2026, 4, 19)),
+        ("19-4-26", date(2026, 4, 19)),
+        ("2026-04-19", date(2026, 4, 19)),
+        ("19 April 2026", date(2026, 4, 19)),
+        ("April 19, 2026", date(2026, 4, 19)),
+        ("1st Apr 2026", date(2026, 4, 1)),
+        # A month with no day. Accepted, and read back before it is used.
+        ("April 2026", date(2026, 4, 1)),
+    ],
+)
+def test_a_start_date_is_read_in_the_forms_people_write_it(typed, expected):
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    assert edit_field(policy, "start_date", typed).meta.start_date == expected
+
+
+def test_the_day_comes_before_the_month():
+    """04/03/2026 is 4 March here, and reading it the other way moves every
+    waiting period by a month without anybody seeing it happen."""
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    assert edit_field(policy, "start_date", "04/03/2026").meta.start_date == date(
+        2026, 3, 4
+    )
+
+
+def test_a_date_that_cannot_be_a_date_is_refused():
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    for typed in ("31/02/2026", "sometime last year", "19/04/1970"):
+        with pytest.raises(Unreadable):
+            edit_field(policy, "start_date", typed)
+
+
+def test_a_corrected_start_date_settles_the_clause_behind_it():
+    """Otherwise the question comes back on the next search, which is the whole
+    failure this was built to end."""
+    policy = NormalizedPolicy(sum_insured=Decimal(500000))
+    policy.open_clarifications = [
+        ClarificationRequest(clause_kind=ClauseKind.POLICY_META,
+                             question="When did this policy start?")
+    ]
+    edit_field(policy, "start_date", "19/04/2026")
+    assert policy.open_clarifications == []
+
+
+def test_a_start_date_can_be_set_over_the_api(client, session_id):
+    """The route the interface takes when it cannot read one off the schedule."""
+    response = client.patch(
+        f"/api/policy/{session_id}/field",
+        json={"field": "start_date", "value": "19 April 2026"},
+    )
+    assert response.status_code == 200
+    period = client.get(f"/api/policy/{session_id}").json()["period"]
+    assert period["start"] == "2026-04-19"
+
+
+def test_an_unreadable_date_says_so_in_dates(client, session_id):
+    """The message has to name the shape of what was wanted. It used to talk
+    about lakhs, whatever field had been asked about."""
+    response = client.patch(
+        f"/api/policy/{session_id}/field",
+        json={"field": "start_date", "value": "when I joined the company"},
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "date" in detail.lower()
+    assert "lakh" not in detail.lower()
