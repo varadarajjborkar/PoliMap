@@ -30,20 +30,18 @@ log = get_logger(__name__)
 
 
 # Everything written for a session lives under one of these, each holding one
-# directory per session, so cleanup is the same operation for both.
-KINDS = ("pages", "receipts")
+# directory per session, so cleanup is the same operation for all of them.
+#
+# There is one. Bill photographs used to be the other, until they stopped being
+# sent here at all: a receipt belongs to the person who took it, and it stays on
+# the device that took it. What the server keeps is the page images it has to
+# rasterise in order to read a policy, and it sweeps those.
+KINDS = ("pages",)
 
 
 def page_dir(session_id: str | None) -> Path:
     """Directory holding the rasterised pages for one session."""
     base = settings.uploads_dir / "pages" / (session_id or "adhoc")
-    base.mkdir(parents=True, exist_ok=True)
-    return base
-
-
-def receipt_dir(session_id: str) -> Path:
-    """Directory holding bill photographs attached to a session's charges."""
-    base = settings.uploads_dir / "receipts" / session_id
     base.mkdir(parents=True, exist_ok=True)
     return base
 
@@ -55,6 +53,27 @@ def purge(session_id: str) -> None:
         if target.exists():
             shutil.rmtree(target, ignore_errors=True)
     log.debug("purged session artifacts", session_id=session_id)
+
+
+# Where bill photographs used to be written, before they stopped being sent to
+# a server at all.
+RETIRED = ("receipts",)
+
+
+def drop_retired() -> None:
+    """Remove what an older version of this app collected and no longer does.
+
+    Those directories hold people's bill photographs, uploaded when a charge
+    could carry one. They are not written any more and nothing reads them, and
+    the sweep below only knows about the kinds still in use, so left alone they
+    would sit on disk for as long as the machine does. An upgrade should not
+    quietly become a place somebody's paperwork is kept forever.
+    """
+    for kind in RETIRED:
+        target = settings.uploads_dir / kind
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+            log.info("removed retired artifacts", kind=kind)
 
 
 def sweep(max_age_minutes: int | None = None) -> int:

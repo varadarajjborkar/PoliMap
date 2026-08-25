@@ -15,11 +15,11 @@ import re
 from datetime import date, datetime
 from decimal import Decimal
 from functools import partial
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.agents.registry import registry
@@ -1356,50 +1356,36 @@ def advance_journey(session_id: str, payload: Advance) -> dict[str, Any]:
 
 # --- charges ---------------------------------------------------------------
 
-MAX_RECEIPT_BYTES = 10 * 1024 * 1024
-RECEIPT_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
 
+def _receipt_label(name: str) -> str:
+    """The name of the file a charge is documented by, and nothing more.
 
-def _store_receipt(session_id: str, entry_id: str, upload: UploadFile) -> str:
-    """Save a bill photograph next to the charge it belongs to.
-
-    The stored name is the entry id, so nothing a user typed reaches the
-    filesystem. The original name is kept in the entry itself, for display.
+    The file itself is never sent here. It is held by the browser that took it,
+    which is the device the person is standing in the hospital with, and this
+    is only what the ledger and the printed page call it. A name is still
+    somebody else's text: it is reduced to its last path component so a stored
+    string cannot read like a path, and capped so it cannot be a wall.
     """
-    original = Path(upload.filename or "receipt")
-    suffix = original.suffix.lower()
-    if suffix not in RECEIPT_SUFFIXES:
-        raise HTTPException(
-            400,
-            "Attach a PDF or a photo of the bill "
-            "(PDF, JPG, PNG, WEBP, HEIC or TIFF).",
-        )
-
-    data = upload.file.read()
-    if len(data) > MAX_RECEIPT_BYTES:
-        raise HTTPException(413, "That file is too large. The limit is 10 MB.")
-    if not data:
-        raise HTTPException(400, "That file was empty.")
-
-    target = artifacts.receipt_dir(session_id) / f"{entry_id}{suffix}"
-    target.write_bytes(data)
-    return original.name
+    label = PurePosixPath(PureWindowsPath(name.strip()).name).name
+    label = "".join(c for c in label if c.isprintable() and c not in "\\/")
+    return label[:120]
 
 
 @router.post("/journey/{session_id}/cost")
-async def record_cost(
+def record_cost(
     session_id: str,
     head: ExpenseHead = Form(...),
     amount: float = Form(...),
     description: str = Form(""),
     advance_day: bool = Form(False),
-    receipt: UploadFile | None = File(None),
+    receipt_name: str = Form(""),
 ) -> dict[str, Any]:
-    """Record a charge, optionally with a photograph of the bill.
+    """Record a charge, and what the bill behind it is called.
 
-    Multipart rather than JSON because of that attachment. Chasing paper
-    receipts weeks later at claim time is the part people dread, so the moment
-    to capture one is while they are holding it.
+    Chasing paper receipts weeks later at claim time is the part people dread,
+    so the moment to capture one is while they are holding it. The capturing
+    happens in the browser; what arrives here is the name, which is what makes
+    the ledger say that this line has paper behind it.
     """
     session = _session(session_id)
     if session.journey is None or session.policy is None:
@@ -1410,13 +1396,11 @@ async def record_cost(
     if advance_day:
         session.journey.days_elapsed += 1
 
-    entry = tracker.record_cost(
+    tracker.record_cost(
         session.journey, head, Decimal(str(amount)),
         session.policy, description=description,
+        receipt_name=_receipt_label(receipt_name),
     )
-
-    if receipt is not None and receipt.filename:
-        entry.receipt_name = _store_receipt(session_id, entry.entry_id, receipt)
 
     sessions.save(session)
     return _journey_payload(session)
@@ -1463,47 +1447,10 @@ def delete_cost(session_id: str, entry_id: str) -> dict[str, Any]:
     except tracker.CostNotFound:
         raise HTTPException(404, "That charge is no longer on this stay.") from None
 
-    # The bill photograph goes with the charge it documented.
-    for path in artifacts.receipt_dir(session_id).glob(f"{entry_id}.*"):
-        path.unlink(missing_ok=True)
-
+    # The bill behind the charge goes with it, but not from here: it is on the
+    # device, and the browser drops it when this call comes back.
     sessions.save(session)
     return _journey_payload(session)
-
-
-# Entry ids are minted here, so anything that is not one of ours is a probe.
-# The check matters because the id was being interpolated straight into a glob
-# pattern, where `*` matches every receipt on the stay and `?` matches most of
-# them, which is a way to read a file without knowing its name.
-_ENTRY_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-
-
-@router.get("/journey/{session_id}/cost/{entry_id}/receipt")
-def get_receipt(session_id: str, entry_id: str) -> FileResponse:
-    """Serve back the attached bill so the user can check what they filed."""
-    _session(session_id)
-    if not _ENTRY_ID.match(entry_id):
-        raise HTTPException(404, "No receipt was attached to that charge.")
-
-    directory = artifacts.receipt_dir(session_id)
-    matches = sorted(
-        p for p in directory.iterdir()
-        if p.is_file() and p.stem == entry_id and p.suffix.lower() in RECEIPT_SUFFIXES
-    )
-    if not matches:
-        raise HTTPException(404, "No receipt was attached to that charge.")
-
-    # This is a file somebody else uploaded, handed back over the API's own
-    # origin. Served as an attachment with sniffing off, so that whatever is
-    # actually inside it is saved rather than rendered: an HTML page wearing a
-    # .png suffix must not become a page running on this origin.
-    return FileResponse(
-        matches[0],
-        headers={
-            "Content-Disposition": f'attachment; filename="receipt{matches[0].suffix}"',
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
 
 
 BILL_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}

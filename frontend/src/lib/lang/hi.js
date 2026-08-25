@@ -29,7 +29,6 @@ export default {
   'step.short.policy': 'कवर',
   'step.short.search': 'अस्पताल',
 
-  'results.you_pay': 'आप देंगे',
   'results.insurer_pays': 'बीमा कंपनी देगी',
 
   'journey.stage.pre_admission': 'भर्ती से पहले',
@@ -39,22 +38,13 @@ export default {
   'journey.download': 'यह पूरा ब्यौरा डाउनलोड करें',
   'journey.download.why':
     'आपका कवर, अनुमान, अब तक का बिल, और क्या बाकी है। बीमा काउंटर के लिए एक पन्ना।',
-  'journey.charges': 'अब तक के खर्च',
+  'journey.download.all': 'पूरा ब्यौरा और {count} बिल डाउनलोड करें',
+  'journey.download.all.why':
+    'एक फ़ोल्डर: नीचे वाला पन्ना, आपके लगाए हर बिल, और एक सूची जो हर बिल को उसके खर्च से जोड़ती है।',
+  'journey.download.packing': 'तैयार किया जा रहा है…',
+  'journey.download.page_only': 'या सिर्फ़ पन्ना, बिलों के बिना',
   'journey.add_charge': 'खर्च जोड़ें',
   'journey.checklist': 'अभी क्या करना है',
-
-  'bill.title': 'आखिरी बिल जाँचें',
-  'bill.subtitle':
-    'IRDAI की उन चीज़ों की सूची के हिसाब से जो कोई पॉलिसी नहीं देती, और आपके अपने कवर के हिसाब से।',
-  'bill.upload': 'बिल की फ़ोटो लें या अपलोड करें',
-  'bill.reading': 'बिल पढ़ा जा रहा है…',
-  'bill.nothing': 'इस बिल में IRDAI सूची या आपकी पॉलिसी के हिसाब से कुछ खटका नहीं।',
-  'bill.settles_to': 'इस बिल का हिसाब',
-  'bill.show_lines': 'पढ़ी गई पंक्तियाँ दिखाएँ',
-  'bill.hide_lines': 'पंक्तियाँ छिपाएँ',
-  'bill.another': 'दूसरा बिल जाँचें',
-  'bill.to_ask': 'पूछने लायक',
-  'bill.nothing_to_raise': 'कुछ उठाने लायक नहीं',
 
   'help.open': 'मदद',
   'help.title': 'मदद',
@@ -160,6 +150,9 @@ export default {
   'home.welcome': 'फिर से स्वागत है, {name}',
   'home.first': 'पॉलिसी पढ़वाकर शुरू करें। उसके बाद का सब कुछ यहीं सहेजा जाता है।',
   'home.switch_user': 'आप नहीं?',
+  'home.switch_user.warn': 'इससे इस नाम से इस डिवाइस पर सहेजा गया सब कुछ हट जाएगा।',
+  'home.switch_user.yes': 'हटाएँ और बाहर जाएँ',
+  'home.switch_user.no': 'रहने दें',
   'home.policy_read': 'पॉलिसी पढ़ी गई',
   'home.delete': '{stay} हटाएँ',
   'home.delete.short': 'हटाएँ',
@@ -195,10 +188,6 @@ export default {
   'reading.search': 'आपके विकल्प खोजे जा रहे हैं',
   'reading.search.hint':
     'दायरे के हर अस्पताल का खर्च आपकी पॉलिसी के हिसाब से, एक-एक करके जोड़ा जा रहा है।',
-  'reading.bill': 'आपका बिल पढ़ा जा रहा है',
-  'reading.bill.waiting': 'बिल भेजा जा रहा है। यह पन्ना खुला रखें।',
-  'reading.bill.hint':
-    'फ़ोटो में PDF से ज़्यादा समय लगता है: हर पंक्ति को पहले पहचानना पड़ता है।',
 
   'reading.document': '{total} में से दस्तावेज़ {index}',
   'reading.starting': 'शुरू हो रहा है।',
@@ -210,9 +199,6 @@ export default {
   'phase.find': 'यह इलाज कर सकने वाले अस्पताल खोजे जा रहे हैं',
   'phase.cost': 'हर एक पर आपका कितना खर्च होगा, यह जोड़ा जा रहा है',
   'phase.rank': 'क्रम में लगाए जा रहे हैं',
-  'phase.doc': 'दस्तावेज़ पढ़ा जा रहा है',
-  'phase.lines': 'हर पंक्ति और उसका मतलब खोजा जा रहा है',
-  'phase.against_policy': 'आपकी पॉलिसी और IRDAI सूची से मिलाया जा रहा है',
   'count.pages': '{done}/{total} पन्ने',
   'count.sections': '{done}/{total} हिस्से',
   'note.reading': '{file} पढ़ी जा रही है',
@@ -231,8 +217,6 @@ export default {
   'note.matched': '{considered} में से {matched} अस्पताल सही बैठे',
   'note.costed': 'उनमें से {costed} का खर्च जोड़ा',
   'note.shortlisted': '{shortlisted} चुने गए',
-  'note.lines': '{lines} पंक्तियाँ मिलीं',
-  'note.findings': 'देखने लायक {findings} बातें',
 
   'locked.policy': 'आपका कवर',
   'locked.policy.why':
@@ -556,12 +540,37 @@ export default {
     'यह फ़ाइल {size} MB की है। हम ज़्यादा से ज़्यादा {limit} MB ले सकते हैं।',
   'journey.receipt.remove': 'हटाएँ',
   'journey.receipt.attach': 'बिल या रसीद लगाएँ (ज़रूरी नहीं)',
+  'journey.receipt.kept': 'यह खर्च के साथ इसी डिवाइस पर रहेगी। कहीं भेजी नहीं जाती।',
+  'journey.receipt.elsewhere':
+    'यह बिल किसी और डिवाइस पर लगाया गया था, इसलिए यहाँ नहीं है।',
+  'journey.receipt.wrong_kind':
+    'बिल की PDF या फ़ोटो लगाएँ: PDF, JPG, PNG, WEBP, HEIC या TIFF।',
+  'journey.tab.charges': 'अब तक के खर्च',
+  'journey.tab.papers': 'बिल और रसीदें',
+  'journey.tab.split': 'आप क्या देंगे',
+  'journey.split.head':
+    'अब तक बने {billed} के बिल में से {covered} आपकी बीमा कंपनी देगी। बाकी {yours} आपका है।',
+  'journey.split.nothing':
+    'कुछ भी नहीं काटा गया। अब तक दर्ज हर खर्च आपकी पॉलिसी के दायरे में है।',
+  'journey.papers.none':
+    'अभी कुछ नहीं लगा है। खर्च जोड़ते समय उसका बिल या रसीद साथ लगाएँ, वह यहीं उसी खर्च के नाम दर्ज हो जाएगी।',
+  'journey.papers.reading': 'आपकी फ़ाइलें खोली जा रही हैं…',
+  'journey.papers.count': '{count} लगी हैं',
+  'journey.papers.for': '{head} · {amount} · {when} को जोड़ी गई',
+  'journey.papers.position': '{total} में से {at}',
+  'journey.papers.previous': 'पिछली',
+  'journey.papers.next': 'अगली',
+  'journey.papers.save': 'सहेजें',
+  'journey.papers.close': 'बंद करें',
+  'journey.papers.unshowable':
+    'यह ब्राउज़र इस तरह की फ़ाइल नहीं खोल पाएगा। फ़ाइल जैसी थी वैसी ही रखी है और डाउनलोड में साथ आएगी।',
+  'journey.papers.where':
+    'सिर्फ़ इसी डिवाइस पर रखी हैं, कहीं भेजी नहीं जातीं। डाउनलोड करने पर पूरे ब्यौरे के साथ आती हैं।',
   'journey.checklist.count': '{total} में से {done}',
   'journey.checklist.now': 'अभी',
   'journey.position.you_pay': 'अब तक आप देंगे',
   'journey.position.split':
     'अस्पताल ने {billed} का बिल बनाया है। उसमें से {covered} आपकी बीमा कंपनी देगी।',
-  'journey.position.hide': 'फ़र्क कहाँ से आता है, छिपाएँ',
   'journey.position.show': 'फ़र्क कहाँ से आता है, देखें',
   'journey.burn.used': 'अब तक इस्तेमाल हुआ कवर',
   'journey.burn.of': '{total} में से {used}',
@@ -601,16 +610,6 @@ export default {
 
   'list.a_stage': 'एक चरण',
   'list.and': 'और',
-
-  'bill.what_we_do':
-    'एक-एक चीज़ वाला बिल माँगें, एक लाइन का जोड़ नहीं, और उसकी फ़ोटो लें। हम हर पंक्ति पढ़कर बताते हैं कि दस्तख़त से पहले क्या उठाने लायक है: वे खर्च जो पहले से किसी और में हैं, दो बार चढ़ी पंक्तियाँ, वे अंक जो गुणा नहीं होते, और वह कटौती जो बीमा कंपनी करेगी पर कोई बताता नहीं।',
-  'bill.photo_hint':
-    'सामने से, अच्छी रोशनी में। बिलिंग काउंटर से मिला PDF बिलकुल सही पढ़ा जाता है।',
-  'bill.settles_to.hint': 'वही गणना जो अनुमान में थी, असली बिल पर लगाई गई।',
-  'bill.col.line': 'क्रम',
-  'bill.col.item': 'चीज़',
-  'bill.col.head': 'मद',
-  'bill.col.amount': 'रकम',
 
   'settings.close': 'सेटिंग बंद करें',
   'settings.close.short': 'बंद करें',
@@ -772,7 +771,6 @@ export default {
   'billnote.icu_days': 'गहन चिकित्सा में {n} दिन',
   'billnote.tier_scaled': 'कमरे के प्रकार से तय',
   'billnote.non_medical': 'पंजीकरण, रिकॉर्ड, अटेंडेंट',
-  'bill.lines_at': 'पंक्तियाँ {lines}',
 
   // What needs attention now, and what has happened so far.
   'alert.room_rate_conflict': 'आपके कमरे का बिल किसी और दर पर बन रहा है',
@@ -879,88 +877,6 @@ export default {
     'पॉलिसी शुरू होने से पहले की बीमारी {clears} से कवर होती है।',
   'elig.pre_existing_years.detail':
     'पॉलिसी शुरू होने से पहले की बीमारी {clears} से कवर होती है।',
-
-  // A bill, read and checked against the policy.
-  'findkind.uncertain_read': 'पढ़ने में अनिश्चित',
-  'findkind.optional_item': 'कवर नहीं',
-  'findkind.subsumed': 'पहले से शामिल',
-  'findkind.duplicate': 'दो बार दर्ज',
-  'findkind.line_arithmetic': 'गणित मेल नहीं खाता',
-  'findkind.total_mismatch': 'जोड़ मेल नहीं खाता',
-  'findkind.unplaced': 'रखी नहीं जा सकी',
-  'findkind.room_above_cap': 'कमरा सीमा से ऊपर',
-  'findkind.proportionate': 'आनुपातिक कटौती',
-  'findkind.sublimit': 'श्रेणी की सीमा',
-  'findkind.consumables': 'खर्च की सामग्री',
-  'finding.uncertain_read': 'हम इस फ़ोटो का हर अंक नहीं पढ़ पाए',
-  'finding.uncertain_read.detail':
-    'हमारी पंक्तियाँ {lines} बनती हैं और बिल {total} कहता है। इन्हें मिलना चाहिए, तो कम से कम एक अंक ग़लत पढ़ा गया है।',
-  'finding.uncertain_read.ask':
-    'नीचे की पंक्तियाँ पहले काग़ज़ से मिलाकर देखें। सीधी और अच्छी रोशनी में ली गई फ़ोटो, या बिलिंग काउंटर से ईमेल की गई PDF, ठीक-ठीक पढ़ी जाती है।',
-  'finding.uncertain_read_no_total': 'हम इस फ़ोटो का हर अंक नहीं पढ़ पाए',
-  'finding.uncertain_read_no_total.detail':
-    'हमारी पंक्तियाँ {lines} बनती हैं, और मिलाने के लिए बिल का अपना जोड़ हमें नहीं मिला।',
-  'finding.uncertain_read_no_total.ask':
-    'नीचे की पंक्तियाँ पहले काग़ज़ से मिलाकर देखें। सीधी और अच्छी रोशनी में ली गई फ़ोटो, या बिलिंग काउंटर से ईमेल की गई PDF, ठीक-ठीक पढ़ी जाती है।',
-  'finding.listing.optional': '{items}: {amount}',
-  'finding.listing.optional.detail': 'किसी भी स्वास्थ्य पॉलिसी में कवर नहीं।',
-  'finding.listing.optional.ask':
-    'ये आपकी तरफ़ के हैं। बस देख लें कि पंक्ति सही पढ़ी गई है।',
-  'finding.listing.in_room': '{items}: {amount}',
-  'finding.listing.in_room.detail': 'कमरे के शुल्क में पहले से शामिल।',
-  'finding.listing.in_room.ask':
-    'पूछें कि यह कमरे के शुल्क में क्यों नहीं है। यह अलग पंक्ति होनी ही नहीं चाहिए।',
-  'finding.listing.in_procedure': '{items}: {amount}',
-  'finding.listing.in_procedure.detail': 'ऑपरेशन के शुल्क में पहले से शामिल।',
-  'finding.listing.in_procedure.ask':
-    'पूछें कि यह ऑपरेशन के शुल्क में क्यों नहीं है। यह अलग पंक्ति होनी ही नहीं चाहिए।',
-  'finding.listing.in_treatment': '{items}: {amount}',
-  'finding.listing.in_treatment.detail': 'इलाज की लागत में पहले से शामिल।',
-  'finding.listing.in_treatment.ask':
-    'पूछें कि यह इलाज की लागत में क्यों नहीं है। यह अलग पंक्ति होनी ही नहीं चाहिए।',
-  'finding.duplicate': '{item} {n} बार आया है, हर बार {amount}',
-  'finding.duplicate.detail': 'पंक्तियाँ {lines}।',
-  'finding.duplicate.ask':
-    'पूछें कि यह दो बार तो नहीं चढ़ा। दो अलग दिनों का वही खर्च सामान्य है, तो जवाब हाँ भी हो सकता है, पर पूछने में कुछ नहीं जाता।',
-  'finding.line_arithmetic_over':
-    '{item}: {qty} × {rate} से {expected} बनता है, {billed} नहीं',
-  'finding.line_arithmetic_over.detail':
-    'गुणा करने पर जो आता है उससे {difference} ज़्यादा।',
-  'finding.line_arithmetic_over.ask':
-    'पूछें कि तीनों में से कौन-सा अंक सही है। ग़लत दर पर चढ़ी मात्रा सबसे आम बिलिंग चूक है।',
-  'finding.line_arithmetic_under':
-    '{item}: {qty} × {rate} से {expected} बनता है, {billed} नहीं',
-  'finding.line_arithmetic_under.detail':
-    'गुणा करने पर जो आता है उससे {difference} कम।',
-  'finding.line_arithmetic_under.ask':
-    'पूछें कि तीनों में से कौन-सा अंक सही है। ग़लत दर पर चढ़ी मात्रा सबसे आम बिलिंग चूक है।',
-  'finding.total_mismatch': 'पंक्तियाँ {lines} बनती हैं, बिल {total} कहता है',
-  'finding.total_mismatch.detail': '{difference} का अंतर।',
-  'finding.total_mismatch.ask':
-    'कहें कि जोड़ आपके सामने लगाया जाए। या तो कोई पंक्ति छूटी है या जोड़ ग़लत है, और दस्तख़त से पहले दोनों सुलझा लेने लायक हैं।',
-  'finding.unplaced': '{n} पंक्तियाँ हम रख नहीं सके, {amount}',
-  'finding.unplaced.detail': '{items}।',
-  'finding.unplaced.ask':
-    'अंदाज़ लगाने के बजाय इन्हें नीचे के हिसाब से बाहर रखा गया है, तो वे अंक पूरे बिल से इतने कम हैं।',
-  'finding.consumables': 'इस बिल में खर्च की सामग्री: {amount}',
-  'finding.consumables.detail':
-    'ऐड-ऑन लिए बिना पॉलिसियाँ खर्च की सामग्री बाहर रखती हैं, तो बाकी चाहे जो हो, यह हिस्सा आपका है।',
-  'finding.consumables.ask':
-    'देख लें कि पंक्ति सचमुच खर्च की सामग्री है, दवा नहीं, क्योंकि दवा आपकी पॉलिसी देती है।',
-  'finding.room_rent_cap': 'कमरा आपके कवर से ऊपर: {amount}',
-  'finding.room_rent_cap.detail':
-    'आपका कमरा दिन का {rate} है और आपका कवर {cap} है। अंतर आप देंगे।',
-  'finding.room_rent_cap.ask':
-    'यह बिल पर नहीं है और काउंटर इसे नहीं उठाएगा। बीमा कंपनी इसे निपटान के समय काटती है, तो यह आपको जुटाना है।',
-  'finding.proportionate': 'आनुपातिक कटौती: {amount}',
-  'finding.proportionate.detail':
-    'आपका कमरा आपकी श्रेणी से ऊपर है, इसलिए कमरे से तय होने वाले खर्चों पर सिर्फ़ {pct} मिलता है: सर्जन, थिएटर और नर्सिंग। आईसीयू, दवा, जाँच और इम्प्लांट अछूते रहते हैं।',
-  'finding.proportionate.ask':
-    'देखें कि यह कैसे निकाला गया। मई 2024 से यह सिर्फ़ कमरे से जुड़े खर्चों पर लगती है: कमरा, नर्सिंग, डॉक्टर, सर्जन, थिएटर। दवा, जाँच, इम्प्लांट या आईसीयू भी कटे हों तो सवाल उठाएँ।',
-  'finding.sublimit': 'श्रेणी की सीमा से ऊपर: {amount}',
-  'finding.sublimit.detail': '{head} की सीमा {cap} है। अनुमान {billed} का है।',
-  'finding.sublimit.ask':
-    'बीमा कंपनी से सीमा और वह किस पर गिनी जाती है, यह पक्का करें। उससे ऊपर का बाकी आपका है।',
 
   // Warnings, notes, and how one hospital was chosen over another.
   'warn.proportionate':

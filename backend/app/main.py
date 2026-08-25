@@ -40,6 +40,10 @@ async def lifespan(app: FastAPI):
         session_store=settings.session_store.value,
     )
 
+    # Bill photographs an older version of this app accepted and stored. It
+    # does not any more: a receipt stays on the device that took it.
+    await asyncio.to_thread(artifacts.drop_retired)
+
     # Page images from sessions that have since expired have nothing left to
     # trace back to, and they are the bulkiest thing this app writes.
     swept = await asyncio.to_thread(artifacts.sweep)

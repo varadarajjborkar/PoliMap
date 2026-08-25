@@ -1,12 +1,15 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api'
 import { useDialog } from '../hooks/useDialog'
 import { useT } from '../hooks/useLanguage'
 import { pinAlerts } from '../lib/alerts'
+import { packStay } from '../lib/bundle'
 import { moment, readable } from '../lib/i18n'
+import { ACCEPT, listReceipts, typeOf } from '../lib/receipts'
+import { save } from '../lib/zip'
 import { AlertPin } from './AlertPin'
-import { BillReview, BillUpload, BillVerdict } from './BillCheck'
+import { Papers } from './Receipts'
 import { Badge, Button, Card, CardHeader, Field, Input, Select } from './Primitives'
 
 // The care journey: where the paperwork stands, what has been billed, and what
@@ -40,12 +43,67 @@ function stageName(t, label) {
 }
 
 export function Journey({
-  journey, sessionId, busy, billBusy, billProgress,
+  journey, sessionId, user, stayId, busy,
   onAdvance, onRecordCost, onUpdateCost, onDeleteCost, onFilePreauth,
-  onToggleChecklist, onCheckBill, onDropBill,
+  onToggleChecklist,
 }) {
   const t = useT()
+
+  // Which of the three faces of the record is showing. Held here rather than
+  // in the card, because the figure on the right opens one of them: pressing
+  // "show where the difference comes from" beside the money turns the record
+  // to the page that answers it.
+  const [tab, setTab] = useState('charges')
+  const record = useRef(null)
+
+  // The bills attached to this stay, read back off this device.
+  //
+  // Reloaded whenever the ledger changes, keyed on the charges and the names
+  // filed against them: adding a charge with a bill, or deleting one, is
+  // exactly when the shelf is out of date, and nothing else is.
+  const [papers, setPapers] = useState([])
+  const [papersBusy, setPapersBusy] = useState(true)
+  const ledger = (journey?.costs ?? [])
+    .map((cost) => `${cost.id}:${cost.receipt_name}`)
+    .join('|')
+
+  useEffect(() => {
+    let live = true
+    setPapersBusy(true)
+    listReceipts(user, stayId).then((found) => {
+      if (!live) return
+      setPapers(found)
+      setPapersBusy(false)
+    })
+    return () => { live = false }
+  }, [user, stayId, ledger])
+
+  // What each file is for, in the reader's language and at today's figures.
+  // The store keeps the file and which charge it belongs to; everything said
+  // about it here is read off that charge, so a charge corrected after the
+  // fact does not leave its bill labelled with the old amount.
+  const costs = journey?.costs
+  const filed = useMemo(() => {
+    const byId = new Map((costs ?? []).map((cost) => [cost.id, cost]))
+    return papers
+      .filter((paper) => byId.has(paper.entry))
+      .map((paper) => {
+        const cost = byId.get(paper.entry)
+        return {
+          ...paper,
+          head: cost.head_value,
+          headLabel: t(`head.${cost.head_value}`, cost.head),
+          amount: cost.amount_display,
+        }
+      })
+  }, [papers, costs, t])
+
   if (!journey) return null
+
+  function showSplit() {
+    setTab('split')
+    record.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
 
   // Three columns rather than one long scroll.
   //
@@ -112,6 +170,8 @@ export function Journey({
           onAdvance={onAdvance}
           pinned={pinned}
           alertAction={alertAction}
+          papers={filed}
+          onShowSplit={showSplit}
         />
       </div>
 
@@ -127,22 +187,19 @@ export function Journey({
       <CostCard
         onRecordCost={onRecordCost}
         busy={busy}
-        showBill={journey.stage !== 'pre_admission'}
-        bill={journey.bill}
-        billBusy={billBusy}
-        billProgress={billProgress}
-        onCheckBill={onCheckBill}
         className={`order-4 ${middle} min-[1180px]:row-start-2`}
       />
 
       <ChargesCard
+        ref={record}
         journey={journey}
-        sessionId={sessionId}
         busy={busy}
-        billBusy={billBusy}
+        tab={tab}
+        onTab={setTab}
+        papers={filed}
+        papersBusy={papersBusy}
         onUpdateCost={onUpdateCost}
         onDeleteCost={onDeleteCost}
-        onDropBill={onDropBill}
         className={`order-5 ${middle} min-[1180px]:row-start-3`}
       />
     </div>
@@ -197,7 +254,9 @@ function StayHead({ journey, pins, alertAction, className = '' }) {
 // came to this screen for was underneath the tracker, the tracker was above
 // the cover bar, and reading the three together took two scrolls. They answer
 // the same question and belong in the same place.
-function Standing({ journey, sessionId, busy, onAdvance, pinned, alertAction }) {
+function Standing({
+  journey, sessionId, busy, onAdvance, pinned, alertAction, papers, onShowSplit,
+}) {
   return (
     <Card className="motion-safe:animate-rise">
       <StageTrack
@@ -212,6 +271,7 @@ function Standing({ journey, sessionId, busy, onAdvance, pinned, alertAction }) 
         accrued={journey.accrued_display}
         pins={pinned.money}
         alertAction={alertAction}
+        onShowSplit={onShowSplit}
       />
       <BurnDown
         burn={journey.burn_down}
@@ -219,7 +279,7 @@ function Standing({ journey, sessionId, busy, onAdvance, pinned, alertAction }) 
         pins={pinned.cover}
         alertAction={alertAction}
       />
-      <TakeAway sessionId={sessionId} />
+      <TakeAway journey={journey} sessionId={sessionId} papers={papers} />
     </Card>
   )
 }
@@ -373,72 +433,247 @@ function StageTrack({ journey, busy, onAdvance, pins, alertAction }) {
 // A screen cannot be put in front of a hospital insurance desk, and a phone
 // battery does not last a five-day admission. This is the version somebody can
 // argue from, or hand to a relative who has just arrived.
-function TakeAway({ sessionId }) {
+//
+// With bills attached it is a folder rather than a page, and the folder is
+// packed here: the document comes from the server, which has the policy and
+// the ledger, and the bills come from this device, which is the only place
+// they have ever been. Nothing else holds both halves.
+function TakeAway({ journey, sessionId, papers }) {
   const t = useT()
+  const [packing, setPacking] = useState(false)
+  const [failed, setFailed] = useState('')
+
+  async function packAll() {
+    setPacking(true)
+    setFailed('')
+    try {
+      const { blob, filename } = await packStay({
+        reportUrl: api.reportUrl(sessionId),
+        papers,
+        costs: journey.costs ?? [],
+        hospital: journey.hospital_name,
+      })
+      save(blob, filename)
+    } catch (error) {
+      setFailed(error.message)
+    } finally {
+      setPacking(false)
+    }
+  }
+
   return (
     <div className="border-t border-line px-5 py-3.5">
-      <a
-        href={api.reportUrl(sessionId)}
-        className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
-      >
-        <DownloadIcon />
-        {t('journey.download', 'Download this stay')}
-      </a>
-      <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
-        {t(
-          'journey.download.why',
-          'Your cover, the estimate, what is billed, what is left to do. One ' +
-            'page for the insurance desk.')}
-      </p>
+      {papers.length > 0 ? (
+        <>
+          <Button
+            variant="secondary"
+            disabled={packing}
+            onClick={packAll}
+            className="w-full"
+          >
+            {packing ? (
+              t('journey.download.packing', 'Putting it together…')
+            ) : (
+              <>
+                <DownloadIcon />
+                {t('journey.download.all', 'Download the stay and its {count} bills', {
+                  count: papers.length,
+                })}
+              </>
+            )}
+          </Button>
+          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+            {t(
+              'journey.download.all.why',
+              'One folder: the page below, every bill you attached, and an ' +
+                'index tying each one to the charge it belongs to.'
+            )}
+          </p>
+          <a
+            href={api.reportUrl(sessionId)}
+            className="mt-1.5 inline-block text-[0.75rem] text-brand underline"
+          >
+            {t('journey.download.page_only', 'Or just the page, without the bills')}
+          </a>
+        </>
+      ) : (
+        <>
+          <a
+            href={api.reportUrl(sessionId)}
+            className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-medium transition hover:bg-canvas"
+          >
+            <DownloadIcon />
+            {t('journey.download', 'Download this stay')}
+          </a>
+          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+            {t(
+              'journey.download.why',
+              'Your cover, the estimate, what is billed, what is left to do. One ' +
+                'page for the insurance desk.')}
+          </p>
+        </>
+      )}
+
+      {failed && (
+        <p className="mt-2 text-[0.75rem] leading-relaxed text-danger">{failed}</p>
+      )}
     </div>
   )
 }
 
-// The ledger, and what the hospital's own bill says about it.
+// The record of the stay, read three ways.
 //
-// This was three panels taking turns: the charges, a timeline of the stay, and
-// the bill check. The timeline said nothing the charges and the stage marker
-// did not already say, and the bill check is entered from the card above now
-// and reported here, at the head of the charges it is a statement about. What
-// is left is one list with one job.
+// One ledger of charges, one shelf of the paper behind them, and one account
+// of why the family's share is what it is. They are the same stay from three
+// sides and they belong in the same place, which is what the tabs are for:
+// side by side they were three half-empty cards, and stacked they were a
+// scroll each.
+//
+// The third of them used to unfold underneath the figure it explains, in a
+// column too narrow to read a table of deductions in. The figure keeps the
+// button; the answer opens here, at full width.
 function ChargesCard({
-  journey, sessionId, busy, billBusy, onUpdateCost, onDeleteCost, onDropBill,
-  className = '',
+  journey, busy, tab, onTab, papers, papersBusy,
+  onUpdateCost, onDeleteCost, className = '', ref,
 }) {
   const t = useT()
-  const bill = billBusy ? null : journey.bill
+  const steps = journey.position?.steps ?? []
+
+  const tabs = [
+    ['charges', t('journey.tab.charges', 'Charges so far'), journey.costs?.length ?? 0],
+    ['papers', t('journey.tab.papers', 'Bills and receipts'), papers.length],
+    // Only once there is a share to account for. Nothing is recorded before
+    // admission, and a government scheme settles at a package rate that
+    // leaves nothing to deduct.
+    ...(journey.position ? [['split', t('journey.tab.split', 'What you pay'), 0]] : []),
+  ]
+
+  // A tab can go: the last charge is deleted and there is no position left to
+  // explain. Falling back keeps the card from showing nothing at all.
+  const shown = tabs.some(([id]) => id === tab) ? tab : 'charges'
 
   return (
-    <Card className={className}>
-      <CardHeader
-        title={t('journey.charges', 'Charges so far')}
-        aside={<BillVerdict bill={bill} />}
-      />
+    <Card className={className} ref={ref}>
+      {/* Wraps rather than scrolls. A grid item is `min-width: auto` by
+          default, so a strip that refuses to fold takes the whole page
+          sideways; a strip that scrolls instead keeps the page still but hides
+          its last tab off the edge of a phone, where nothing says it is there.
+          Three chips over two lines are legible and all present. */}
+      <div
+        role="tablist"
+        className="flex min-w-0 flex-wrap gap-1 border-b border-line px-2 py-2"
+      >
+        {tabs.map(([id, label, count]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={shown === id}
+            onClick={() => onTab(id)}
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium transition ${
+              shown === id
+                ? 'bg-brand-soft text-brand'
+                : 'text-muted hover:bg-canvas hover:text-ink'
+            }`}
+          >
+            {label}
+            {count > 0 && (
+              <span className="rounded-full bg-canvas px-1.5 text-[0.6875rem] tabular-nums">
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-      {bill && <BillReview bill={bill} busy={busy} onDrop={onDropBill} />}
+      {shown === 'charges' &&
+        (journey.costs?.length > 0 ? (
+          <ChargesList
+            journey={journey}
+            busy={busy}
+            onUpdateCost={onUpdateCost}
+            onDeleteCost={onDeleteCost}
+            onShowPapers={() => onTab('papers')}
+            held={new Set(papers.map((paper) => paper.entry))}
+          />
+        ) : (
+          <p className="px-5 py-6 text-center text-[0.875rem] leading-relaxed text-muted">
+            {t(
+              'journey.charges.none',
+              'Nothing recorded yet. Add each charge as it arrives and the ' +
+                'estimate above keeps up with it.'
+            )}
+          </p>
+        ))}
 
-      {journey.costs?.length > 0 ? (
-        <ChargesList
-          journey={journey}
-          sessionId={sessionId}
-          busy={busy}
-          onUpdateCost={onUpdateCost}
-          onDeleteCost={onDeleteCost}
+      {shown === 'papers' && <Papers papers={papers} busy={papersBusy} />}
+
+      {shown === 'split' && (
+        <Split
+          position={journey.position}
+          accrued={journey.accrued_display}
+          steps={steps}
         />
-      ) : (
-        <p className="px-5 py-6 text-center text-[0.875rem] leading-relaxed text-muted">
-          {t(
-            'journey.charges.none',
-            'Nothing recorded yet. Add each charge as it arrives and the ' +
-              'estimate above keeps up with it.'
-          )}
-        </p>
       )}
     </Card>
   )
 }
 
-function ChargesList({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
+// Every rupee the family pays and the rule that put it there.
+//
+// The question this answers is not "how much" but "on what": which of these
+// charges came back as a co-payment, which as a room cap, which was never
+// payable at all. Each line names the deduction, prices it, and says why in a
+// sentence written from this policy's own figures.
+function Split({ position, accrued, steps }) {
+  const t = useT()
+
+  return (
+    <div className="px-5 py-4">
+      <p className="text-[0.875rem] leading-relaxed">
+        {t(
+          'journey.split.head',
+          'Of the {billed} billed so far, your insurer covers {covered}. The ' +
+            'remaining {yours} is yours.',
+          {
+            billed: accrued,
+            covered: position.insurer_pays_display,
+            yours: position.you_pay_display,
+          }
+        )}
+      </p>
+
+      {steps.length === 0 ? (
+        <p className="mt-3 text-[0.875rem] leading-relaxed text-muted">
+          {t(
+            'journey.split.nothing',
+            'Nothing has been deducted. Every charge recorded so far falls ' +
+              'inside what your policy pays for.'
+          )}
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-3 border-t border-line pt-3">
+          {steps.map((step, index) => (
+            <li key={index}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[0.875rem] font-medium">
+                  {t(`waterfall.${step.kind}`, step.label)}
+                </span>
+                <span className="shrink-0 text-[0.875rem] tabular-nums text-danger">
+                  &minus;{step.deducted_display}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
+                {t(`waterfall.${step.key}.why`, step.explanation, readable(t, step.values))}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function ChargesList({ journey, busy, onUpdateCost, onDeleteCost, onShowPapers, held }) {
   const t = useT()
   const [editing, setEditing] = useState(null)
   const [menuFor, setMenuFor] = useState(null)
@@ -472,16 +707,32 @@ function ChargesList({ journey, sessionId, busy, onUpdateCost, onDeleteCost }) {
                   {cost.description && (
                     <p className="mt-0.5 text-[0.8125rem] text-muted">{cost.description}</p>
                   )}
-                  {cost.receipt_name && (
-                    <a
-                      href={api.receiptUrl(sessionId, cost.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-0.5 inline-block max-w-full truncate text-[0.75rem] text-brand underline"
+                  {/* The paper itself is on this device, not behind a link,
+                      so this opens the shelf rather than a URL. And only when
+                      the device is actually holding it: the name travels with
+                      the stay and the file does not, so a stay restored where
+                      its paperwork is not would otherwise offer to open a
+                      shelf that has nothing on it. */}
+                  {cost.receipt_name && (held.has(cost.id) ? (
+                    <button
+                      onClick={onShowPapers}
+                      className="mt-0.5 flex max-w-full items-center gap-1 text-[0.75rem] text-brand"
                     >
-                      {cost.receipt_name}
-                    </a>
-                  )}
+                      <ClipIcon />
+                      <span className="truncate underline">{cost.receipt_name}</span>
+                    </button>
+                  ) : (
+                    <span
+                      title={t(
+                        'journey.receipt.elsewhere',
+                        'This bill was attached on another device, so it is not here.'
+                      )}
+                      className="mt-0.5 flex max-w-full items-center gap-1 text-[0.75rem] text-muted"
+                    >
+                      <ClipIcon />
+                      <span className="truncate">{cost.receipt_name}</span>
+                    </span>
+                  ))}
                 </div>
 
                 <span className="shrink-0 text-[0.875rem] font-medium tabular-nums">
@@ -621,6 +872,18 @@ function EditCharge({ cost, onSave, onClose, busy }) {
   )
 }
 
+function ClipIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24" aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+    >
+      <path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 0 1-2.59-2.6l8.49-8.48" />
+    </svg>
+  )
+}
+
 function DownloadIcon() {
   return (
     <svg
@@ -732,9 +995,8 @@ function Checklist({ checklist, stageLabel, onToggle, busy }) {
 // differ, the estimator on the previous screen had already worked out by how
 // much, and showing the hospital's number here left two figures contradicting
 // each other with no way for a reader to tell which one to plan against.
-function Position({ position, accrued, pins, alertAction }) {
+function Position({ position, accrued, pins, alertAction, onShowSplit }) {
   const t = useT()
-  const [open, setOpen] = useState(false)
   if (!position) return null
 
   return (
@@ -761,38 +1023,17 @@ function Position({ position, accrued, pins, alertAction }) {
           )}
         </p>
 
+        {/* The answer is a table of deductions, each with a sentence under it,
+            and this column is a third of the width one is readable in. The
+            question is asked here, beside the figure that raises it, and
+            answered on the record's own page. */}
         {position.steps.length > 0 && (
-          <>
-            <button
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              className="mt-3 text-[0.875rem] font-medium text-brand transition hover:underline"
-            >
-              {open
-                ? t('journey.position.hide', 'Hide where the difference comes from')
-                : t('journey.position.show', 'Show where the difference comes from')}
-            </button>
-
-            {open && (
-              <ul className="mt-3 space-y-2.5 border-t border-line pt-3 motion-safe:animate-fade">
-                {position.steps.map((step, index) => (
-                  <li key={index}>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[0.875rem] font-medium">
-                        {t(`waterfall.${step.kind}`, step.label)}
-                      </span>
-                      <span className="shrink-0 text-[0.875rem] tabular-nums text-danger">
-                        &minus;{step.deducted_display}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-                      {t(`waterfall.${step.key}.why`, step.explanation, readable(t, step.values))}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
+          <button
+            onClick={onShowSplit}
+            className="mt-3 text-[0.875rem] font-medium text-brand transition hover:underline"
+          >
+            {t('journey.position.show', 'Show where the difference comes from')}
+          </button>
         )}
       </div>
     </div>
@@ -991,42 +1232,57 @@ const HEADS = [
   ['non_medical', 'Non-medical items'],
 ]
 
-// Matches the server's limit. Checked here as well so a photograph that is too
-// large is refused instantly, rather than after being sent over a phone
-// connection in a hospital and rejected at the far end.
+// A phone photograph of a bill is a megabyte or two. Ten is generous for one,
+// and it is a ceiling on what a stay can put in the browser's own store, which
+// is finite and shared with everything else this device keeps.
 const MAX_RECEIPT_MB = 10
 
-// One charge, entered in a hurry.
+// One charge, entered in a hurry, with the paper it came from.
 //
 // It was a column: a labelled dropdown, a labelled box, a full-width dashed
 // button, a checkbox and a full-width button, five rows deep for two facts.
 // The two facts and the button that files them are one row now; what is
 // optional sits under them, out of the way of somebody entering the fourth
 // charge of the day.
-function CostCard({
-  onRecordCost, busy, className = '',
-  showBill, bill, billBusy, billProgress, onCheckBill,
-}) {
+//
+// The attachment is the part worth having. A charge is a line and a number,
+// and what settles an argument at a claims desk is the invoice that line came
+// from. Attached now, while it is in somebody's hand, it is filed against this
+// charge and cannot be the receipt nobody can find in six weeks.
+function CostCard({ onRecordCost, busy, className = '' }) {
   const t = useT()
   const [head, setHead] = useState('room_rent')
   const [amount, setAmount] = useState('')
   const [advanceDay, setAdvanceDay] = useState(true)
   const [receipt, setReceipt] = useState(null)
-  const [tooLarge, setTooLarge] = useState('')
+  const [refused, setRefused] = useState('')
   const fileRef = useRef(null)
+
+  function clearFile() {
+    setReceipt(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   function attach(file) {
     if (!file) return
+    if (!typeOf(file.name)) {
+      setRefused(
+        t('journey.receipt.wrong_kind',
+          'Attach a PDF or a photo of the bill: PDF, JPG, PNG, WEBP, HEIC or TIFF.')
+      )
+      clearFile()
+      return
+    }
     if (file.size > MAX_RECEIPT_MB * 1024 * 1024) {
-      setTooLarge(
+      setRefused(
         t('journey.receipt.too_large',
           'That file is {size} MB. The largest we can take is {limit} MB.',
           { size: (file.size / 1024 / 1024).toFixed(0), limit: MAX_RECEIPT_MB })
       )
-      if (fileRef.current) fileRef.current.value = ''
+      clearFile()
       return
     }
-    setTooLarge('')
+    setRefused('')
     setReceipt(file)
   }
 
@@ -1068,8 +1324,7 @@ function CostCard({
             onClick={() => {
               onRecordCost({ head, amount: Number(amount), advanceDay, receipt })
               setAmount('')
-              setReceipt(null)
-              if (fileRef.current) fileRef.current.value = ''
+              clearFile()
             }}
           >
             {t('journey.charge.add', 'Add charge')}
@@ -1082,18 +1337,16 @@ function CostCard({
           <input
             ref={fileRef}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.tif,.tiff"
+            accept={ACCEPT}
             className="hidden"
             onChange={(event) => attach(event.target.files?.[0])}
           />
           {receipt ? (
             <span className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5">
+              <ClipIcon />
               <span className="min-w-0 truncate text-[0.8125rem]">{receipt.name}</span>
               <button
-                onClick={() => {
-                  setReceipt(null)
-                  if (fileRef.current) fileRef.current.value = ''
-                }}
+                onClick={clearFile}
                 className="shrink-0 text-[0.75rem] text-muted underline"
               >
                 {t('journey.receipt.remove', 'remove')}
@@ -1102,8 +1355,9 @@ function CostCard({
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              className="rounded-lg border border-dashed border-line px-3 py-1.5 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-1.5 text-[0.8125rem] text-muted transition hover:border-brand/40 hover:text-ink"
             >
+              <ClipIcon />
               {t('journey.receipt.attach', 'Attach the bill or receipt (optional)')}
             </button>
           )}
@@ -1119,23 +1373,19 @@ function CostCard({
           </label>
         </div>
 
-        {tooLarge && (
-          <p className="mt-2 text-[0.75rem] leading-relaxed text-warn">{tooLarge}</p>
+        {refused && (
+          <p className="mt-2 text-[0.75rem] leading-relaxed text-warn">{refused}</p>
+        )}
+
+        {receipt && (
+          <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
+            {t(
+              'journey.receipt.kept',
+              'Kept on this device with the charge. It is never uploaded.'
+            )}
+          </p>
         )}
       </div>
-
-      {/* The other thing that arrives on paper. Not before admission, when
-          there is no bill to read yet, and not once one has been read, when
-          what matters is what it said rather than another chance to send it.
-          Interim bills do arrive mid-stay, so it does not wait for
-          discharge. */}
-      {showBill && !bill && (
-        <BillUpload
-          busy={billBusy}
-          progress={billProgress}
-          onCheck={onCheckBill}
-        />
-      )}
     </Card>
   )
 }

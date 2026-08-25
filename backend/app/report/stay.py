@@ -146,6 +146,7 @@ def build(session, *, generated_at: datetime | None = None) -> bytes:
     _not_yet_covered(story, policy)
     _chosen(story, session)
     _estimate(story, session)
+    _position(story, session)
     _bill(story, session)
     _spent(story, session)
     _outstanding(story, session)
@@ -338,7 +339,64 @@ def _bill(story: list, session) -> None:
         story.append(Spacer(1, 4))
 
 
+def _position(story: list, session) -> None:
+    """Where the stay stands today, and every rupee of it that is the family's.
+
+    This is the figure somebody argues from at a counter, and it was the one
+    thing on the screen that never reached the paper: the page carried what the
+    stay was estimated to cost before admission and what has been billed since,
+    and left the reader to hold the two against each other themselves. The
+    estimate is a plan. This is the bill.
+    """
+    journey = session.journey
+    policy = session.policy
+    if journey is None or policy is None:
+        return
+
+    from app.journey import position as live
+
+    result = live.position(journey, policy)
+    if result is None:
+        return
+
+    story.append(_heading("Where this stands today"))
+    story.append(_pairs([
+        ("Billed by the hospital so far", format_inr(result.bill.total)),
+        ("Your insurer's share of that", format_inr(result.payable_by_insurer)),
+        ("Yours to pay", format_inr(result.out_of_pocket)),
+    ]))
+
+    if not result.steps:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(
+            "Nothing has been deducted. Every charge recorded so far falls "
+            "inside what this policy pays for.",
+            SMALL,
+        ))
+        return
+
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("Every deduction, and the rule behind it:", SMALL))
+    story.append(Spacer(1, 4))
+    story.append(_table(
+        ["Deduction", "Why", "Amount"],
+        [
+            [step.kind.label, step.explanation, format_inr(abs(step.deducted))]
+            for step in result.steps
+        ],
+        [0.24, 0.56, 0.20],
+    ))
+
+
 def _spent(story: list, session) -> None:
+    """The ledger, numbered, so the paper behind it can be found.
+
+    The row number is not decoration. The bills themselves are on the device
+    that photographed them, and when the stay is downloaded whole they are
+    packed beside this page under those numbers: row 03 here is the file
+    beginning 03- there. A page of figures nobody can trace to a receipt is
+    the thing an insurance desk sends back.
+    """
     journey = session.journey
     if journey is None or not journey.costs:
         return
@@ -346,17 +404,36 @@ def _spent(story: list, session) -> None:
     story.append(_heading("What has actually been billed"))
     rows = [
         [
+            f"{index:02d}",
             f"{entry.recorded_at:%d %b}",
             entry.head.label,
             entry.description or "-",
+            entry.receipt_name or "-",
             format_inr(entry.amount),
         ]
-        for entry in journey.costs
+        for index, entry in enumerate(journey.costs, start=1)
     ]
-    rows.append(["", "Total", "", format_inr(journey.accrued_total)])
+    rows.append(["", "", "Total", "", "", format_inr(journey.accrued_total)])
     story.append(_table(
-        ["Date", "Head", "Description", "Amount"], rows, [0.13, 0.24, 0.43, 0.20]
+        ["#", "Date", "Head", "Description", "Bill attached", "Amount"],
+        rows,
+        [0.05, 0.11, 0.19, 0.26, 0.22, 0.17],
     ))
+
+    documented = sum(1 for entry in journey.costs if entry.receipt_name)
+    if documented:
+        counted = (
+            f"One of these {len(journey.costs)} charges has a bill attached"
+            if documented == 1
+            else f"{documented} of these {len(journey.costs)} charges have bills attached"
+        )
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(
+            f"{counted}. Those files are held on the device this stay was "
+            "tracked on. Downloading the stay with them packs each one beside "
+            "this page, named for the row it belongs to above.",
+            SMALL,
+        ))
 
 
 def _outstanding(story: list, session) -> None:

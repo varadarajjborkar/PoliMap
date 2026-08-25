@@ -82,6 +82,56 @@ export function SignIn({ onSignIn, onOpenSettings }) {
   )
 }
 
+// Handing the phone back.
+//
+// This is not a sign-out, because there is nothing signed in: a name here is a
+// way of keeping one family's stays apart from another's on a shared device.
+// Leaving takes that name's things with it, all of them, so a phone that has
+// been round a waiting room does not end up holding four families' policies.
+//
+// Asked twice, because it is the one control on this screen that destroys
+// anything, and it sits an inch from the settings button.
+function SwitchUser({ onSwitch }) {
+  const t = useT()
+  const [asked, setAsked] = useState(false)
+
+  if (!asked) {
+    return (
+      <button
+        onClick={() => setAsked(true)}
+        className="text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
+      >
+        {t('home.switch_user', 'Not you?')}
+      </button>
+    )
+  }
+
+  return (
+    <div className="text-right">
+      <p className="text-[0.75rem] leading-snug text-muted">
+        {t(
+          'home.switch_user.warn',
+          'This removes everything saved under this name from this device.'
+        )}
+      </p>
+      <div className="mt-1 flex justify-end gap-2">
+        <button
+          onClick={onSwitch}
+          className="rounded-lg border border-danger/30 px-2.5 py-1 text-[0.8125rem] text-danger transition hover:bg-danger-soft"
+        >
+          {t('home.switch_user.yes', 'Remove and sign out')}
+        </button>
+        <button
+          onClick={() => setAsked(false)}
+          className="rounded-lg border border-line px-2.5 py-1 text-[0.8125rem] transition hover:bg-canvas"
+        >
+          {t('home.switch_user.no', 'Stay')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function StayList({
   user, stays, onOpen, onNew, onDelete, onSwitchUser, onOpenSettings,
 }) {
@@ -108,12 +158,7 @@ export function StayList({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <button
-            onClick={onSwitchUser}
-            className="text-[0.875rem] text-muted underline-offset-2 transition hover:text-brand hover:underline"
-          >
-            {t('home.switch_user', 'Not you?')}
-          </button>
+          <SwitchUser onSwitch={onSwitchUser} />
           <SettingsButton onClick={onOpenSettings} />
         </div>
       </div>

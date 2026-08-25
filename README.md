@@ -185,18 +185,46 @@ hours after the fact. So the model bends where reality does:
 ![The skip notice](docs/images/09-skip.png)
 
 Charges are entered in a hurry, at a billing counter, which means some of them
-are entered wrong. Every one can be corrected or removed, and a photograph of
-the bill can be attached at the moment it is in your hand rather than hunted
-for weeks later at claim time.
+are entered wrong. Every one can be corrected or removed, and the bill it came
+from can be attached at the moment it is in your hand rather than hunted for
+weeks later at claim time. A charge is a line and a number; what settles an
+argument at a claims desk is the invoice that line came from.
 
-![Correcting a charge](docs/images/10-charges.png)
+So the record of a stay is read three ways, in one place. **Charges so far** is
+the ledger. **Bills and receipts** is the paper behind it, grouped by what each
+was paid for the way photographs group into albums, and openable one at a time
+without leaving the page. **What you pay** is the arithmetic between the two:
+every deduction that turns what the hospital billed into what the family owes,
+named, priced, and explained in a sentence written from this policy's own
+figures. That last one used to unfold under the figure it explains, in a column
+a third of the width a table of deductions is readable in. The figure keeps the
+button; the answer opens here, at full width.
 
-### 6. The final bill, checked line by line
+![The bills behind the charges](docs/images/10-charges.png)
+
+**The bills never leave the device.** There is no cloud here and there is not
+meant to be one: a photograph of a pharmacy bill is somebody's hospital
+paperwork. It is held in the browser's own store, keyed to the name that added
+it and the stay it belongs to, and the server is told the file's *name* and
+nothing else, which is all the ledger and the printed page need in order to say
+that a charge is documented. Keyed to the stay rather than the session on
+purpose: sessions expire on the server and a restart mints a new id for the same
+admission, so a receipt filed under one would go missing on the first reload.
+
+Which leaves one thing only the browser can do. The stay document is a page the
+server renders, because the server has the policy and the ledger; the bills are
+here, because they have never been anywhere else. **Download this stay** puts
+the two in one archive, written in the page itself, with an index tying each
+file to the row of the ledger it documents: row 03 on the page is the file
+beginning `03-` in the folder. A family at a claims counter needs one file, not
+a page and a folder of photographs they have to find again.
+
+### 6. The final bill, read line by line
 
 Discharge is the worst moment to read a bill for the first time, and it is the
 only moment most people get. A fair number of lines on one are negotiable, and
-the ones that are follow rules anybody can check. Photograph the itemised bill
-and it comes back read:
+the ones that are follow rules anybody can check. `app/bill` takes an itemised
+bill and reports:
 
 * **Items billed twice for one thing.** The IRDAI schedule places gowns, blades,
   dressings and admission kits *inside* the room or procedure charge. Billed
@@ -220,14 +248,18 @@ correctly whatever the recognition score says, and one that does not is told so
 rather than handed a fifty thousand rupee discrepancy that exists only in our
 reading.
 
-The settlement underneath is the same waterfall the estimate used, so a family
-quoted one figure before admission and handed another at discharge can see which
-line moved.
+This one has no screen at the moment. The stay page used to carry a panel that
+took a whole final bill and reported on it; what people actually reached for
+while standing at the counter was somewhere to put the piece of paper in their
+hand, against the charge it belonged to, which is what §5 is now. The reader
+itself is a route (`POST /api/journey/{id}/bill`), covered by
+`backend/tests/test_bill_*.py`, and scored against a twenty-bill corpus with
+known findings by `python -m bench.run`.
 
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 762 keys, each resolving in all five. Not
+Every word it writes itself: 702 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -395,7 +427,7 @@ extractor alone, and says so rather than pretending.
 **Verifying it**
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q     # 1070 tests
+cd backend && ../.venv/bin/python -m pytest -q     # 1074 tests
 
 .venv/bin/python -m ruff check .                   # lint, whole repository
 cd frontend && npm run lint                        # includes: every interface
@@ -616,8 +648,14 @@ script at all. The one script that was inline, which sets the theme before first
 paint, is a file for that reason. The bundle contains no `eval`, so
 `unsafe-eval` is not needed either. The API returns its own policy of
 `default-src 'none'` alongside nosniff, a denied frame, and no referrer.
-Uploaded receipts are served as attachments with sniffing off, so an HTML page
-wearing a `.png` suffix cannot become a page running on the API's origin.
+A bill somebody attaches to a charge never reaches the API at all, and in the
+browser it is re-typed from its own file extension before it is stored, so it is
+previewed as the image or PDF it was filed as rather than as whatever is inside
+it: an HTML page wearing a `.png` suffix renders as a broken picture rather than
+as a page running on this origin. PDFs are shown in a frame with an empty
+`sandbox`. What does arrive here is the file's name, which is somebody else's
+text kept in a session, printed on a page and used to name a file inside an
+archive they will unpack, so it is cut to its last path component and capped.
 
 **The help desk.** It is the one place a person's own words reach a model, and
 the guarantee that matters there is structural rather than a pattern: it is
@@ -661,7 +699,7 @@ backend/app/
   agents/       provider-agnostic model layer with role-based fallback chains
   schemas/      the domain contracts
   journey/      care journey tracking
-  bill/         reading a hospital bill and checking it
+  bill/         reading a hospital bill and checking it (API and bench only)
   help/         the help desk: knowledge.yaml, guardrails.yaml, and the
                 two modules that read them
   report/       the stay as one printable page

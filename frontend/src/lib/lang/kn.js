@@ -29,7 +29,6 @@ export default {
   'step.short.policy': 'ಕವರೇಜ್',
   'step.short.search': 'ಆಸ್ಪತ್ರೆಗಳು',
 
-  'results.you_pay': 'ನೀವು ಪಾವತಿಸುವುದು',
   'results.insurer_pays': 'ವಿಮಾ ಕಂಪನಿ ಪಾವತಿಸುವುದು',
 
   'journey.stage.pre_admission': 'ದಾಖಲಾಗುವ ಮೊದಲು',
@@ -39,22 +38,13 @@ export default {
   'journey.download': 'ಈ ಪೂರ್ಣ ವಿವರ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ',
   'journey.download.why':
     'ನಿಮ್ಮ ಕವರ್, ಅಂದಾಜು, ಇಲ್ಲಿಯವರೆಗಿನ ಬಿಲ್, ಮತ್ತು ಉಳಿದದ್ದು. ವಿಮಾ ಕೌಂಟರ್‌ಗೆ ಒಂದು ಪುಟ.',
-  'journey.charges': 'ಇಲ್ಲಿಯವರೆಗಿನ ಖರ್ಚು',
+  'journey.download.all': 'ಪೂರ್ಣ ವಿವರ ಮತ್ತು {count} ಬಿಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ',
+  'journey.download.all.why':
+    'ಒಂದೇ ಫೋಲ್ಡರ್: ಕೆಳಗಿನ ಪುಟ, ನೀವು ಲಗತ್ತಿಸಿದ ಪ್ರತಿ ಬಿಲ್, ಮತ್ತು ಯಾವ ಬಿಲ್ ಯಾವ ಖರ್ಚಿಗೆ ಸೇರಿದ್ದು ಎಂದು ಹೇಳುವ ಪಟ್ಟಿ.',
+  'journey.download.packing': 'ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ…',
+  'journey.download.page_only': 'ಅಥವಾ ಬಿಲ್‌ಗಳಿಲ್ಲದೆ ಪುಟ ಮಾತ್ರ',
   'journey.add_charge': 'ಖರ್ಚು ಸೇರಿಸಿ',
   'journey.checklist': 'ಈಗ ಏನು ಮಾಡಬೇಕು',
-
-  'bill.title': 'ಕೊನೆಯ ಬಿಲ್ ಪರಿಶೀಲಿಸಿ',
-  'bill.subtitle':
-    'ಯಾವ ಪಾಲಿಸಿಯೂ ಪಾವತಿಸದ ವಸ್ತುಗಳ IRDAI ಪಟ್ಟಿಯ ವಿರುದ್ಧ, ಮತ್ತು ನಿಮ್ಮ ಸ್ವಂತ ಕವರೇಜ್ ವಿರುದ್ಧ.',
-  'bill.upload': 'ಬಿಲ್ ಫೋಟೋ ತೆಗೆಯಿರಿ ಅಥವಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ',
-  'bill.reading': 'ಬಿಲ್ ಓದಲಾಗುತ್ತಿದೆ…',
-  'bill.nothing': 'IRDAI ಪಟ್ಟಿ ಅಥವಾ ನಿಮ್ಮ ಪಾಲಿಸಿಯ ವಿರುದ್ಧ ಈ ಬಿಲ್‌ನಲ್ಲಿ ಏನೂ ಎದ್ದು ಕಾಣಲಿಲ್ಲ.',
-  'bill.settles_to': 'ಈ ಬಿಲ್‌ನ ಲೆಕ್ಕ',
-  'bill.show_lines': 'ಓದಿದ ಸಾಲುಗಳನ್ನು ತೋರಿಸಿ',
-  'bill.hide_lines': 'ಸಾಲುಗಳನ್ನು ಮರೆಮಾಡಿ',
-  'bill.another': 'ಬೇರೆ ಬಿಲ್ ಪರಿಶೀಲಿಸಿ',
-  'bill.to_ask': 'ಕೇಳಬೇಕಾದದ್ದು',
-  'bill.nothing_to_raise': 'ಎತ್ತಬೇಕಾದದ್ದು ಏನೂ ಇಲ್ಲ',
 
   'help.open': 'ಸಹಾಯ',
   'help.title': 'ಸಹಾಯ',
@@ -160,6 +150,10 @@ export default {
   'home.welcome': 'ಮತ್ತೆ ಸ್ವಾಗತ, {name}',
   'home.first': 'ಪಾಲಿಸಿ ಓದಿಸುವುದರಿಂದ ಶುರು ಮಾಡಿ. ಆ ನಂತರದ್ದೆಲ್ಲ ಇಲ್ಲೇ ಉಳಿಯುತ್ತದೆ.',
   'home.switch_user': 'ನೀವಲ್ಲವೇ?',
+  'home.switch_user.warn':
+    'ಇದರಿಂದ ಈ ಹೆಸರಿನಲ್ಲಿ ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿಸಿದ ಎಲ್ಲವೂ ಅಳಿಸಿಹೋಗುತ್ತದೆ.',
+  'home.switch_user.yes': 'ಅಳಿಸಿ ಹೊರಬನ್ನಿ',
+  'home.switch_user.no': 'ಬೇಡ',
   'home.policy_read': 'ಪಾಲಿಸಿ ಓದಲಾಗಿದೆ',
   'home.delete': '{stay} ಅಳಿಸಿ',
   'home.delete.short': 'ಅಳಿಸಿ',
@@ -195,10 +189,6 @@ export default {
   'reading.search': 'ನಿಮ್ಮ ಆಯ್ಕೆಗಳನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ',
   'reading.search.hint':
     'ವ್ಯಾಪ್ತಿಯ ಪ್ರತಿ ಆಸ್ಪತ್ರೆಯ ಖರ್ಚನ್ನು ನಿಮ್ಮ ಪಾಲಿಸಿಯ ಪ್ರಕಾರ ಒಂದೊಂದಾಗಿ ಲೆಕ್ಕ ಹಾಕಲಾಗುತ್ತಿದೆ.',
-  'reading.bill': 'ನಿಮ್ಮ ಬಿಲ್ ಓದಲಾಗುತ್ತಿದೆ',
-  'reading.bill.waiting': 'ಬಿಲ್ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ. ಈ ಪುಟವನ್ನು ತೆರೆದಿಡಿ.',
-  'reading.bill.hint':
-    'ಫೋಟೋಗೆ PDF ಗಿಂತ ಹೆಚ್ಚು ಸಮಯ: ಪ್ರತಿ ಸಾಲನ್ನೂ ಮೊದಲು ಗುರುತಿಸಬೇಕು.',
 
   'reading.document': '{total} ರಲ್ಲಿ ದಾಖಲೆ {index}',
   'reading.starting': 'ಶುರುವಾಗುತ್ತಿದೆ.',
@@ -210,9 +200,6 @@ export default {
   'phase.find': 'ಈ ಚಿಕಿತ್ಸೆ ಮಾಡಬಲ್ಲ ಆಸ್ಪತ್ರೆಗಳನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ',
   'phase.cost': 'ಪ್ರತಿಯೊಂದರಲ್ಲೂ ನಿಮಗೆ ಎಷ್ಟು ಖರ್ಚಾಗುತ್ತದೆ ಎಂದು ಲೆಕ್ಕ ಹಾಕಲಾಗುತ್ತಿದೆ',
   'phase.rank': 'ಕ್ರಮದಲ್ಲಿ ಜೋಡಿಸಲಾಗುತ್ತಿದೆ',
-  'phase.doc': 'ದಾಖಲೆ ಓದಲಾಗುತ್ತಿದೆ',
-  'phase.lines': 'ಪ್ರತಿ ಸಾಲು ಮತ್ತು ಅದರ ಅರ್ಥ ಹುಡುಕಲಾಗುತ್ತಿದೆ',
-  'phase.against_policy': 'ನಿಮ್ಮ ಪಾಲಿಸಿ ಮತ್ತು IRDAI ಪಟ್ಟಿಯೊಂದಿಗೆ ತಾಳೆ ನೋಡಲಾಗುತ್ತಿದೆ',
   'count.pages': '{done}/{total} ಪುಟಗಳು',
   'count.sections': '{done}/{total} ಭಾಗಗಳು',
   'note.reading': '{file} ಓದಲಾಗುತ್ತಿದೆ',
@@ -231,8 +218,6 @@ export default {
   'note.matched': '{considered} ರಲ್ಲಿ {matched} ಆಸ್ಪತ್ರೆಗಳು ಹೊಂದುತ್ತವೆ',
   'note.costed': 'ಅವುಗಳಲ್ಲಿ {costed} ಕ್ಕೆ ಖರ್ಚು ಲೆಕ್ಕ ಹಾಕಲಾಯಿತು',
   'note.shortlisted': '{shortlisted} ಆಯ್ಕೆಯಾದವು',
-  'note.lines': '{lines} ಸಾಲುಗಳು ಸಿಕ್ಕವು',
-  'note.findings': 'ಗಮನಿಸಬೇಕಾದ {findings} ವಿಷಯಗಳು',
 
   'locked.policy': 'ನಿಮ್ಮ ಕವರ್',
   'locked.policy.why':
@@ -557,12 +542,38 @@ export default {
     'ಈ ಕಡತ {size} MB ಇದೆ. ನಾವು ಗರಿಷ್ಠ {limit} MB ತೆಗೆದುಕೊಳ್ಳಬಹುದು.',
   'journey.receipt.remove': 'ತೆಗೆದುಹಾಕಿ',
   'journey.receipt.attach': 'ಬಿಲ್ ಅಥವಾ ರಸೀದಿ ಲಗತ್ತಿಸಿ (ಕಡ್ಡಾಯವಲ್ಲ)',
+  'journey.receipt.kept':
+    'ಇದು ಖರ್ಚಿನ ಜೊತೆಗೆ ಇದೇ ಸಾಧನದಲ್ಲಿ ಉಳಿಯುತ್ತದೆ. ಎಲ್ಲಿಗೂ ಕಳಿಸುವುದಿಲ್ಲ.',
+  'journey.receipt.elsewhere':
+    'ಈ ಬಿಲ್ ಬೇರೆ ಸಾಧನದಲ್ಲಿ ಲಗತ್ತಿಸಲಾಗಿತ್ತು, ಹಾಗಾಗಿ ಇಲ್ಲಿ ಇಲ್ಲ.',
+  'journey.receipt.wrong_kind':
+    'ಬಿಲ್‌ನ PDF ಅಥವಾ ಫೋಟೋ ಲಗತ್ತಿಸಿ: PDF, JPG, PNG, WEBP, HEIC ಅಥವಾ TIFF.',
+  'journey.tab.charges': 'ಇಲ್ಲಿಯವರೆಗಿನ ಖರ್ಚು',
+  'journey.tab.papers': 'ಬಿಲ್ ಮತ್ತು ರಸೀದಿಗಳು',
+  'journey.tab.split': 'ನೀವು ಕಟ್ಟುವುದು',
+  'journey.split.head':
+    'ಇಲ್ಲಿಯವರೆಗೆ ಬಂದ {billed} ಬಿಲ್‌ನಲ್ಲಿ {covered} ನಿಮ್ಮ ವಿಮಾ ಕಂಪನಿ ಕಟ್ಟುತ್ತದೆ. ಉಳಿದ {yours} ನಿಮ್ಮದು.',
+  'journey.split.nothing':
+    'ಏನೂ ಕಡಿತವಾಗಿಲ್ಲ. ಇಲ್ಲಿಯವರೆಗೆ ದಾಖಲಾದ ಪ್ರತಿ ಖರ್ಚೂ ನಿಮ್ಮ ಪಾಲಿಸಿ ಕಟ್ಟುವ ವ್ಯಾಪ್ತಿಯಲ್ಲಿದೆ.',
+  'journey.papers.none':
+    'ಇನ್ನೂ ಏನೂ ಲಗತ್ತಿಸಿಲ್ಲ. ಖರ್ಚು ಸೇರಿಸುವಾಗ ಅದರ ಬಿಲ್ ಅಥವಾ ರಸೀದಿಯನ್ನೂ ಲಗತ್ತಿಸಿ, ಅದು ಆ ಖರ್ಚಿನ ಹೆಸರಿನಲ್ಲಿ ಇಲ್ಲಿ ಸೇರುತ್ತದೆ.',
+  'journey.papers.reading': 'ನಿಮ್ಮ ಕಡತಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…',
+  'journey.papers.count': '{count} ಲಗತ್ತಿಸಲಾಗಿದೆ',
+  'journey.papers.for': '{head} · {amount} · {when} ಸೇರಿಸಲಾಗಿದೆ',
+  'journey.papers.position': '{total}ರಲ್ಲಿ {at}',
+  'journey.papers.previous': 'ಹಿಂದಿನದು',
+  'journey.papers.next': 'ಮುಂದಿನದು',
+  'journey.papers.save': 'ಉಳಿಸಿ',
+  'journey.papers.close': 'ಮುಚ್ಚಿ',
+  'journey.papers.unshowable':
+    'ಈ ಬ್ರೌಸರ್ ಈ ಬಗೆಯ ಕಡತವನ್ನು ತೆರೆಯುವುದಿಲ್ಲ. ಕಡತ ಇದ್ದಂತೆಯೇ ಇದೆ ಮತ್ತು ಡೌನ್‌ಲೋಡ್‌ನಲ್ಲಿ ಬರುತ್ತದೆ.',
+  'journey.papers.where':
+    'ಇವು ಇದೇ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಇವೆ, ಎಲ್ಲಿಗೂ ಕಳಿಸುವುದಿಲ್ಲ. ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದಾಗ ಪೂರ್ಣ ವಿವರದ ಜೊತೆ ಬರುತ್ತವೆ.',
   'journey.checklist.count': '{total} ರಲ್ಲಿ {done}',
   'journey.checklist.now': 'ಈಗ',
   'journey.position.you_pay': 'ಇಲ್ಲಿಯವರೆಗೆ ನೀವು ಕೊಡುವುದು',
   'journey.position.split':
     'ಆಸ್ಪತ್ರೆ {billed} ಬಿಲ್ ಮಾಡಿದೆ. ಅದರಲ್ಲಿ {covered} ನಿಮ್ಮ ವಿಮಾ ಕಂಪನಿ ಕೊಡುತ್ತದೆ.',
-  'journey.position.hide': 'ವ್ಯತ್ಯಾಸ ಎಲ್ಲಿಂದ ಬರುತ್ತದೆ ಎಂಬುದನ್ನು ಮರೆಮಾಡಿ',
   'journey.position.show': 'ವ್ಯತ್ಯಾಸ ಎಲ್ಲಿಂದ ಬರುತ್ತದೆ ಎಂಬುದನ್ನು ನೋಡಿ',
   'journey.burn.used': 'ಇಲ್ಲಿಯವರೆಗೆ ಬಳಸಿದ ಕವರ್',
   'journey.burn.of': '{total} ರಲ್ಲಿ {used}',
@@ -602,16 +613,6 @@ export default {
 
   'list.a_stage': 'ಒಂದು ಹಂತ',
   'list.and': 'ಮತ್ತು',
-
-  'bill.what_we_do':
-    'ಒಂದೇ ಸಾಲಿನ ಮೊತ್ತವಲ್ಲ, ವಿವರವಾದ ಬಿಲ್ ಕೇಳಿ ಮತ್ತು ಅದರ ಫೋಟೋ ತೆಗೆಯಿರಿ. ನಾವು ಪ್ರತಿ ಸಾಲನ್ನೂ ಓದಿ, ಸಹಿ ಹಾಕುವ ಮೊದಲು ಏನನ್ನು ಎತ್ತಬೇಕು ಎಂದು ಹೇಳುತ್ತೇವೆ: ಈಗಾಗಲೇ ಬೇರೊಂದರೊಳಗಿರುವ ಶುಲ್ಕ, ಎರಡು ಬಾರಿ ಬಂದ ಸಾಲು, ಗುಣಿಸಲಾಗದ ಅಂಕಿ, ಮತ್ತು ವಿಮಾ ಕಂಪನಿ ಮಾಡುವ ಆದರೆ ಯಾರೂ ಹೇಳದ ಕಡಿತ.',
-  'bill.photo_hint':
-    'ಎದುರಿನಿಂದ, ಒಳ್ಳೆಯ ಬೆಳಕಿನಲ್ಲಿ. ಬಿಲ್ಲಿಂಗ್ ಕೌಂಟರ್‌ನಿಂದ ಸಿಕ್ಕ PDF ನಿಖರವಾಗಿ ಓದುತ್ತದೆ.',
-  'bill.settles_to.hint': 'ಅಂದಾಜಿನಲ್ಲಿದ್ದ ಅದೇ ಲೆಕ್ಕವನ್ನು ನಿಜವಾದ ಬಿಲ್‌ಗೆ ಅನ್ವಯಿಸಲಾಗಿದೆ.',
-  'bill.col.line': 'ಕ್ರಮ',
-  'bill.col.item': 'ವಸ್ತು',
-  'bill.col.head': 'ಶೀರ್ಷಿಕೆ',
-  'bill.col.amount': 'ಮೊತ್ತ',
 
   'settings.close': 'ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಮುಚ್ಚಿ',
   'settings.close.short': 'ಮುಚ್ಚಿ',
@@ -784,7 +785,6 @@ export default {
   'billnote.icu_days': 'ತೀವ್ರ ನಿಗಾದಲ್ಲಿ {n} ದಿನ',
   'billnote.tier_scaled': 'ಕೊಠಡಿ ಪ್ರಕಾರದಿಂದ ನಿರ್ಧಾರ',
   'billnote.non_medical': 'ನೋಂದಣಿ, ದಾಖಲೆ, ಸಹಾಯಕ',
-  'bill.lines_at': 'ಸಾಲುಗಳು {lines}',
 
   // What needs attention now, and what has happened so far.
   'alert.room_rate_conflict': 'ನಿಮ್ಮ ಕೊಠಡಿಯ ಬಿಲ್ ಬೇರೆ ದರದಲ್ಲಿ ಆಗುತ್ತಿದೆ',
@@ -891,89 +891,6 @@ export default {
     'ಪಾಲಿಸಿ ಶುರುವಾಗುವ ಮೊದಲಿನ ಕಾಯಿಲೆ {clears} ರಿಂದ ಕವರ್ ಆಗುತ್ತದೆ.',
   'elig.pre_existing_years.detail':
     'ಪಾಲಿಸಿ ಶುರುವಾಗುವ ಮೊದಲಿನ ಕಾಯಿಲೆ {clears} ರಿಂದ ಕವರ್ ಆಗುತ್ತದೆ.',
-
-  // A bill, read and checked against the policy.
-  'findkind.uncertain_read': 'ಓದುವಲ್ಲಿ ಅನಿಶ್ಚಿತ',
-  'findkind.optional_item': 'ಕವರ್ ಇಲ್ಲ',
-  'findkind.subsumed': 'ಈಗಾಗಲೇ ಸೇರಿದೆ',
-  'findkind.duplicate': 'ಎರಡು ಬಾರಿ ನಮೂದು',
-  'findkind.line_arithmetic': 'ಲೆಕ್ಕ ಹೊಂದುತ್ತಿಲ್ಲ',
-  'findkind.total_mismatch': 'ಮೊತ್ತ ಹೊಂದುತ್ತಿಲ್ಲ',
-  'findkind.unplaced': 'ವರ್ಗೀಕರಿಸಲಾಗಲಿಲ್ಲ',
-  'findkind.room_above_cap': 'ಕೊಠಡಿ ಮಿತಿಗಿಂತ ಮೇಲೆ',
-  'findkind.proportionate': 'ಅನುಪಾತದ ಕಡಿತ',
-  'findkind.sublimit': 'ವರ್ಗದ ಮಿತಿ',
-  'findkind.consumables': 'ಬಳಕೆಯ ಸಾಮಗ್ರಿ',
-  'finding.uncertain_read': 'ಈ ಫೋಟೋದ ಪ್ರತಿ ಅಂಕಿಯನ್ನೂ ನಮಗೆ ಓದಲಾಗಲಿಲ್ಲ',
-  'finding.uncertain_read.detail':
-    'ನಮ್ಮ ಸಾಲುಗಳು {lines} ಆಗುತ್ತವೆ ಮತ್ತು ಬಿಲ್ {total} ಎನ್ನುತ್ತದೆ. ಇವು ಹೊಂದಬೇಕು, ಆದ್ದರಿಂದ ಕನಿಷ್ಠ ಒಂದು ಅಂಕಿ ತಪ್ಪಾಗಿ ಓದಲಾಗಿದೆ.',
-  'finding.uncertain_read.ask':
-    'ಕೆಳಗಿನ ಸಾಲುಗಳನ್ನು ಮೊದಲು ಕಾಗದದ ಜೊತೆ ಹೋಲಿಸಿ ನೋಡಿ. ನೇರವಾಗಿ, ಒಳ್ಳೆಯ ಬೆಳಕಿನಲ್ಲಿ ತೆಗೆದ ಫೋಟೋ ಅಥವಾ ಬಿಲ್ಲಿಂಗ್ ಕೌಂಟರ್ ಇಮೇಲ್ ಮಾಡುವ PDF ನಿಖರವಾಗಿ ಓದುತ್ತದೆ.',
-  'finding.uncertain_read_no_total': 'ಈ ಫೋಟೋದ ಪ್ರತಿ ಅಂಕಿಯನ್ನೂ ನಮಗೆ ಓದಲಾಗಲಿಲ್ಲ',
-  'finding.uncertain_read_no_total.detail':
-    'ನಮ್ಮ ಸಾಲುಗಳು {lines} ಆಗುತ್ತವೆ, ಮತ್ತು ಹೋಲಿಸಲು ಬಿಲ್‌ನ ಸ್ವಂತ ಮೊತ್ತ ನಮಗೆ ಸಿಗಲಿಲ್ಲ.',
-  'finding.uncertain_read_no_total.ask':
-    'ಕೆಳಗಿನ ಸಾಲುಗಳನ್ನು ಮೊದಲು ಕಾಗದದ ಜೊತೆ ಹೋಲಿಸಿ ನೋಡಿ. ನೇರವಾಗಿ, ಒಳ್ಳೆಯ ಬೆಳಕಿನಲ್ಲಿ ತೆಗೆದ ಫೋಟೋ ಅಥವಾ ಬಿಲ್ಲಿಂಗ್ ಕೌಂಟರ್ ಇಮೇಲ್ ಮಾಡುವ PDF ನಿಖರವಾಗಿ ಓದುತ್ತದೆ.',
-  'finding.listing.optional': '{items}: {amount}',
-  'finding.listing.optional.detail': 'ಯಾವುದೇ ಆರೋಗ್ಯ ಪಾಲಿಸಿಯಲ್ಲಿ ಕವರ್ ಇಲ್ಲ.',
-  'finding.listing.optional.ask':
-    'ಇವು ನಿಮ್ಮ ಕಡೆಯವು. ಸಾಲು ಸರಿಯಾಗಿ ಓದಲಾಗಿದೆಯೇ ಎಂದಷ್ಟೇ ನೋಡಿ.',
-  'finding.listing.in_room': '{items}: {amount}',
-  'finding.listing.in_room.detail': 'ಕೊಠಡಿ ಶುಲ್ಕದಲ್ಲಿ ಈಗಾಗಲೇ ಸೇರಿದೆ.',
-  'finding.listing.in_room.ask':
-    'ಇದು ಕೊಠಡಿ ಶುಲ್ಕದಲ್ಲಿ ಏಕಿಲ್ಲ ಎಂದು ಕೇಳಿ. ಇದು ಪ್ರತ್ಯೇಕ ಸಾಲಾಗಿರಬಾರದು.',
-  'finding.listing.in_procedure': '{items}: {amount}',
-  'finding.listing.in_procedure.detail':
-    'ಶಸ್ತ್ರಚಿಕಿತ್ಸೆಯ ಶುಲ್ಕದಲ್ಲಿ ಈಗಾಗಲೇ ಸೇರಿದೆ.',
-  'finding.listing.in_procedure.ask':
-    'ಇದು ಶಸ್ತ್ರಚಿಕಿತ್ಸೆ ಶುಲ್ಕದಲ್ಲಿ ಏಕಿಲ್ಲ ಎಂದು ಕೇಳಿ. ಇದು ಪ್ರತ್ಯೇಕ ಸಾಲಾಗಿರಬಾರದು.',
-  'finding.listing.in_treatment': '{items}: {amount}',
-  'finding.listing.in_treatment.detail': 'ಚಿಕಿತ್ಸೆಯ ವೆಚ್ಚದಲ್ಲಿ ಈಗಾಗಲೇ ಸೇರಿದೆ.',
-  'finding.listing.in_treatment.ask':
-    'ಇದು ಚಿಕಿತ್ಸೆಯ ವೆಚ್ಚದಲ್ಲಿ ಏಕಿಲ್ಲ ಎಂದು ಕೇಳಿ. ಇದು ಪ್ರತ್ಯೇಕ ಸಾಲಾಗಿರಬಾರದು.',
-  'finding.duplicate': '{item} {n} ಬಾರಿ ಬಂದಿದೆ, ಪ್ರತಿ ಬಾರಿ {amount}',
-  'finding.duplicate.detail': 'ಸಾಲುಗಳು {lines}.',
-  'finding.duplicate.ask':
-    'ಇದು ಎರಡು ಬಾರಿ ನಮೂದಾಗಿದೆಯೇ ಎಂದು ಕೇಳಿ. ಎರಡು ಬೇರೆ ದಿನಗಳ ಅದೇ ಶುಲ್ಕ ಸಾಮಾನ್ಯ, ಹಾಗಾಗಿ ಉತ್ತರ ಹೌದು ಆಗಿರಬಹುದು, ಆದರೆ ಕೇಳಲು ಏನೂ ವೆಚ್ಚವಿಲ್ಲ.',
-  'finding.line_arithmetic_over':
-    '{item}: {qty} × {rate} ಇಂದ {expected} ಆಗುತ್ತದೆ, {billed} ಅಲ್ಲ',
-  'finding.line_arithmetic_over.detail':
-    'ಗುಣಿಸಿದಾಗ ಬರುವುದಕ್ಕಿಂತ {difference} ಹೆಚ್ಚು.',
-  'finding.line_arithmetic_over.ask':
-    'ಮೂರರಲ್ಲಿ ಯಾವ ಅಂಕಿ ಸರಿ ಎಂದು ಕೇಳಿ. ತಪ್ಪು ದರಕ್ಕೆ ಹಾಕಿದ ಪ್ರಮಾಣವೇ ಅತ್ಯಂತ ಸಾಮಾನ್ಯ ಬಿಲ್ಲಿಂಗ್ ತಪ್ಪು.',
-  'finding.line_arithmetic_under':
-    '{item}: {qty} × {rate} ಇಂದ {expected} ಆಗುತ್ತದೆ, {billed} ಅಲ್ಲ',
-  'finding.line_arithmetic_under.detail':
-    'ಗುಣಿಸಿದಾಗ ಬರುವುದಕ್ಕಿಂತ {difference} ಕಡಿಮೆ.',
-  'finding.line_arithmetic_under.ask':
-    'ಮೂರರಲ್ಲಿ ಯಾವ ಅಂಕಿ ಸರಿ ಎಂದು ಕೇಳಿ. ತಪ್ಪು ದರಕ್ಕೆ ಹಾಕಿದ ಪ್ರಮಾಣವೇ ಅತ್ಯಂತ ಸಾಮಾನ್ಯ ಬಿಲ್ಲಿಂಗ್ ತಪ್ಪು.',
-  'finding.total_mismatch': 'ಸಾಲುಗಳು {lines} ಆಗುತ್ತವೆ, ಬಿಲ್ {total} ಎನ್ನುತ್ತದೆ',
-  'finding.total_mismatch.detail': '{difference} ವ್ಯತ್ಯಾಸ.',
-  'finding.total_mismatch.ask':
-    'ಮೊತ್ತವನ್ನು ನಿಮ್ಮ ಮುಂದೆಯೇ ಕೂಡಿಸಲು ಹೇಳಿ. ಒಂದೋ ಸಾಲು ಬಿಟ್ಟುಹೋಗಿದೆ ಅಥವಾ ಮೊತ್ತ ತಪ್ಪು, ಮತ್ತು ಸಹಿ ಹಾಕುವ ಮೊದಲು ಎರಡನ್ನೂ ಬಗೆಹರಿಸುವುದು ಸರಿ.',
-  'finding.unplaced': '{n} ಸಾಲುಗಳನ್ನು ನಮಗೆ ವರ್ಗೀಕರಿಸಲಾಗಲಿಲ್ಲ, {amount}',
-  'finding.unplaced.detail': '{items}.',
-  'finding.unplaced.ask':
-    'ಊಹಿಸುವ ಬದಲು ಇವನ್ನು ಕೆಳಗಿನ ಲೆಕ್ಕದಿಂದ ಹೊರಗಿಡಲಾಗಿದೆ, ಆದ್ದರಿಂದ ಆ ಅಂಕಿಗಳು ಪೂರ್ಣ ಬಿಲ್‌ಗಿಂತ ಇಷ್ಟು ಕಡಿಮೆ.',
-  'finding.consumables': 'ಈ ಬಿಲ್‌ನಲ್ಲಿ ಬಳಕೆಯ ಸಾಮಗ್ರಿ: {amount}',
-  'finding.consumables.detail':
-    'ಆಡ್-ಆನ್ ತೆಗೆದುಕೊಳ್ಳದೆ ಪಾಲಿಸಿಗಳು ಬಳಕೆಯ ಸಾಮಗ್ರಿಯನ್ನು ಹೊರಗಿಡುತ್ತವೆ, ಆದ್ದರಿಂದ ಉಳಿದದ್ದು ಏನೇ ಇರಲಿ ಈ ಭಾಗ ನಿಮ್ಮದೇ.',
-  'finding.consumables.ask':
-    'ಸಾಲು ನಿಜಕ್ಕೂ ಬಳಕೆಯ ಸಾಮಗ್ರಿಯೇ, ಔಷಧಿ ಅಲ್ಲ ಎಂದು ನೋಡಿ, ಏಕೆಂದರೆ ಔಷಧಿಯನ್ನು ನಿಮ್ಮ ಪಾಲಿಸಿ ಕೊಡುತ್ತದೆ.',
-  'finding.room_rent_cap': 'ಕೊಠಡಿ ನಿಮ್ಮ ಕವರ್‌ಗಿಂತ ಮೇಲೆ: {amount}',
-  'finding.room_rent_cap.detail':
-    'ನಿಮ್ಮ ಕೊಠಡಿ ದಿನಕ್ಕೆ {rate}, ನಿಮಗೆ ಸಿಗುವುದು {cap}. ವ್ಯತ್ಯಾಸ ನೀವು ಕೊಡಬೇಕು.',
-  'finding.room_rent_cap.ask':
-    'ಇದು ಬಿಲ್‌ನಲ್ಲಿ ಇಲ್ಲ ಮತ್ತು ಕೌಂಟರ್ ಇದನ್ನು ಎತ್ತುವುದಿಲ್ಲ. ವಿಮಾ ಕಂಪನಿ ಇತ್ಯರ್ಥದ ವೇಳೆ ಕಡಿತ ಮಾಡುತ್ತದೆ, ಆದ್ದರಿಂದ ಇದನ್ನು ನೀವೇ ಹೊಂದಿಸಬೇಕು.',
-  'finding.proportionate': 'ಅನುಪಾತದ ಕಡಿತ: {amount}',
-  'finding.proportionate.detail':
-    'ನಿಮ್ಮ ಕೊಠಡಿ ನಿಮ್ಮ ವರ್ಗಕ್ಕಿಂತ ಮೇಲಿದೆ, ಆದ್ದರಿಂದ ಕೊಠಡಿಯಿಂದ ನಿರ್ಧಾರವಾಗುವ ಶುಲ್ಕಗಳಿಗೆ {pct} ಮಾತ್ರ ಸಿಗುತ್ತದೆ: ಸರ್ಜನ್, ಥಿಯೇಟರ್ ಮತ್ತು ನರ್ಸಿಂಗ್. ಐಸಿಯು, ಔಷಧಿ, ಪರೀಕ್ಷೆ ಮತ್ತು ಇಂಪ್ಲಾಂಟ್ ಹಾಗೆಯೇ ಉಳಿಯುತ್ತವೆ.',
-  'finding.proportionate.ask':
-    'ಇದನ್ನು ಹೇಗೆ ಲೆಕ್ಕ ಹಾಕಲಾಯಿತು ಎಂದು ನೋಡಿ. ಮೇ 2024ರಿಂದ ಇದು ಕೊಠಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಶುಲ್ಕಗಳಿಗೆ ಮಾತ್ರ: ಕೊಠಡಿ, ನರ್ಸಿಂಗ್, ವೈದ್ಯರು, ಸರ್ಜನ್, ಥಿಯೇಟರ್. ಔಷಧಿ, ಪರೀಕ್ಷೆ, ಇಂಪ್ಲಾಂಟ್ ಅಥವಾ ಐಸಿಯು ಕೂಡ ಕಡಿತವಾಗಿದ್ದರೆ ಪ್ರಶ್ನಿಸಿ.',
-  'finding.sublimit': 'ವರ್ಗದ ಮಿತಿಗಿಂತ ಮೇಲೆ: {amount}',
-  'finding.sublimit.detail': '{head} ಮಿತಿ {cap}. ಅಂದಾಜು {billed}.',
-  'finding.sublimit.ask':
-    'ಮಿತಿ ಮತ್ತು ಅದು ಯಾವುದರ ಮೇಲೆ ಲೆಕ್ಕವಾಗುತ್ತದೆ ಎಂದು ವಿಮಾ ಕಂಪನಿಯಿಂದ ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ. ಅದಕ್ಕಿಂತ ಮೇಲಿನದು ನಿಮ್ಮದೇ.',
 
   // Warnings, notes, and how one hospital was chosen over another.
   'warn.proportionate':

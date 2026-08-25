@@ -109,14 +109,18 @@ export const api = {
       json({ stage, note, confirm_skip: confirmSkip, reason })
     ),
 
-  // Multipart, because a charge can carry a photograph of the bill.
-  recordCost(sessionId, { head, amount, description = '', advanceDay = false, receipt }) {
+  // The charge, and the name of the paper behind it. Only the name: the file
+  // itself stays on the device that took it, and the server needs to know that
+  // a charge is documented rather than what the document looks like.
+  recordCost(sessionId, {
+    head, amount, description = '', advanceDay = false, receiptName = '',
+  }) {
     const form = new FormData()
     form.append('head', head)
     form.append('amount', String(amount))
     form.append('description', description)
     form.append('advance_day', String(advanceDay))
-    if (receipt) form.append('receipt', receipt)
+    form.append('receipt_name', receiptName)
     return request(`/api/journey/${sessionId}/cost`, { method: 'POST', body: form })
   },
   updateCost: (sessionId, entryId, patch) =>
@@ -126,10 +130,8 @@ export const api = {
     }),
   deleteCost: (sessionId, entryId) =>
     request(`/api/journey/${sessionId}/cost/${entryId}`, { method: 'DELETE' }),
-  receiptUrl: (sessionId, entryId) =>
-    apiUrl(`/api/journey/${sessionId}/cost/${entryId}/receipt`),
-  // A plain link rather than a fetch: the server sends it as an attachment, so
-  // the browser saves it without this code touching the bytes.
+  // A plain link when it is downloaded on its own, and fetched when the bills
+  // on this device are being packed around it. Both are this one URL.
   reportUrl: (sessionId) => apiUrl(`/api/session/${sessionId}/report.pdf`),
 
   // Ticking off something on the stage checklist. Kept server-side so the list
@@ -139,18 +141,6 @@ export const api = {
 
   filePreauth: (sessionId) =>
     request(`/api/journey/${sessionId}/preauth`, { method: 'POST' }),
-
-  // The final bill, read and checked. Multipart because it is nearly always a
-  // photograph: the bill is handed over on paper at a counter, and the moment
-  // to check it is while the person who can correct it is still standing there.
-  checkBill(sessionId, file) {
-    const form = new FormData()
-    form.append('file', file)
-    return request(`/api/journey/${sessionId}/bill`, { method: 'POST', body: form })
-  },
-  bill: (sessionId) => request(`/api/journey/${sessionId}/bill`),
-  dropBill: (sessionId) =>
-    request(`/api/journey/${sessionId}/bill`, { method: 'DELETE' }),
 
   // The help desk. Deliberately session-less: it explains how things work and
   // where they are done, and has no business reading somebody's policy to do

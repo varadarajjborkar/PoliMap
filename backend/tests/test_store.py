@@ -199,6 +199,32 @@ def test_purge_is_safe_when_there_is_nothing_to_purge(tmp_path, monkeypatch):
     artifacts.purge("never-existed")
 
 
+def test_bill_photographs_from_an_older_version_are_removed(tmp_path, monkeypatch):
+    """They were somebody's paperwork, and nothing collects or reads them now.
+
+    The sweep only knows the kinds still in use, so a directory left over from
+    a version that accepted uploads would never be looked at again and would
+    sit there for as long as the machine does.
+    """
+    monkeypatch.setattr(artifacts.settings, "uploads_dir", tmp_path)
+    old = tmp_path / "receipts" / "some-session"
+    old.mkdir(parents=True)
+    (old / "entry.jpg").write_bytes(b"a photograph of a bill")
+
+    pages = artifacts.page_dir("abc123")
+    (pages / "page0.png").write_bytes(b"not really a png")
+
+    artifacts.drop_retired()
+
+    assert not (tmp_path / "receipts").exists()
+    assert pages.exists(), "the pages it still needs went with them"
+
+
+def test_dropping_what_is_retired_is_safe_when_there_is_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(artifacts.settings, "uploads_dir", tmp_path)
+    artifacts.drop_retired()
+
+
 def test_sweep_removes_only_stale_directories(tmp_path, monkeypatch):
     monkeypatch.setattr(artifacts.settings, "uploads_dir", tmp_path)
 

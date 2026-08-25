@@ -136,6 +136,45 @@ def test_it_carries_what_has_actually_been_billed(api, full_stay):
     assert "12,400" in printed
 
 
+def test_it_carries_the_live_position_and_not_only_the_estimate(api, full_stay):
+    """The estimate is a plan. What has been billed is the thing argued about.
+
+    The page used to print what the stay was expected to cost before admission
+    and the charges that had come in since, and left the reader to hold the two
+    against each other. This is the arithmetic between them.
+    """
+    session_id, _ = full_stay
+    journey = api.get(f"/api/journey/{session_id}").json()
+    printed = text_of(api.get(f"/api/session/{session_id}/report.pdf").content)
+
+    assert "Where this stands today" in printed
+    assert journey["position"]["you_pay_display"] in printed
+    assert journey["position"]["insurer_pays_display"] in printed
+    for step in journey["position"]["steps"]:
+        assert step["label"] in printed
+
+
+def test_the_ledger_is_numbered_so_the_paper_behind_it_can_be_found(api, full_stay):
+    """The bills are on the device. The row number is what ties them to this."""
+    session_id, _ = full_stay
+    api.post(f"/api/journey/{session_id}/cost", data={
+        "head": "pharmacy", "amount": "830", "description": "day 2 medicines",
+        "advance_day": "false", "receipt_name": "chemist-day-2.jpg",
+    })
+    printed = text_of(api.get(f"/api/session/{session_id}/report.pdf").content)
+
+    assert "chemist-day-2.jpg" in printed
+    assert "01" in printed and "02" in printed
+    assert "named for the row it belongs to" in printed
+
+
+def test_a_ledger_with_no_paper_behind_it_says_nothing_about_paper(api, full_stay):
+    session_id, _ = full_stay
+    printed = text_of(api.get(f"/api/session/{session_id}/report.pdf").content)
+    assert "Bill attached" in printed
+    assert "named for the row it belongs to" not in printed
+
+
 def test_it_lists_only_what_is_still_to_do(api, full_stay):
     """A printed list of ticked boxes is a poster, not an instruction."""
     session_id, _ = full_stay

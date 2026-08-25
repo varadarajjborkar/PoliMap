@@ -109,14 +109,24 @@ def test_an_events_history_is_only_its_own_session():
     assert client.get(f"/api/events/{b}/history").json()["events"] == []
 
 
-def test_a_receipt_id_is_matched_not_globbed():
-    """`*` in a glob pattern reads a file without knowing its name."""
-    session = client.post("/api/session").json()["session_id"]
-    for probe in ("*", "?", "*.pdf", "[a-z]*", "../../../etc/passwd"):
-        response = client.get(f"/api/journey/{session}/cost/{probe}/receipt")
-        # 405 for `?`, which ends the path and turns the request into one for
-        # a route that does not take GET. Either way no file is served.
-        assert response.status_code in (404, 405), probe
+def test_a_receipt_name_is_reduced_to_a_name():
+    """The bill stays on the device. Only what it is called comes here.
+
+    Which makes this a string somebody else supplied, kept in a session,
+    printed on a page and used to name a file inside an archive somebody will
+    unpack. It is cut down to its last path component so that none of those
+    can be handed something that reads like a path, and capped so none of them
+    can be handed a wall.
+    """
+    from app.api.routes import _receipt_label
+
+    assert _receipt_label("../../../etc/passwd") == "passwd"
+    assert _receipt_label(r"C:\Users\me\Desktop\bill.pdf") == "bill.pdf"
+    assert _receipt_label("bills/day one.jpg") == "day one.jpg"
+    # A newline in a name is a name that prints as two lines of a document.
+    assert _receipt_label("chemist\r\n.jpg") == "chemist.jpg"
+    assert len(_receipt_label("x" * 500 + ".pdf")) == 120
+    assert _receipt_label("   ") == ""
 
 
 # --- a document cannot ask for more work than it is worth -----------------

@@ -115,7 +115,6 @@ export default {
   'step.short.policy': 'कव्हर',
   'step.short.search': 'रुग्णालये',
 
-  'results.you_pay': 'तुम्ही भरणार',
   'results.insurer_pays': 'विमा कंपनी भरणार',
 
   'journey.stage.pre_admission': 'दाखल होण्यापूर्वी',
@@ -125,22 +124,13 @@ export default {
   'journey.download': 'हा संपूर्ण तपशील डाउनलोड करा',
   'journey.download.why':
     'तुमचे कव्हर, अंदाज, आतापर्यंतचे बिल, आणि काय बाकी. विमा काउंटरसाठी एक पान.',
-  'journey.charges': 'आतापर्यंतचा खर्च',
+  'journey.download.all': 'संपूर्ण तपशील आणि {count} बिले डाउनलोड करा',
+  'journey.download.all.why':
+    'एकच फोल्डर: खालचे पान, तुम्ही जोडलेले प्रत्येक बिल, आणि कोणते बिल कोणत्या खर्चाचे हे सांगणारी यादी.',
+  'journey.download.packing': 'तयार करत आहोत…',
+  'journey.download.page_only': 'किंवा बिलांशिवाय फक्त पान',
   'journey.add_charge': 'खर्च नोंदवा',
   'journey.checklist': 'आता काय करायचे',
-
-  'bill.title': 'अंतिम बिल तपासा',
-  'bill.subtitle':
-    'कोणतीही पॉलिसी न देणाऱ्या वस्तूंच्या IRDAI यादीशी, आणि तुमच्या स्वतःच्या कव्हरशी तपासून.',
-  'bill.upload': 'बिलाचा फोटो काढा किंवा अपलोड करा',
-  'bill.reading': 'बिल वाचले जात आहे…',
-  'bill.nothing': 'IRDAI यादी किंवा तुमच्या पॉलिसीच्या तुलनेत या बिलात काही खटकले नाही.',
-  'bill.settles_to': 'या बिलाचा हिशेब',
-  'bill.show_lines': 'वाचलेल्या ओळी दाखवा',
-  'bill.hide_lines': 'ओळी लपवा',
-  'bill.another': 'दुसरे बिल तपासा',
-  'bill.to_ask': 'विचारण्यासारखे',
-  'bill.nothing_to_raise': 'उपस्थित करण्यासारखे काही नाही',
 
   'settings.language': 'भाषा',
   'settings.language.hint':
@@ -161,6 +151,10 @@ export default {
   'home.welcome': 'पुन्हा स्वागत आहे, {name}',
   'home.first': 'पॉलिसी वाचून घेऊन सुरुवात करा. त्यानंतरचे सर्व इथेच जतन होते.',
   'home.switch_user': 'तुम्ही नाही?',
+  'home.switch_user.warn':
+    'यामुळे या नावाने या उपकरणावर जतन केलेले सर्व काही निघून जाईल.',
+  'home.switch_user.yes': 'काढा आणि बाहेर पडा',
+  'home.switch_user.no': 'नको',
   'home.policy_read': 'पॉलिसी वाचली',
   'home.delete': '{stay} काढून टाका',
   'home.delete.short': 'काढा',
@@ -196,10 +190,6 @@ export default {
   'reading.search': 'तुमचे पर्याय शोधले जात आहेत',
   'reading.search.hint':
     'परिसरातील प्रत्येक रुग्णालयाचा खर्च तुमच्या पॉलिसीनुसार एक-एक करून काढला जात आहे.',
-  'reading.bill': 'तुमचे बिल वाचले जात आहे',
-  'reading.bill.waiting': 'बिल पाठवले जात आहे. हे पान उघडे ठेवा.',
-  'reading.bill.hint':
-    'फोटोला PDF पेक्षा जास्त वेळ लागतो: प्रत्येक ओळ आधी ओळखावी लागते.',
 
   'reading.document': '{total} पैकी दस्तऐवज {index}',
   'reading.starting': 'सुरू होत आहे.',
@@ -211,9 +201,6 @@ export default {
   'phase.find': 'हा उपचार करू शकणारी रुग्णालये शोधली जात आहेत',
   'phase.cost': 'प्रत्येकात तुम्हाला किती खर्च येईल ते काढले जात आहे',
   'phase.rank': 'क्रमाने लावली जात आहेत',
-  'phase.doc': 'दस्तऐवज वाचला जात आहे',
-  'phase.lines': 'प्रत्येक ओळ आणि तिचा अर्थ शोधला जात आहे',
-  'phase.against_policy': 'तुमच्या पॉलिसीशी आणि IRDAI यादीशी ताडून पाहिले जात आहे',
   'count.pages': '{done}/{total} पाने',
   'count.sections': '{done}/{total} भाग',
   'note.reading': '{file} वाचली जात आहे',
@@ -232,8 +219,6 @@ export default {
   'note.matched': '{considered} पैकी {matched} रुग्णालये जुळतात',
   'note.costed': 'त्यांपैकी {costed} चा खर्च काढला',
   'note.shortlisted': '{shortlisted} निवडली',
-  'note.lines': '{lines} ओळी सापडल्या',
-  'note.findings': 'पाहण्यासारख्या {findings} गोष्टी',
 
   'locked.policy': 'तुमचे कवर',
   'locked.policy.why':
@@ -560,12 +545,36 @@ export default {
     'ही फाइल {size} MB ची आहे. आम्ही जास्तीत जास्त {limit} MB घेऊ शकतो.',
   'journey.receipt.remove': 'काढा',
   'journey.receipt.attach': 'बिल किंवा पावती जोडा (आवश्यक नाही)',
+  'journey.receipt.kept': 'ही खर्चासोबत याच उपकरणावर राहते. कुठेही पाठवली जात नाही.',
+  'journey.receipt.elsewhere': 'हे बिल दुसऱ्या उपकरणावर जोडले होते, त्यामुळे इथे नाही.',
+  'journey.receipt.wrong_kind':
+    'बिलाची PDF किंवा फोटो जोडा: PDF, JPG, PNG, WEBP, HEIC किंवा TIFF.',
+  'journey.tab.charges': 'आतापर्यंतचा खर्च',
+  'journey.tab.papers': 'बिले आणि पावत्या',
+  'journey.tab.split': 'तुम्ही किती द्याल',
+  'journey.split.head':
+    'आतापर्यंतच्या {billed} बिलापैकी {covered} तुमची विमा कंपनी देईल. उरलेले {yours} तुमचे आहेत.',
+  'journey.split.nothing':
+    'काहीही कापले गेलेले नाही. आतापर्यंत नोंदवलेला प्रत्येक खर्च तुमच्या पॉलिसीच्या कक्षेत आहे.',
+  'journey.papers.none':
+    'अजून काहीही जोडलेले नाही. खर्च नोंदवताना त्याचे बिल किंवा पावती सोबत जोडा, ती इथे त्याच खर्चाच्या नावे राहील.',
+  'journey.papers.reading': 'तुमच्या फाइल उघडत आहोत…',
+  'journey.papers.count': '{count} जोडलेली',
+  'journey.papers.for': '{head} · {amount} · {when} रोजी जोडले',
+  'journey.papers.position': '{total} पैकी {at}',
+  'journey.papers.previous': 'मागील',
+  'journey.papers.next': 'पुढील',
+  'journey.papers.save': 'जतन करा',
+  'journey.papers.close': 'बंद करा',
+  'journey.papers.unshowable':
+    'हा ब्राउझर अशी फाइल उघडू शकत नाही. फाइल जशी होती तशीच ठेवली आहे आणि डाउनलोडमध्ये येईल.',
+  'journey.papers.where':
+    'फक्त याच उपकरणावर ठेवलेली, कुठेही पाठवली जात नाहीत. डाउनलोड करताना संपूर्ण तपशिलासोबत येतात.',
   'journey.checklist.count': '{total} पैकी {done}',
   'journey.checklist.now': 'आत्ता',
   'journey.position.you_pay': 'आतापर्यंत तुम्ही द्याल',
   'journey.position.split':
     'रुग्णालयाने {billed} चे बिल केले आहे. त्यातील {covered} तुमची विमा कंपनी देईल.',
-  'journey.position.hide': 'फरक कुठून येतो ते लपवा',
   'journey.position.show': 'फरक कुठून येतो ते पाहा',
   'journey.burn.used': 'आतापर्यंत वापरलेले कवर',
   'journey.burn.of': '{total} पैकी {used}',
@@ -606,16 +615,6 @@ export default {
 
   'list.a_stage': 'एक टप्पा',
   'list.and': 'आणि',
-
-  'bill.what_we_do':
-    'एका ओळीची बेरीज नाही, तपशीलवार बिल मागा आणि त्याचा फोटो काढा. आम्ही प्रत्येक ओळ वाचून सांगतो की सही करण्यापूर्वी काय मांडण्यासारखे आहे: आधीच दुसऱ्यात असलेले खर्च, दोनदा आलेल्या ओळी, गुणाकार न होणारे आकडे, आणि विमा कंपनी करणार असलेली पण कोणी न सांगणारी कपात.',
-  'bill.photo_hint':
-    'समोरून, चांगल्या प्रकाशात. बिलिंग काउंटरवरून मिळालेली PDF अगदी बरोबर वाचली जाते.',
-  'bill.settles_to.hint': 'अंदाजातील तीच गणना, खऱ्या बिलावर लावली.',
-  'bill.col.line': 'क्रम',
-  'bill.col.item': 'बाब',
-  'bill.col.head': 'शीर्ष',
-  'bill.col.amount': 'रक्कम',
 
   'settings.close': 'सेटिंग बंद करा',
   'settings.close.short': 'बंद करा',
@@ -782,7 +781,6 @@ export default {
   'billnote.icu_days': 'अतिदक्षतेत {n} दिवस',
   'billnote.tier_scaled': 'खोलीच्या प्रकारावरून ठरते',
   'billnote.non_medical': 'नोंदणी, रेकॉर्ड, अटेंडंट',
-  'bill.lines_at': 'ओळी {lines}',
 
   // What needs attention now, and what has happened so far.
   'alert.room_rate_conflict': 'तुमच्या खोलीचे बिल वेगळ्या दराने होत आहे',
@@ -892,91 +890,6 @@ export default {
     'पॉलिसी सुरू होण्यापूर्वीचा आजार {clears} पासून कव्हर होतो.',
   'elig.pre_existing_years.detail':
     'पॉलिसी सुरू होण्यापूर्वीचा आजार {clears} पासून कव्हर होतो.',
-
-  // A bill, read and checked against the policy.
-  'findkind.uncertain_read': 'वाचनात अनिश्चित',
-  'findkind.optional_item': 'कव्हर नाही',
-  'findkind.subsumed': 'आधीच समाविष्ट',
-  'findkind.duplicate': 'दोनदा नोंद',
-  'findkind.line_arithmetic': 'गणित जुळत नाही',
-  'findkind.total_mismatch': 'बेरीज जुळत नाही',
-  'findkind.unplaced': 'वर्गीकरण करता आले नाही',
-  'findkind.room_above_cap': 'खोली मर्यादेवर',
-  'findkind.proportionate': 'प्रमाणशीर कपात',
-  'findkind.sublimit': 'श्रेणीची मर्यादा',
-  'findkind.consumables': 'वापरसाहित्य',
-  'finding.uncertain_read': 'या फोटोतील प्रत्येक आकडा आम्हाला वाचता आला नाही',
-  'finding.uncertain_read.detail':
-    'आमच्या ओळी {lines} होतात आणि बिल {total} सांगते. यांचे जुळायला हवे, म्हणजे किमान एक आकडा चुकीचा वाचला गेला आहे.',
-  'finding.uncertain_read.ask':
-    'खालच्या ओळी आधी कागदाशी ताडून पाहा. सरळ, चांगल्या प्रकाशात काढलेला फोटो किंवा बिलिंग काउंटरने ईमेल केलेली PDF अचूक वाचली जाते.',
-  'finding.uncertain_read_no_total':
-    'या फोटोतील प्रत्येक आकडा आम्हाला वाचता आला नाही',
-  'finding.uncertain_read_no_total.detail':
-    'आमच्या ओळी {lines} होतात, आणि ताडून पाहण्यासाठी बिलाची स्वतःची बेरीज आम्हाला मिळाली नाही.',
-  'finding.uncertain_read_no_total.ask':
-    'खालच्या ओळी आधी कागदाशी ताडून पाहा. सरळ, चांगल्या प्रकाशात काढलेला फोटो किंवा बिलिंग काउंटरने ईमेल केलेली PDF अचूक वाचली जाते.',
-  'finding.listing.optional': '{items}: {amount}',
-  'finding.listing.optional.detail': 'कोणत्याही आरोग्य पॉलिसीत कव्हर नाही.',
-  'finding.listing.optional.ask':
-    'ही तुमच्या बाजूची आहेत. फक्त ओळ बरोबर वाचली आहे का पाहा.',
-  'finding.listing.in_room': '{items}: {amount}',
-  'finding.listing.in_room.detail': 'खोलीच्या शुल्कात आधीच समाविष्ट.',
-  'finding.listing.in_room.ask':
-    'हे खोलीच्या शुल्कात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
-  'finding.listing.in_procedure': '{items}: {amount}',
-  'finding.listing.in_procedure.detail':
-    'शस्त्रक्रियेच्या शुल्कात आधीच समाविष्ट.',
-  'finding.listing.in_procedure.ask':
-    'हे शस्त्रक्रियेच्या शुल्कात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
-  'finding.listing.in_treatment': '{items}: {amount}',
-  'finding.listing.in_treatment.detail': 'उपचाराच्या खर्चात आधीच समाविष्ट.',
-  'finding.listing.in_treatment.ask':
-    'हे उपचाराच्या खर्चात का नाही ते विचारा. ही वेगळी ओळ असूच नये.',
-  'finding.duplicate': '{item} {n} वेळा आले आहे, प्रत्येक वेळी {amount}',
-  'finding.duplicate.detail': 'ओळी {lines}.',
-  'finding.duplicate.ask':
-    'हे दोनदा नोंदले गेले का ते विचारा. दोन वेगळ्या दिवसांचा तोच खर्च सामान्य आहे, त्यामुळे उत्तर होय असू शकते, पण विचारायला काहीच जात नाही.',
-  'finding.line_arithmetic_over':
-    '{item}: {qty} × {rate} ने {expected} होते, {billed} नाही',
-  'finding.line_arithmetic_over.detail':
-    'गुणाकार केल्यावर येते त्यापेक्षा {difference} जास्त.',
-  'finding.line_arithmetic_over.ask':
-    'तिघांपैकी कोणता आकडा बरोबर आहे ते विचारा. चुकीच्या दराने लावलेली संख्या ही सर्वात सामान्य बिलिंग चूक आहे.',
-  'finding.line_arithmetic_under':
-    '{item}: {qty} × {rate} ने {expected} होते, {billed} नाही',
-  'finding.line_arithmetic_under.detail':
-    'गुणाकार केल्यावर येते त्यापेक्षा {difference} कमी.',
-  'finding.line_arithmetic_under.ask':
-    'तिघांपैकी कोणता आकडा बरोबर आहे ते विचारा. चुकीच्या दराने लावलेली संख्या ही सर्वात सामान्य बिलिंग चूक आहे.',
-  'finding.total_mismatch': 'ओळी {lines} होतात, बिल {total} सांगते',
-  'finding.total_mismatch.detail': '{difference} चा फरक.',
-  'finding.total_mismatch.ask':
-    'बेरीज तुमच्यासमोर करायला सांगा. एकतर एखादी ओळ सुटली आहे किंवा बेरीज चुकीची आहे, आणि सही करण्यापूर्वी दोन्ही सोडवण्यासारखी आहेत.',
-  'finding.unplaced': '{n} ओळींचे वर्गीकरण करता आले नाही, {amount}',
-  'finding.unplaced.detail': '{items}.',
-  'finding.unplaced.ask':
-    'अंदाज लावण्याऐवजी ही खालच्या हिशेबातून वगळली आहेत, त्यामुळे ते आकडे पूर्ण बिलापेक्षा इतके कमी आहेत.',
-  'finding.consumables': 'या बिलात वापरसाहित्य: {amount}',
-  'finding.consumables.detail':
-    'अ‍ॅड-ऑन घेतल्याशिवाय पॉलिसी वापरसाहित्य वगळतात, त्यामुळे बाकी काहीही असो, हा भाग तुमचा आहे.',
-  'finding.consumables.ask':
-    'ओळ खरोखर वापरसाहित्य आहे, औषध नाही हे पाहा, कारण औषधे तुमची पॉलिसी देते.',
-  'finding.room_rent_cap': 'खोली तुमच्या कव्हरपेक्षा वर: {amount}',
-  'finding.room_rent_cap.detail':
-    'तुमची खोली दिवसाला {rate} आहे आणि कव्हर {cap} आहे. फरक तुम्ही द्याल.',
-  'finding.room_rent_cap.ask':
-    'हे बिलावर नाही आणि काउंटर ते मांडणार नाही. विमा कंपनी सेटलमेंटच्या वेळी कापते, त्यामुळे हे तुम्हाला जुळवायचे आहे.',
-  'finding.proportionate': 'प्रमाणशीर कपात: {amount}',
-  'finding.proportionate.detail':
-    'तुमची खोली तुमच्या श्रेणीपेक्षा वर आहे, त्यामुळे खोलीवरून ठरणाऱ्या खर्चांवर फक्त {pct} मिळते: सर्जन, थिएटर आणि नर्सिंग. आयसीयू, औषधे, तपासण्या आणि इम्प्लांट अस्पर्श राहतात.',
-  'finding.proportionate.ask':
-    'हे कसे काढले ते पाहा. मे 2024 पासून ती फक्त खोलीशी जोडलेल्या खर्चांवर लागते: खोली, नर्सिंग, डॉक्टर, सर्जन, थिएटर. औषधे, तपासण्या, इम्प्लांट किंवा आयसीयूही कापले असतील तर प्रश्न विचारा.',
-  'finding.sublimit': 'श्रेणीच्या मर्यादेवर: {amount}',
-  'finding.sublimit.detail':
-    '{head} ची मर्यादा {cap} आहे. अंदाज {billed} चा आहे.',
-  'finding.sublimit.ask':
-    'मर्यादा आणि ती कशावर मोजली जाते ते विमा कंपनीकडून निश्चित करा. त्यावरचे उरलेले तुमचे.',
 
   // Warnings, notes, and how one hospital was chosen over another.
   'warn.proportionate':

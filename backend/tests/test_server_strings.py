@@ -22,10 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from app.bill.check import review
 from app.journey import checklist, tracker
 from app.pipeline.s6_simulate import eligibility, waterfall
-from app.schemas.bill import BilledItem, ReadBill
 from app.schemas.journey import JourneyStage, JourneyState
 from app.schemas.policy import (
     ExpenseHead,
@@ -217,36 +215,16 @@ def test_every_eligibility_finding_reads_in_every_language(tables):
     _assert_reads(keys, "elig.", tables)
 
 
-def test_every_bill_finding_reads_in_every_language(tables):
-    read = ReadBill(
-        gross_total=Decimal(99999),
-        items=[
-            BilledItem(line_no=1, description="Gloves", amount=Decimal(500)),
-            BilledItem(line_no=2, description="Room rent", amount=Decimal(27000),
-                       qty=Decimal(3), rate=Decimal(9000)),
-            BilledItem(line_no=3, description="Surgeon fee", amount=Decimal(60000)),
-            BilledItem(line_no=4, description="Surgeon fee", amount=Decimal(60000)),
-            BilledItem(line_no=5, description="Tests", amount=Decimal(20000),
-                       qty=Decimal(2), rate=Decimal(5000)),
-            BilledItem(line_no=6, description="Consumables", amount=Decimal(6000)),
-            BilledItem(line_no=7, description="Something unknown", amount=Decimal(900)),
-        ],
-    )
-    checked = review(
-        read, _policy(),
-        hospital_name="Test Hospital",
-        room_category=RoomCategory.SINGLE_PRIVATE,
-        patient_age=70,
-    )
-    kinds = {f.kind.value for f in checked.findings}
-    keys: set[str] = set()
-    for finding in checked.findings:
-        keys.add(finding.string_key)
-        keys.add(finding.string_key + ".detail")
-        keys.add(finding.string_key + ".ask")
-    assert kinds and keys
-    _assert_reads(kinds, "findkind.", tables)
-    _assert_reads(keys, "finding.", tables)
+# The bill reader's findings are not checked here any more.
+#
+# Reading a hospital bill and saying what is worth raising about it is still
+# what `app.bill` does, still exercised by tests/test_bill_*.py and still
+# scored by bench/. What it no longer has is a screen: the stay page files the
+# paper behind each charge as that charge is entered, and the panel that took a
+# whole final bill and reported on it is gone. Nothing renders these sentences,
+# so there is no reader to have them in their own language, and a test
+# asserting four translations of them would be asserting against tables no call
+# site reaches. Give it a screen again and its keys come back with it.
 
 
 def test_the_language_files_agree_with_each_other(tables):

@@ -18,7 +18,10 @@ import {
 import { capped } from './lib/i18n'
 import { demoStay } from './lib/demoStay'
 import { deleteAllTickets } from './lib/tickets'
-import { BILL_PHASES, READING_PHASES, SEARCH_PHASES } from './lib/progress'
+import {
+  dropReceipt, dropStayReceipts, dropUserReceipts, keepReceipt,
+} from './lib/receipts'
+import { READING_PHASES, SEARCH_PHASES } from './lib/progress'
 import { useSettings } from './hooks/useSettings'
 import { useStay } from './hooks/useStay'
 import {
@@ -326,23 +329,40 @@ export default function App() {
     }
   }
 
-  // The final bill. Kept on the journey object rather than in its own state,
-  // because it belongs to this stay and has to travel with it when the browser
-  // saves and restores one.
-  async function handleCheckBill(file) {
-    // Same id as the session, so this opens the stream without disturbing it
-    // when the activity panel already has it open. A photographed bill is OCR
-    // and then a vision pass, which is a long time to leave somebody looking
-    // at a disabled button.
-    setWatching(sessionId)
-    const result = await run('bill', () => api.checkBill(sessionId, file))
-    setWatching(null)
-    if (result) setJourney((current) => (current ? { ...current, bill: result } : current))
+  // A charge, and the paper it came from.
+  //
+  // The two go to different places. The amount and the head go to the server,
+  // which has to re-adjudicate the stay against them; the file stays on this
+  // device, and the server is told only its name, which is all the ledger and
+  // the printed page need in order to say that this charge has paper behind
+  // it. There is no cloud in this and there is not meant to be one: a
+  // photograph of a pharmacy bill is somebody's hospital paperwork.
+  //
+  // Saved after the response, because the file is filed against the charge's
+  // id and that id is minted by the server. The new charge is the one that was
+  // not there before.
+  async function handleRecordCost({ receipt, ...charge }) {
+    const before = new Set((journey?.costs ?? []).map((cost) => cost.id))
+    const result = await run('journey', () =>
+      api.recordCost(sessionId, { ...charge, receiptName: receipt?.name ?? '' })
+    )
+    if (!result) return
+
+    if (receipt) {
+      const added = (result.costs ?? []).find((cost) => !before.has(cost.id))
+      if (added) await keepReceipt(user, stayId, added.id, receipt)
+    }
+    setJourney(result)
+    remember({ stageLabel: result.stage_label })
   }
 
-  async function handleDropBill() {
-    const result = await run('bill', () => api.dropBill(sessionId))
-    if (result) setJourney((current) => (current ? { ...current, bill: null } : current))
+  // The paper goes with the charge it documented.
+  async function handleDeleteCost(entryId) {
+    const result = await run('journey', () => api.deleteCost(sessionId, entryId))
+    if (!result) return
+    await dropReceipt(user, stayId, entryId)
+    setJourney(result)
+    remember({ stageLabel: result.stage_label })
   }
 
   // A second cover on the same admission, typed rather than uploaded: most
@@ -455,11 +475,24 @@ export default function App() {
     navigate('/', { replace: true })
   }
 
+  // "Not you?" is how a shared phone gets handed back, so it takes that name
+  // off the device entirely: its stays, its snapshots, its tickets and the
+  // bills filed against them. Anyone else's is untouched, which is the whole
+  // reason names exist here.
+  //
+  // Ordered so the screen changes first. Clearing an IndexedDB store is not
+  // instant, and nobody hands a phone over while watching a spinner.
   function switchUser() {
+    const leaving = user
+    if (sessionId) api.clear(sessionId).catch(() => {})
     clearUser()
     setUser('')
     resetWorkingState()
     navigate(SIGNIN_PATH, { replace: true })
+
+    deleteAllStays(leaving)
+    deleteAllTickets(leaving)
+    dropUserReceipts(leaving)
   }
 
   function resetWorkingState() {
@@ -501,12 +534,16 @@ export default function App() {
   // the same device keeps everything, which is the point of having names.
   async function discardStay() {
     if (sessionId) await api.clear(sessionId).catch(() => {})
-    if (stayId) deleteStay(user, stayId)
+    if (stayId) {
+      deleteStay(user, stayId)
+      dropStayReceipts(user, stayId)
+    }
     goHome()
   }
 
   function removeStay(target) {
     deleteStay(user, target.id)
+    dropStayReceipts(user, target.id)
     setStays(listStays(user))
   }
 
@@ -514,6 +551,7 @@ export default function App() {
     if (sessionId) api.clear(sessionId).catch(() => {})
     deleteAllStays(user)
     deleteAllTickets(user)
+    dropUserReceipts(user)
     goHome()
   }
 
@@ -784,40 +822,18 @@ export default function App() {
             <Journey
               journey={journey}
               onToggleChecklist={handleToggleChecklist}
-              onCheckBill={handleCheckBill}
-              onDropBill={handleDropBill}
-              billBusy={busy === 'bill'}
-              billProgress={
-                busy === 'bill' && (
-                  <ReadingProgress
-                    events={events}
-                    phases={BILL_PHASES}
-                    title={t('reading.bill', 'Reading your bill')}
-                    waiting={t(
-                      'reading.bill.waiting',
-                      'Sending the bill. Keep this page open.'
-                    )}
-                    hint={t(
-                      'reading.bill.hint',
-                      'A photo takes longer than a PDF: every line has to be recognised ' +
-                        'first.')}
-                  />
-                )
-              }
               busy={busy === 'journey'}
               sessionId={sessionId}
+              user={user}
+              stayId={stayId}
               onAdvance={journeyAction((stage, opts) =>
                 api.advance(sessionId, stage, opts)
               )}
-              onRecordCost={journeyAction((payload) =>
-                api.recordCost(sessionId, payload)
-              )}
+              onRecordCost={handleRecordCost}
               onUpdateCost={journeyAction((entryId, patch) =>
                 api.updateCost(sessionId, entryId, patch)
               )}
-              onDeleteCost={journeyAction((entryId) =>
-                api.deleteCost(sessionId, entryId)
-              )}
+              onDeleteCost={handleDeleteCost}
               onFilePreauth={journeyAction(() => api.filePreauth(sessionId))}
             />
           </div>
@@ -864,17 +880,15 @@ function DemoStay({ settings, onOpenSettings, onToggleText }) {
         <Journey
           journey={demoStay}
           sessionId="demo"
+          user="demo"
+          stayId="demo"
           busy={false}
-          billBusy={false}
-          billProgress={null}
           onAdvance={noop}
           onRecordCost={noop}
           onUpdateCost={noop}
           onDeleteCost={noop}
           onFilePreauth={noop}
           onToggleChecklist={noop}
-          onCheckBill={noop}
-          onDropBill={noop}
         />
       </div>
     </Shell>

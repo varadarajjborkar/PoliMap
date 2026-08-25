@@ -39,23 +39,6 @@ export const SEARCH_PHASES = [
   { key: 'rank', name: 'phase.rank', label: 'Putting them in order', steps: ['rank_options'] },
 ]
 
-// Reading a bill is the other slow wait, and a photographed one is the slowest
-// thing in the app: OCR, then a vision pass over anything OCR could not read.
-// The page phase reuses the `read` key so it inherits the page counter.
-export const BILL_PHASES = [
-  { key: 'read', name: 'phase.doc', label: 'Reading the document', stage: 'S0_INTAKE' },
-  {
-    key: 'lines', name: 'phase.lines', label: 'Finding the lines and what each one is',
-    steps: ['read_bill'],
-  },
-  {
-    key: 'check',
-    name: 'phase.against_policy',
-    label: 'Checking it against your policy and the IRDAI list',
-    steps: ['check_bill'],
-  },
-]
-
 // The step that means the whole run is over, whatever phase it stopped in.
 const TERMINAL = 'pipeline_complete'
 
@@ -160,9 +143,6 @@ const NOTES = {
     say('note.shortlisted', '{shortlisted} shortlisted', {
       shortlisted: d.shortlisted,
     }),
-  read_bill: (d) => say('note.lines', '{lines} lines found', { lines: d.lines }),
-  check_bill: (d) =>
-    say('note.findings', '{findings} things to look at', { findings: d.findings }),
 }
 
 // A note needs every figure it names. Anything missing means the step has

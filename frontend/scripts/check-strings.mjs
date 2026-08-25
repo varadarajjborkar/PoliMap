@@ -131,20 +131,6 @@ const TEMPLATES = {
     'answer.which_document', 'answer.wrong_figure',
   ],
   'ticket.': ['data', 'feedback', 'problem'],
-  // What kind of thing was found on a bill, which is a name and not a
-  // sentence. The sentences are under `finding.` below.
-  'findkind.': [
-    'consumables', 'duplicate', 'line_arithmetic', 'optional_item',
-    'proportionate', 'room_above_cap', 'sublimit', 'subsumed',
-    'total_mismatch', 'uncertain_read', 'unplaced',
-  ],
-  'finding.': [
-    'consumables', 'duplicate', 'line_arithmetic_over',
-    'line_arithmetic_under', 'listing.in_procedure', 'listing.in_room',
-    'listing.in_treatment', 'listing.optional', 'proportionate',
-    'room_rent_cap', 'sublimit', 'total_mismatch', 'uncertain_read',
-    'uncertain_read_no_total', 'unplaced',
-  ],
 }
 
 // Sentences whose key already names its own family, so the call site passes it
@@ -177,13 +163,13 @@ const SERVER_KEYS = [
 // server's keys are, and with the same consequence either way round.
 const LIB_KEYS = [
   'count.pages', 'count.sections',
-  'note.compiled', 'note.costed', 'note.findings', 'note.insurer',
-  'note.ledger', 'note.lines', 'note.matched', 'note.model_kept',
+  'note.compiled', 'note.costed', 'note.insurer',
+  'note.ledger', 'note.matched', 'note.model_kept',
   'note.opened', 'note.page_ocr', 'note.page_text', 'note.page_vision',
   'note.pages_read', 'note.questions', 'note.reading', 'note.rules_found',
   'note.sections', 'note.shortlisted',
-  'phase.against_policy', 'phase.build', 'phase.check', 'phase.cost',
-  'phase.doc', 'phase.find', 'phase.lines', 'phase.pages', 'phase.rank',
+  'phase.build', 'phase.check', 'phase.cost',
+  'phase.find', 'phase.pages', 'phase.rank',
   'phase.sort', 'phase.terms',
 ]
 

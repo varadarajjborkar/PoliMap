@@ -4,22 +4,27 @@ import { useT } from '../hooks/useLanguage'
 // by people under stress, often on a phone in a hospital corridor, so clarity
 // beats decoration everywhere it competes with it.
 
-export function Card({ children, className = '' }) {
+export function Card({ children, className = '', ref }) {
   return (
-    <section className={`rounded-xl border border-line bg-surface ${className}`}>
+    <section ref={ref} className={`rounded-xl border border-line bg-surface ${className}`}>
       {children}
     </section>
   )
 }
 
+// `min-w-0` on the title and `shrink-0` on what sits beside it, in that order.
+// Flex children refuse to shrink past their content by default, so in a narrow
+// column a long heading pushed against the count beside it and the count lost:
+// "0 of 7" was squeezed into a two-line circle that its own text spilled out
+// of. The heading is the part that can wrap.
 export function CardHeader({ title, subtitle, aside }) {
   return (
-    <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-      <div>
+    <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+      <div className="min-w-0">
         <h2 className="text-[0.9375rem] font-semibold tracking-tight">{title}</h2>
         {subtitle && <p className="mt-0.5 text-[0.875rem] text-muted">{subtitle}</p>}
       </div>
-      {aside}
+      {aside && <div className="shrink-0">{aside}</div>}
     </header>
   )
 }
@@ -94,7 +99,7 @@ export function Badge({ tone = 'neutral', children }) {
     bad: 'bg-danger-soft text-danger border-danger/20',
   }[tone]
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.75rem] font-medium ${tones}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[0.75rem] font-medium ${tones}`}>
       {children}
     </span>
   )

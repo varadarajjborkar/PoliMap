@@ -29,7 +29,6 @@ export default {
   'step.short.policy': 'కవరేజీ',
   'step.short.search': 'ఆసుపత్రులు',
 
-  'results.you_pay': 'మీరు చెల్లించేది',
   'results.insurer_pays': 'బీమా సంస్థ చెల్లించేది',
 
   'journey.stage.pre_admission': 'చేరక ముందు',
@@ -39,22 +38,13 @@ export default {
   'journey.download': 'ఈ పూర్తి వివరాలు డౌన్‌లోడ్ చేయండి',
   'journey.download.why':
     'మీ కవర్, అంచనా, ఇప్పటివరకు బిల్లు, ఇంకా మిగిలినది. బీమా కౌంటర్ కోసం ఒక పేజీ.',
-  'journey.charges': 'ఇప్పటివరకు ఖర్చు',
+  'journey.download.all': 'పూర్తి వివరాలు, {count} బిల్లులు డౌన్‌లోడ్ చేయండి',
+  'journey.download.all.why':
+    'ఒకే ఫోల్డర్: కింది పేజీ, మీరు జతచేసిన ప్రతి బిల్లు, ఏ బిల్లు ఏ ఖర్చుది అని చెప్పే జాబితా.',
+  'journey.download.packing': 'సిద్ధం చేస్తున్నాం…',
+  'journey.download.page_only': 'లేదా బిల్లులు లేకుండా పేజీ మాత్రమే',
   'journey.add_charge': 'ఖర్చు జోడించండి',
   'journey.checklist': 'ఇప్పుడు ఏమి చేయాలి',
-
-  'bill.title': 'చివరి బిల్లు తనిఖీ చేయండి',
-  'bill.subtitle':
-    'ఏ పాలసీ చెల్లించని వస్తువుల IRDAI జాబితాతో, మరియు మీ సొంత కవరేజీతో సరిచూసి.',
-  'bill.upload': 'బిల్లు ఫోటో తీయండి లేదా అప్‌లోడ్ చేయండి',
-  'bill.reading': 'బిల్లు చదువుతున్నాం…',
-  'bill.nothing': 'IRDAI జాబితా లేదా మీ పాలసీతో పోలిస్తే ఈ బిల్లులో ఏదీ ఇబ్బందిగా కనిపించలేదు.',
-  'bill.settles_to': 'ఈ బిల్లు లెక్క',
-  'bill.show_lines': 'చదివిన పంక్తులు చూపించండి',
-  'bill.hide_lines': 'పంక్తులు దాచండి',
-  'bill.another': 'వేరే బిల్లు తనిఖీ చేయండి',
-  'bill.to_ask': 'అడగవలసినవి',
-  'bill.nothing_to_raise': 'లేవనెత్తవలసినది ఏదీ లేదు',
 
   'help.open': 'సహాయం',
   'help.title': 'సహాయం',
@@ -160,6 +150,9 @@ export default {
   'home.welcome': 'మళ్ళీ స్వాగతం, {name}',
   'home.first': 'పాలసీ చదివించడంతో మొదలుపెట్టండి. ఆ తర్వాతదంతా ఇక్కడే భద్రపరచబడుతుంది.',
   'home.switch_user': 'మీరు కాదా?',
+  'home.switch_user.warn': 'దీనితో ఈ పేరుతో ఈ పరికరంలో భద్రపరచిన అన్నీ తొలగిపోతాయి.',
+  'home.switch_user.yes': 'తొలగించి బయటకు',
+  'home.switch_user.no': 'వద్దు',
   'home.policy_read': 'పాలసీ చదవబడింది',
   'home.delete': '{stay} తొలగించండి',
   'home.delete.short': 'తొలగించు',
@@ -194,10 +187,6 @@ export default {
   'reading.search': 'మీ ఎంపికలను వెతుకుతున్నాం',
   'reading.search.hint':
     'పరిధిలోని ప్రతి ఆసుపత్రి ఖర్చును మీ పాలసీ ప్రకారం ఒక్కొక్కటిగా లెక్కిస్తున్నాం.',
-  'reading.bill': 'మీ బిల్లు చదువుతున్నాం',
-  'reading.bill.waiting': 'బిల్లు పంపుతున్నాం. ఈ పేజీని తెరిచి ఉంచండి.',
-  'reading.bill.hint':
-    'ఫోటోకు PDF కంటే ఎక్కువ సమయం: ప్రతి పంక్తినీ ముందు గుర్తించాలి.',
 
   'reading.document': '{total} లో పత్రం {index}',
   'reading.starting': 'మొదలవుతోంది.',
@@ -209,9 +198,6 @@ export default {
   'phase.find': 'ఈ చికిత్స చేయగల ఆసుపత్రులను వెతుకుతున్నాం',
   'phase.cost': 'ప్రతి దాంట్లో మీకు ఎంత ఖర్చవుతుందో లెక్కిస్తున్నాం',
   'phase.rank': 'వరుసలో పెడుతున్నాం',
-  'phase.doc': 'పత్రం చదువుతున్నాం',
-  'phase.lines': 'ప్రతి వరుస, దాని అర్థం వెతుకుతున్నాం',
-  'phase.against_policy': 'మీ పాలసీతో, IRDAI జాబితాతో సరిచూస్తున్నాం',
   'count.pages': '{done}/{total} పేజీలు',
   'count.sections': '{done}/{total} భాగాలు',
   'note.reading': '{file} చదువుతున్నాం',
@@ -230,8 +216,6 @@ export default {
   'note.matched': '{considered} లో {matched} ఆసుపత్రులు సరిపోతాయి',
   'note.costed': 'వాటిలో {costed} కి ఖర్చు లెక్కించాం',
   'note.shortlisted': '{shortlisted} ఎంపికయ్యాయి',
-  'note.lines': '{lines} వరుసలు దొరికాయి',
-  'note.findings': 'చూడవలసిన {findings} విషయాలు',
 
   'locked.policy': 'మీ కవర్',
   'locked.policy.why':
@@ -556,12 +540,36 @@ export default {
     'ఈ ఫైలు {size} MB ఉంది. మేము గరిష్ఠంగా {limit} MB తీసుకోగలం.',
   'journey.receipt.remove': 'తీసివేయి',
   'journey.receipt.attach': 'బిల్లు లేదా రసీదు జతచేయండి (తప్పనిసరి కాదు)',
+  'journey.receipt.kept': 'ఇది ఖర్చుతో పాటు ఇదే పరికరంలో ఉంటుంది. ఎక్కడికీ పంపబడదు.',
+  'journey.receipt.elsewhere': 'ఈ బిల్లు వేరే పరికరంలో జతచేశారు, అందుకే ఇక్కడ లేదు.',
+  'journey.receipt.wrong_kind':
+    'బిల్లు PDF లేదా ఫోటో జతచేయండి: PDF, JPG, PNG, WEBP, HEIC లేదా TIFF.',
+  'journey.tab.charges': 'ఇప్పటివరకు ఖర్చు',
+  'journey.tab.papers': 'బిల్లులు, రసీదులు',
+  'journey.tab.split': 'మీరు కట్టేది',
+  'journey.split.head':
+    'ఇప్పటివరకు వచ్చిన {billed} బిల్లులో {covered} మీ బీమా సంస్థ కడుతుంది. మిగిలిన {yours} మీది.',
+  'journey.split.nothing':
+    'ఏదీ కోత పడలేదు. ఇప్పటివరకు నమోదైన ప్రతి ఖర్చూ మీ పాలసీ కట్టే పరిధిలోనే ఉంది.',
+  'journey.papers.none':
+    'ఇంకా ఏదీ జతచేయలేదు. ఖర్చు జోడించేటప్పుడు దాని బిల్లు లేదా రసీదును కూడా జతచేయండి, అది ఆ ఖర్చు పేరిట ఇక్కడ చేరుతుంది.',
+  'journey.papers.reading': 'మీ ఫైళ్లు తెరుస్తున్నాం…',
+  'journey.papers.count': '{count} జతచేశారు',
+  'journey.papers.for': '{head} · {amount} · {when}న జోడించారు',
+  'journey.papers.position': '{total}లో {at}',
+  'journey.papers.previous': 'మునుపటిది',
+  'journey.papers.next': 'తర్వాతది',
+  'journey.papers.save': 'భద్రపరచు',
+  'journey.papers.close': 'మూసివేయి',
+  'journey.papers.unshowable':
+    'ఈ బ్రౌజర్ ఈ రకమైన ఫైల్‌ను తెరవదు. ఫైల్ ఉన్నదున్నట్టే ఉంది, డౌన్‌లోడ్‌లో వస్తుంది.',
+  'journey.papers.where':
+    'ఇవి ఇదే పరికరంలో మాత్రమే ఉన్నాయి, ఎక్కడికీ పంపబడవు. డౌన్‌లోడ్ చేసినప్పుడు పూర్తి వివరాలతో కలిసి వస్తాయి.',
   'journey.checklist.count': '{total}లో {done}',
   'journey.checklist.now': 'ఇప్పుడు',
   'journey.position.you_pay': 'ఇప్పటివరకు మీరు చెల్లించేది',
   'journey.position.split':
     'ఆసుపత్రి {billed} బిల్లు చేసింది. అందులో {covered} మీ బీమా సంస్థ చెల్లిస్తుంది.',
-  'journey.position.hide': 'తేడా ఎక్కడి నుంచి వస్తుందో దాచండి',
   'journey.position.show': 'తేడా ఎక్కడి నుంచి వస్తుందో చూడండి',
   'journey.burn.used': 'ఇప్పటివరకు వాడిన కవర్',
   'journey.burn.of': '{total}లో {used}',
@@ -601,16 +609,6 @@ export default {
 
   'list.a_stage': 'ఒక దశ',
   'list.and': 'మరియు',
-
-  'bill.what_we_do':
-    'ఒక్క లైను మొత్తం కాదు, వివరమైన బిల్లు అడిగి దాని ఫోటో తీయండి. మేము ప్రతి పంక్తినీ చదివి, సంతకం ముందు దేన్ని లేవనెత్తాలో చెబుతాం: ఇప్పటికే మరొకదానిలో ఉన్న ఛార్జీలు, రెండుసార్లు వచ్చిన పంక్తులు, గుణించని అంకెలు, బీమా సంస్థ చేసే కానీ ఎవరూ చెప్పని కోత.',
-  'bill.photo_hint':
-    'ముందు నుంచి, మంచి వెలుతురులో. బిల్లింగ్ కౌంటర్ నుంచి వచ్చిన PDF కచ్చితంగా చదవబడుతుంది.',
-  'bill.settles_to.hint': 'అంచనాలో ఉన్న అదే లెక్కను నిజమైన బిల్లుపై వేశాం.',
-  'bill.col.line': 'వరుస',
-  'bill.col.item': 'వస్తువు',
-  'bill.col.head': 'శీర్షిక',
-  'bill.col.amount': 'మొత్తం',
 
   'settings.close': 'సెట్టింగ్‌లు మూసివేయండి',
   'settings.close.short': 'మూసివేయి',
@@ -778,7 +776,6 @@ export default {
   'billnote.icu_days': 'ఇంటెన్సివ్ కేర్‌లో {n} రోజులు',
   'billnote.tier_scaled': 'గది రకాన్ని బట్టి',
   'billnote.non_medical': 'రిజిస్ట్రేషన్, రికార్డులు, అటెండెంట్',
-  'bill.lines_at': 'పంక్తులు {lines}',
 
   // What needs attention now, and what has happened so far.
   'alert.room_rate_conflict': 'మీ గది బిల్లు వేరే ధరతో అవుతోంది',
@@ -887,89 +884,6 @@ export default {
     'పాలసీ మొదలయ్యే ముందు ఉన్న వ్యాధి {clears} నుంచి కవర్ అవుతుంది.',
   'elig.pre_existing_years.detail':
     'పాలసీ మొదలయ్యే ముందు ఉన్న వ్యాధి {clears} నుంచి కవర్ అవుతుంది.',
-
-  // A bill, read and checked against the policy.
-  'findkind.uncertain_read': 'చదవడంలో అనిశ్చితి',
-  'findkind.optional_item': 'కవర్ లేదు',
-  'findkind.subsumed': 'ఇప్పటికే కలిసి ఉంది',
-  'findkind.duplicate': 'రెండుసార్లు నమోదు',
-  'findkind.line_arithmetic': 'లెక్క సరిపోలడం లేదు',
-  'findkind.total_mismatch': 'మొత్తం సరిపోలడం లేదు',
-  'findkind.unplaced': 'వర్గీకరించలేకపోయాం',
-  'findkind.room_above_cap': 'గది పరిమితి పైన',
-  'findkind.proportionate': 'దామాషా కోత',
-  'findkind.sublimit': 'విభాగపు పరిమితి',
-  'findkind.consumables': 'వాడకపు సామగ్రి',
-  'finding.uncertain_read': 'ఈ ఫోటోలోని ప్రతి అంకెనూ మేము చదవలేకపోయాం',
-  'finding.uncertain_read.detail':
-    'మా పంక్తులు {lines} అవుతున్నాయి, బిల్లు {total} అంటోంది. ఇవి సరిపోవాలి, కాబట్టి కనీసం ఒక అంకె తప్పుగా చదివాం.',
-  'finding.uncertain_read.ask':
-    'కింది పంక్తులను ముందు కాగితంతో సరిపోల్చండి. నేరుగా, మంచి వెలుతురులో తీసిన ఫోటో లేదా బిల్లింగ్ కౌంటర్ ఇమెయిల్ చేసే PDF కచ్చితంగా చదవబడుతుంది.',
-  'finding.uncertain_read_no_total': 'ఈ ఫోటోలోని ప్రతి అంకెనూ మేము చదవలేకపోయాం',
-  'finding.uncertain_read_no_total.detail':
-    'మా పంక్తులు {lines} అవుతున్నాయి, సరిపోల్చడానికి బిల్లు సొంత మొత్తం మాకు దొరకలేదు.',
-  'finding.uncertain_read_no_total.ask':
-    'కింది పంక్తులను ముందు కాగితంతో సరిపోల్చండి. నేరుగా, మంచి వెలుతురులో తీసిన ఫోటో లేదా బిల్లింగ్ కౌంటర్ ఇమెయిల్ చేసే PDF కచ్చితంగా చదవబడుతుంది.',
-  'finding.listing.optional': '{items}: {amount}',
-  'finding.listing.optional.detail': 'ఏ ఆరోగ్య పాలసీలోనూ కవర్ లేదు.',
-  'finding.listing.optional.ask':
-    'ఇవి మీ వైపువే. పంక్తి సరిగ్గా చదివారా అని మాత్రం చూడండి.',
-  'finding.listing.in_room': '{items}: {amount}',
-  'finding.listing.in_room.detail': 'గది ఛార్జీలో ఇప్పటికే ఉంది.',
-  'finding.listing.in_room.ask':
-    'ఇది గది ఛార్జీలో ఎందుకు లేదో అడగండి. ఇది వేరే పంక్తి కాకూడదు.',
-  'finding.listing.in_procedure': '{items}: {amount}',
-  'finding.listing.in_procedure.detail': 'ఆపరేషన్ ఛార్జీలో ఇప్పటికే ఉంది.',
-  'finding.listing.in_procedure.ask':
-    'ఇది ఆపరేషన్ ఛార్జీలో ఎందుకు లేదో అడగండి. ఇది వేరే పంక్తి కాకూడదు.',
-  'finding.listing.in_treatment': '{items}: {amount}',
-  'finding.listing.in_treatment.detail': 'చికిత్స ఖర్చులో ఇప్పటికే ఉంది.',
-  'finding.listing.in_treatment.ask':
-    'ఇది చికిత్స ఖర్చులో ఎందుకు లేదో అడగండి. ఇది వేరే పంక్తి కాకూడదు.',
-  'finding.duplicate': '{item} {n} సార్లు వచ్చింది, ప్రతిసారి {amount}',
-  'finding.duplicate.detail': 'పంక్తులు {lines}.',
-  'finding.duplicate.ask':
-    'ఇది రెండుసార్లు నమోదైందా అని అడగండి. రెండు వేర్వేరు రోజుల అదే ఖర్చు సాధారణమే, కాబట్టి జవాబు అవును కావచ్చు, కానీ అడగడానికి ఏమీ పోదు.',
-  'finding.line_arithmetic_over':
-    '{item}: {qty} × {rate} వల్ల {expected} అవుతుంది, {billed} కాదు',
-  'finding.line_arithmetic_over.detail':
-    'గుణించగా వచ్చేదాని కంటే {difference} ఎక్కువ.',
-  'finding.line_arithmetic_over.ask':
-    'మూడింటిలో ఏ అంకె సరైనదో అడగండి. తప్పు ధరకు వేసిన పరిమాణమే అత్యంత సాధారణ బిల్లింగ్ పొరపాటు.',
-  'finding.line_arithmetic_under':
-    '{item}: {qty} × {rate} వల్ల {expected} అవుతుంది, {billed} కాదు',
-  'finding.line_arithmetic_under.detail':
-    'గుణించగా వచ్చేదాని కంటే {difference} తక్కువ.',
-  'finding.line_arithmetic_under.ask':
-    'మూడింటిలో ఏ అంకె సరైనదో అడగండి. తప్పు ధరకు వేసిన పరిమాణమే అత్యంత సాధారణ బిల్లింగ్ పొరపాటు.',
-  'finding.total_mismatch':
-    'పంక్తులు {lines} అవుతున్నాయి, బిల్లు {total} అంటోంది',
-  'finding.total_mismatch.detail': '{difference} తేడా.',
-  'finding.total_mismatch.ask':
-    'మొత్తాన్ని మీ ముందే కూడమని చెప్పండి. ఏదో ఒక పంక్తి తప్పిపోయింది లేదా మొత్తం తప్పు, సంతకం ముందు రెండూ పరిష్కరించుకోవడం మంచిది.',
-  'finding.unplaced': '{n} పంక్తులను వర్గీకరించలేకపోయాం, {amount}',
-  'finding.unplaced.detail': '{items}.',
-  'finding.unplaced.ask':
-    'ఊహించే బదులు వీటిని కింది లెక్క నుంచి తీసేశాం, కాబట్టి ఆ అంకెలు పూర్తి బిల్లు కంటే ఇంత తక్కువ.',
-  'finding.consumables': 'ఈ బిల్లులో వాడకపు సామగ్రి: {amount}',
-  'finding.consumables.detail':
-    'యాడ్-ఆన్ తీసుకోకుంటే పాలసీలు వాడకపు సామగ్రిని మినహాయిస్తాయి, కాబట్టి మిగతాది ఏమైనా ఈ భాగం మీదే.',
-  'finding.consumables.ask':
-    'పంక్తి నిజంగా వాడకపు సామగ్రేనా, మందులు కాదా చూడండి, ఎందుకంటే మందులను మీ పాలసీ ఇస్తుంది.',
-  'finding.room_rent_cap': 'గది మీ కవర్ కంటే ఎక్కువ: {amount}',
-  'finding.room_rent_cap.detail':
-    'మీ గది రోజుకు {rate}, మీ కవర్ {cap}. తేడా మీరు చెల్లిస్తారు.',
-  'finding.room_rent_cap.ask':
-    'ఇది బిల్లులో లేదు, కౌంటర్ దీన్ని లేవనెత్తదు. బీమా సంస్థ సెటిల్‌మెంట్ సమయంలో కోసేస్తుంది, కాబట్టి దీన్ని మీరే సమకూర్చుకోవాలి.',
-  'finding.proportionate': 'దామాషా కోత: {amount}',
-  'finding.proportionate.detail':
-    'మీ గది మీ విభాగం కంటే పైన ఉంది, కాబట్టి గదిని బట్టి ఉండే ఖర్చులపై {pct} మాత్రమే వస్తుంది: సర్జన్, థియేటర్, నర్సింగ్. ఐసీయూ, మందులు, పరీక్షలు, ఇంప్లాంట్లు తాకబడవు.',
-  'finding.proportionate.ask':
-    'ఇది ఎలా లెక్కించారో చూడండి. మే 2024 నుంచి ఇది గదితో ముడిపడిన ఖర్చులకు మాత్రమే: గది, నర్సింగ్, డాక్టర్, సర్జన్, థియేటర్. మందులు, పరీక్షలు, ఇంప్లాంట్లు లేదా ఐసీయూ కూడా కోసి ఉంటే ప్రశ్నించండి.',
-  'finding.sublimit': 'విభాగపు పరిమితి పైన: {amount}',
-  'finding.sublimit.detail': '{head} పరిమితి {cap}. అంచనా {billed}.',
-  'finding.sublimit.ask':
-    'పరిమితి, అది దేనిపై లెక్కిస్తారో బీమా సంస్థ నుంచి నిర్ధారించుకోండి. దాని పైన మిగిలినది మీదే.',
 
   // Warnings, notes, and how one hospital was chosen over another.
   'warn.proportionate':
