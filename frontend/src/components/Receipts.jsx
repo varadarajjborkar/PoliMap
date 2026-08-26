@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDialog } from '../hooks/useDialog'
 import { useT } from '../hooks/useLanguage'
-import { isImage } from '../lib/receipts'
+import { canShowPdf, isImage } from '../lib/receipts'
 import { moment } from '../lib/i18n'
 import { save } from '../lib/zip'
 
@@ -102,7 +102,13 @@ export function Papers({ papers, busy }) {
                     onClick={() => setAt(papers.indexOf(paper))}
                     className="group w-full overflow-hidden rounded-lg border border-line text-left transition hover:border-brand/50"
                   >
-                    <span className="flex h-20 items-center justify-center overflow-hidden bg-canvas">
+                    {/* Sized by the column rather than fixed, so a phone,
+                        which gives each of two columns half of a narrow
+                        screen, does not show an eighty-pixel sliver of an A4
+                        page. Anchored to the top because that is where a bill
+                        puts the hospital's name and its number, which is what
+                        somebody is looking for when they scan a shelf. */}
+                    <span className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-canvas">
                       {urls.has(paper.id) && !unshowable.has(paper.id) ? (
                         <img
                           src={urls.get(paper.id)}
@@ -110,7 +116,7 @@ export function Papers({ papers, busy }) {
                           onError={() =>
                             setUnshowable((known) => new Set(known).add(paper.id))
                           }
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover object-top"
                         />
                       ) : (
                         <PaperIcon />
@@ -172,6 +178,15 @@ function Preview({ papers, at, onMove, onClose }) {
     }
   }, [paper.blob])
 
+  // What this file can actually be shown as here, decided once. A phone
+  // browser with no PDF viewer is told apart from a file that failed to
+  // decode, because the answer to both is the same panel and the same button.
+  const shows =
+    broken ? 'none'
+      : isImage(paper.type) ? 'image'
+        : paper.type === 'application/pdf' && canShowPdf() ? 'pdf'
+          : 'none'
+
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'ArrowRight' && at < papers.length - 1) onMove(at + 1)
@@ -228,25 +243,35 @@ function Preview({ papers, at, onMove, onClose }) {
           {/* Nothing until there is something to point at. An `<img>` given an
               empty source fails to load, and failing to load is how this
               decides a file cannot be shown. */}
-          {!url ? null : broken ? (
-            <Unshowable name={paper.name} onSave={() => save(paper.blob, paper.name)} />
-          ) : isImage(paper.type) ? (
+          {!url ? null : shows === 'image' ? (
             <img
               src={url}
               alt={paper.name}
               onError={() => setBroken(true)}
               className="max-h-full max-w-full object-contain"
             />
-          ) : (
-            // Sandboxed, and shown under the type this file was filed as
-            // rather than the one it claims. Anything that is not the PDF it
-            // says it is renders as nothing on an origin it cannot reach.
+          ) : shows === 'pdf' ? (
+            // Not sandboxed, deliberately, and the reasoning is worth keeping.
+            //
+            // A sandboxed frame is one Chrome will not run its PDF viewer in:
+            // it paints the broken-document icon and nothing else, which is
+            // what this screen did until it was looked at under the policy the
+            // built page actually ships with. What makes dropping it safe is
+            // upstream of here. The blob was typed from the file's own
+            // extension against a fixed list, never from its contents or from
+            // what it claims, so this frame is only ever handed
+            // `application/pdf`, and a browser handed that runs its PDF viewer
+            // and never its HTML parser. A page wearing a `.pdf` suffix is a
+            // PDF that fails to parse. The policy allows `frame-src blob:` and
+            // nothing else, so no other document can be put here at all.
             <iframe
               title={paper.name}
               src={url}
-              sandbox=""
+              referrerPolicy="no-referrer"
               className="h-full w-full border-0"
             />
+          ) : (
+            <Unshowable name={paper.name} onSave={() => save(paper.blob, paper.name)} />
           )}
         </div>
 

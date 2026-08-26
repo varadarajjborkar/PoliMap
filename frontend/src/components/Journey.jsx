@@ -6,7 +6,7 @@ import { useT } from '../hooks/useLanguage'
 import { pinAlerts } from '../lib/alerts'
 import { packStay } from '../lib/bundle'
 import { moment, readable } from '../lib/i18n'
-import { ACCEPT, listReceipts, typeOf } from '../lib/receipts'
+import { ACCEPT, listReceipts, shrinkImage, typeOf } from '../lib/receipts'
 import { save } from '../lib/zip'
 import { AlertPin } from './AlertPin'
 import { Papers } from './Receipts'
@@ -133,6 +133,11 @@ export function Journey({
   // add to, and what is on record. Nothing is paired, because paired cards are never
   // the same height and every pair left a hole beside the shorter one.
   //
+  // Folded into one column, the order is not the order of the columns. It is
+  // where you are, what you owe, the charge you are holding, what is on
+  // record, and last the list of what to do before this stage ends. See the
+  // `order-` classes below.
+  //
   // What is missing from it is the alerts, which were a stack of cards here
   // and are now marks beside the figures they are about. See AlertPin.
   const middle = 'min-w-0 min-[1180px]:col-start-2'
@@ -175,19 +180,10 @@ export function Journey({
         />
       </div>
 
-      <div className={`order-3 min-[1180px]:col-start-1 min-[1180px]:row-start-1 min-[1180px]:row-span-3 ${aside}`}>
-        <Checklist
-          checklist={journey.checklist}
-          stageLabel={journey.stage_label}
-          onToggle={onToggleChecklist}
-          busy={busy}
-        />
-      </div>
-
       <CostCard
         onRecordCost={onRecordCost}
         busy={busy}
-        className={`order-4 ${middle} min-[1180px]:row-start-2`}
+        className={`order-3 ${middle} min-[1180px]:row-start-2`}
       />
 
       <ChargesCard
@@ -200,8 +196,23 @@ export function Journey({
         papersBusy={papersBusy}
         onUpdateCost={onUpdateCost}
         onDeleteCost={onDeleteCost}
-        className={`order-5 ${middle} min-[1180px]:row-start-3`}
+        className={`order-4 ${middle} min-[1180px]:row-start-3`}
       />
+
+      {/* Last, once the columns fold into one, and only there: the grid places
+          it by row and column above that width, so nothing on a desk moves.
+          It is the tallest card on the page and it is read once a stage, while
+          the charge in somebody's hand is entered several times a day. Third
+          in the column, it put the thing they came to do two and a half
+          screens down a phone. */}
+      <div className={`order-5 min-[1180px]:col-start-1 min-[1180px]:row-start-1 min-[1180px]:row-span-3 ${aside}`}>
+        <Checklist
+          checklist={journey.checklist}
+          stageLabel={journey.stage_label}
+          onToggle={onToggleChecklist}
+          busy={busy}
+        />
+      </div>
     </div>
   )
 }
@@ -482,7 +493,7 @@ function TakeAway({ journey, sessionId, papers }) {
               </>
             )}
           </Button>
-          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+          <p className="mt-1.5 hidden text-[0.75rem] leading-relaxed text-muted sm:block">
             {t(
               'journey.download.all.why',
               'One folder: the page below, every bill you attached, and an ' +
@@ -505,7 +516,7 @@ function TakeAway({ journey, sessionId, papers }) {
             <DownloadIcon />
             {t('journey.download', 'Download this stay')}
           </a>
-          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+          <p className="mt-1.5 hidden text-[0.75rem] leading-relaxed text-muted sm:block">
             {t(
               'journey.download.why',
               'Your cover, the estimate, what is billed, what is left to do. One ' +
@@ -1232,10 +1243,18 @@ const HEADS = [
   ['non_medical', 'Non-medical items'],
 ]
 
-// A phone photograph of a bill is a megabyte or two. Ten is generous for one,
-// and it is a ceiling on what a stay can put in the browser's own store, which
-// is finite and shared with everything else this device keeps.
+// Two ceilings, because a photograph shrinks and a document does not.
+//
+// The first is what will be looked at: past it, the file is refused without
+// being decoded, so a mis-picked video cannot be turned into a canvas. The
+// second is what may be kept, applied to whatever comes back from shrinking,
+// which for a phone photograph is most of a megabyte rather than most of ten.
+// The browser's own store is finite and shared with everything else this
+// device holds.
+const MAX_ATTACH_MB = 25
 const MAX_RECEIPT_MB = 10
+
+const inMB = (bytes) => (bytes / 1024 / 1024).toFixed(bytes > 1024 * 1024 ? 1 : 2)
 
 // One charge, entered in a hurry, with the paper it came from.
 //
@@ -1255,15 +1274,27 @@ function CostCard({ onRecordCost, busy, className = '' }) {
   const [amount, setAmount] = useState('')
   const [advanceDay, setAdvanceDay] = useState(true)
   const [receipt, setReceipt] = useState(null)
+  const [shrunk, setShrunk] = useState(null)
+  const [reading, setReading] = useState(false)
   const [refused, setRefused] = useState('')
   const fileRef = useRef(null)
 
   function clearFile() {
     setReceipt(null)
+    setShrunk(null)
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  function attach(file) {
+  function tooLarge(size, limit) {
+    setRefused(
+      t('journey.receipt.too_large',
+        'That file is {size} MB. The largest we can take is {limit} MB.',
+        { size: inMB(size), limit })
+    )
+    clearFile()
+  }
+
+  async function attach(file) {
     if (!file) return
     if (!typeOf(file.name)) {
       setRefused(
@@ -1273,17 +1304,25 @@ function CostCard({ onRecordCost, busy, className = '' }) {
       clearFile()
       return
     }
-    if (file.size > MAX_RECEIPT_MB * 1024 * 1024) {
-      setRefused(
-        t('journey.receipt.too_large',
-          'That file is {size} MB. The largest we can take is {limit} MB.',
-          { size: (file.size / 1024 / 1024).toFixed(0), limit: MAX_RECEIPT_MB })
-      )
-      clearFile()
+    if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+      tooLarge(file.size, MAX_ATTACH_MB)
       return
     }
+
     setRefused('')
-    setReceipt(file)
+    setReading(true)
+    // Redrawn smaller before it is held on to, so what the charge carries from
+    // here on is one file and not two. Anything this browser cannot decode
+    // comes back exactly as it went in.
+    const kept = await shrinkImage(file)
+    setReading(false)
+
+    if (kept.size > MAX_RECEIPT_MB * 1024 * 1024) {
+      tooLarge(kept.size, MAX_RECEIPT_MB)
+      return
+    }
+    setReceipt(kept)
+    setShrunk(kept.size < file.size ? { was: file.size, now: kept.size } : null)
   }
 
   return (
@@ -1320,7 +1359,7 @@ function CostCard({ onRecordCost, busy, className = '' }) {
             // Not merely "something was typed": a charge of nothing is a row
             // in a ledger that says nothing, and the box beside this one has
             // always refused it.
-            disabled={busy || !(Number(amount) > 0)}
+            disabled={busy || reading || !(Number(amount) > 0)}
             onClick={() => {
               onRecordCost({ head, amount: Number(amount), advanceDay, receipt })
               setAmount('')
@@ -1341,7 +1380,12 @@ function CostCard({ onRecordCost, busy, className = '' }) {
             className="hidden"
             onChange={(event) => attach(event.target.files?.[0])}
           />
-          {receipt ? (
+          {reading ? (
+            <span className="flex items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5 text-[0.8125rem] text-muted">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-line border-t-brand" />
+              {t('journey.receipt.reading', 'Reading the file…')}
+            </span>
+          ) : receipt ? (
             <span className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5">
               <ClipIcon />
               <span className="min-w-0 truncate text-[0.8125rem]">{receipt.name}</span>
@@ -1382,6 +1426,17 @@ function CostCard({ onRecordCost, busy, className = '' }) {
             {t(
               'journey.receipt.kept',
               'Kept on this device with the charge. It is never uploaded.'
+            )}
+            {shrunk && (
+              <>
+                {' '}
+                {t(
+                  'journey.receipt.shrunk',
+                  'The photo was {was} MB and is kept at {now} MB, which still ' +
+                    'reads and is far smaller to send.',
+                  { was: inMB(shrunk.was), now: inMB(shrunk.now) }
+                )}
+              </>
             )}
           </p>
         )}

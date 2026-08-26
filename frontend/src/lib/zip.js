@@ -162,6 +162,9 @@ export function zip(entries, when = new Date()) {
 export function safeName(text, fallback = 'file') {
   const cleaned = String(text)
     .normalize('NFKD')
+    // An apostrophe is dropped rather than turned into a separator, so a
+    // surgeon's fee files as `Surgeons-fee` and not as `Surgeon-s-fee`.
+    .replace(/['\u2019]/g, '')
     .replace(/[^\w.\- ]+/g, ' ')
     .trim()
     .replace(/\s+/g, '-')

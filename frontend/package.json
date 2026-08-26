@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint && node scripts/check-strings.mjs",
+    "lint": "oxlint && node scripts/check-strings.mjs && node scripts/check-csp.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

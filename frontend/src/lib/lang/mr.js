@@ -546,6 +546,9 @@ export default {
   'journey.receipt.remove': 'काढा',
   'journey.receipt.attach': 'बिल किंवा पावती जोडा (आवश्यक नाही)',
   'journey.receipt.kept': 'ही खर्चासोबत याच उपकरणावर राहते. कुठेही पाठवली जात नाही.',
+  'journey.receipt.reading': 'फाइल वाचत आहोत…',
+  'journey.receipt.shrunk':
+    'फोटो {was} MB चा होता, आता {now} MB मध्ये ठेवला आहे. वाचायला तसाच आणि पाठवायला खूप हलका.',
   'journey.receipt.elsewhere': 'हे बिल दुसऱ्या उपकरणावर जोडले होते, त्यामुळे इथे नाही.',
   'journey.receipt.wrong_kind':
     'बिलाची PDF किंवा फोटो जोडा: PDF, JPG, PNG, WEBP, HEIC किंवा TIFF.',

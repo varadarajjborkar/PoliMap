@@ -165,6 +165,14 @@ right, and only the middle moves. Where the stay has got to is both the marker
 and the control: press the step you want, or the button under it for the next
 one along.
 
+On a phone the board folds into one column, and the order of that column is not
+the order of the board. It is where you are, what you owe, the charge in your
+hand, what is on record, and last of all the list of what to do before this
+stage ends: the list is the tallest card on the screen and it is read once a
+stage, while a charge is entered several times a day. Third in the column, as it
+sits on a desk, it put the thing somebody opened the app to do two and a half
+screens down.
+
 What the system has noticed is not a stack of warnings at the top. Each one is a
 mark in its own colour beside the figure it is about, and it says nothing until
 it is asked: that a room costs more than the cover is a fact about what you will
@@ -210,6 +218,15 @@ nothing else, which is all the ledger and the printed page need in order to say
 that a charge is documented. Keyed to the stay rather than the session on
 purpose: sessions expire on the server and a restart mints a new id for the same
 admission, so a receipt filed under one would go missing on the first reload.
+
+A phone photograph of a bill is twelve megapixels of a sheet of A4, and every
+figure on it is legible at a fraction of that. So one over 2400 pixels on its
+long edge is redrawn to fit that before it is kept, which took a real 5.7 MB
+camera file to 900 KB, still about 200 dots per inch across A4. It is a redraw
+and not a crop: nothing is cut off and no figure moves. What the browser cannot
+decode, which is usually the HEIC a phone camera hands over, is kept exactly as
+it arrived. The saving is the device's storage and the size of the folder
+somebody emails to an insurer.
 
 Which leaves one thing only the browser can do. The stay document is a page the
 server renders, because the server has the policy and the ledger; the bills are
@@ -259,7 +276,7 @@ known findings by `python -m bench.run`.
 ### 7. It speaks the language it is read in
 
 The interface is available in English, Kannada, Hindi, Marathi and Telugu.
-Every word it writes itself: 702 keys, each resolving in all five. Not
+Every word it writes itself: 704 keys, each resolving in all five. Not
 translated, deliberately: anything read out of somebody's policy. A clause
 paraphrased into another language and shown as what the document says is a claim
 about their cover that nobody has checked.
@@ -574,19 +591,30 @@ on Render.
 
 ### State
 
-There are no accounts yet, so the browser is deliberately given nothing to
-remember: **reloading the page starts over.** Session state lives on the server
-in SQLite for as long as the tab is open, which is what lets a document that
-took a minute to read survive a restart of the API and lets more than one
-worker serve the same user. Accounts, and with them sessions that persist on
-purpose, are the next thing this needs.
+There is no account and no password. A name typed on the first screen picks
+which set of admissions on this device to open, nothing is checked against a
+server, and two names on one device cannot see each other's stays. That is the
+whole model, and it makes "my stay is still here tomorrow" true without asking a
+family in a hospital to invent a password.
+
+The device is the durable copy, because a stay is tracked over five days and a
+server session is not. The browser keeps an index of the stays under each name,
+a snapshot of the server's own session state for each one, and the bills
+attached to their charges. The server keeps session state in SQLite for as long
+as it is alive, which is what lets a document that took a minute to read survive
+a restart and lets more than one worker serve the same person. Opening a stay
+reconciles the two: if the server still has that session it is used as it
+stands, and if it has forgotten it the snapshot is handed back and the new id
+taken in its place. Neither, and the stay is genuinely gone and says so.
 
 Nothing is kept longer than it is useful. Sessions expire after
-`SESSION_TTL_MINUTES` (12 hours by default). Page images from uploaded
-documents, and any bill photographs attached to charges, are deleted when a
-session ends and swept at startup once past that lifetime. "Clear and start
-over" in settings removes them immediately. These are pictures of someone's
-insurance paperwork, so this is a privacy question as much as a disk one.
+`SESSION_TTL_MINUTES` (12 hours by default). Page images rasterised from an
+uploaded document are deleted when a session ends and swept at startup once past
+that lifetime, and "Clear and start over" in settings removes them immediately.
+"Not you?" on the home screen takes one name off this device entirely: its
+stays, its snapshots, its tickets and its bills, and nobody else's. These are
+pictures of somebody's insurance paperwork, so this is a privacy question as
+much as a disk one.
 
 ### Continuous integration
 
@@ -595,7 +623,15 @@ pull request:
 
 - **Backend** installs Tesseract, lints with ruff, builds the corpus (cached on
   the generator's own source, since it is deterministic) and runs the tests.
-- **Frontend** installs from the lockfile with `npm ci`, lints and builds.
+- **Frontend** installs from the lockfile with `npm ci`, lints and builds. The
+  lint is three checks: the linter, every interface string resolving in every
+  language, and the content security policy still permitting what the page
+  actually does. The last of those exists because of one bug. Nothing in
+  development is subject to the policy, so a `img-src` that allowed `data:` and
+  no `blob:` passed every test and every screen, and the page that shipped
+  refused to show a single attached bill. Each source the page needs is now
+  written down beside the reason it needs it, and each source it must never
+  have beside what allowing it would cost.
 - **API image** builds the Dockerfile and curls `/api/health` to prove the
   container actually serves, which is the thing that really breaks a deploy.
 
@@ -728,6 +764,11 @@ the phone is treated as its own screen rather than a narrow desk:
 - **The setup flow's thread lies on its side** under the header, and the rail
   is desk-only rather than squeezed in.
 - **Wide content scrolls inside itself**, so no table can push the page sideways.
+  A grid item is `min-width: auto` by default, which is how a strip of three
+  tabs once took the whole page sideways on a phone.
+- **A column is not a narrower board.** Where a screen stacks, what it stacks
+  into is ordered for the phone rather than left in the order the columns
+  happened to be written in. See the stay screen above.
 
 ![On a phone](docs/images/08-mobile.png)
 
@@ -744,10 +785,17 @@ Stated rather than hidden.
   bill's own total, so it says so instead of inventing a discrepancy, but a
   photograph taken in a dark corridor still gets you less than the PDF the
   billing desk can email.
-- **Localisation covers the interface, not the guidance the server composes.**
-  Navigation, stage names, the bill check and the disclaimer are translated. The
-  checklist's reasons, the alerts and the waterfall's explanations are English,
-  and fall back to it silently.
+- **A bill can be shown only if the browser can show it.** The files themselves
+  are kept whatever they are, and every one of them goes into the download. What
+  varies is the preview: a phone browser with no PDF viewer gets the file and a
+  save button rather than the document, and HEIC, which is what an iPhone
+  camera hands over, is an image almost nothing but Apple's own software will
+  decode. Both say so where the page would have been, because a blank rectangle
+  reads as a lost file and the file is not lost.
+- **Bills live on the device that took them.** That is the point, and it is also
+  the limit: a stay opened where its paperwork is not, which for now can only
+  happen if the browser's storage was cleared under it, lists the names of the
+  bills and says it does not have them.
 - **The four translations have not been read by a native speaker.** They are
   written carefully and the mechanism is checked, but insurance vocabulary in
   Kannada and Telugu deserves a second pair of eyes before anybody relies on it.

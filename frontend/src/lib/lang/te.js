@@ -541,6 +541,9 @@ export default {
   'journey.receipt.remove': 'తీసివేయి',
   'journey.receipt.attach': 'బిల్లు లేదా రసీదు జతచేయండి (తప్పనిసరి కాదు)',
   'journey.receipt.kept': 'ఇది ఖర్చుతో పాటు ఇదే పరికరంలో ఉంటుంది. ఎక్కడికీ పంపబడదు.',
+  'journey.receipt.reading': 'ఫైల్ చదువుతున్నాం…',
+  'journey.receipt.shrunk':
+    'ఫోటో {was} MB ఉండేది, ఇప్పుడు {now} MBలో ఉంచాం. చదవడానికి అంతే స్పష్టం, పంపడానికి చాలా తేలిక.',
   'journey.receipt.elsewhere': 'ఈ బిల్లు వేరే పరికరంలో జతచేశారు, అందుకే ఇక్కడ లేదు.',
   'journey.receipt.wrong_kind':
     'బిల్లు PDF లేదా ఫోటో జతచేయండి: PDF, JPG, PNG, WEBP, HEIC లేదా TIFF.',

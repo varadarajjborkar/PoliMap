@@ -541,6 +541,9 @@ export default {
   'journey.receipt.remove': 'हटाएँ',
   'journey.receipt.attach': 'बिल या रसीद लगाएँ (ज़रूरी नहीं)',
   'journey.receipt.kept': 'यह खर्च के साथ इसी डिवाइस पर रहेगी। कहीं भेजी नहीं जाती।',
+  'journey.receipt.reading': 'फ़ाइल पढ़ी जा रही है…',
+  'journey.receipt.shrunk':
+    'फ़ोटो {was} MB की थी, अब {now} MB में रखी है। पढ़ने में वही है और भेजने में कहीं हल्की।',
   'journey.receipt.elsewhere':
     'यह बिल किसी और डिवाइस पर लगाया गया था, इसलिए यहाँ नहीं है।',
   'journey.receipt.wrong_kind':

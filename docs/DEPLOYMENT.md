@@ -87,9 +87,12 @@ trusting.
 ### Persistence
 
 Session rows and page images live under `/app/data`. Without a mounted volume
-they are lost when the container restarts, which is tolerable for state that
-expires in hours anyway, but it does mean an open tab loses its session on every
-redeploy. Mount a volume there if that matters to you.
+they are lost when the container restarts, which is tolerable: the browser keeps
+its own snapshot of each stay, notices the server has forgotten one, hands it
+back and takes the new session id, so a redeploy costs a reader nothing but the
+round trip. Bills attached to charges are never here to lose; they are held on
+the device that took them. Mount a volume there anyway if you would rather the
+restart be invisible.
 
 ### Scale
 

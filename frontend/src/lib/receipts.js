@@ -52,6 +52,82 @@ export function typeOf(name = '') {
 
 export const isImage = (type) => type.startsWith('image/')
 
+// Whether this browser will show a PDF if one is put in front of it.
+//
+// Chrome, Firefox and desktop Safari all frame a blob and render it. Most
+// phone browsers do not, and say so here rather than leaving a frame that
+// paints nothing: a blank rectangle reads as a lost file, and the file is not
+// lost, it is just not viewable in this browser.
+export const canShowPdf = () => navigator.pdfViewerEnabled !== false
+
+// --- making a photograph small enough to keep ------------------------------
+//
+// A phone photograph of a bill is twelve megapixels of a sheet of A4. Every
+// figure on it is legible at a fraction of that, and the difference is several
+// megabytes of a device's storage and of the archive somebody sends to an
+// insurer. So a large photograph is redrawn smaller on the way in, once, and
+// what is kept from then on is the smaller one.
+//
+// It is a redraw rather than a crop or a filter: nothing is cut off and no
+// figure moves. Anything this browser cannot decode is kept exactly as it
+// arrived, which is the case that matters most, because the file it cannot
+// decode is usually the one from somebody's phone camera.
+const MAX_EDGE = 2400
+const SHRINK_OVER = 900 * 1024
+const QUALITY = 0.82
+
+function asJpegName(name) {
+  return /\.jpe?g$/i.test(name) ? name : `${name.replace(/\.[^.]*$/, '')}.jpg`
+}
+
+export async function shrinkImage(file) {
+  const type = typeOf(file?.name)
+  if (!file || !isImage(type)) return file
+
+  // Decoded before deciding, because the file's size does not tell you its
+  // size. A photograph of a white page compresses to a few hundred kilobytes
+  // and is still four thousand pixels across, and it is the pixels that cost a
+  // phone something every time the shelf is opened.
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return file
+  }
+
+  try {
+    const edge = Math.max(bitmap.width, bitmap.height)
+    if (edge <= MAX_EDGE && file.size <= SHRINK_OVER) return file
+
+    const scale = Math.min(1, MAX_EDGE / edge)
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) return file
+    // JPEG has no transparency, and a transparent PNG drawn onto an empty
+    // canvas comes out black. A bill is on white paper.
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(bitmap, 0, 0, width, height)
+
+    const smaller = await new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', QUALITY)
+    })
+    // Some files are already smaller than anything we would produce. Redrawing
+    // one of those only loses a little of it for nothing.
+    if (!smaller || smaller.size >= file.size) return file
+    return new File([smaller], asJpegName(file.name), { type: 'image/jpeg' })
+  } catch {
+    return file
+  } finally {
+    bitmap.close?.()
+  }
+}
+
 const slug = (name) => encodeURIComponent(String(name).trim().toLowerCase())
 const owner = (user, stayId) => `${slug(user)}|${stayId}`
 const idOf = (user, stayId, entryId) => `${owner(user, stayId)}|${entryId}`

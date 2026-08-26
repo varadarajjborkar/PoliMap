@@ -544,6 +544,9 @@ export default {
   'journey.receipt.attach': 'ಬಿಲ್ ಅಥವಾ ರಸೀದಿ ಲಗತ್ತಿಸಿ (ಕಡ್ಡಾಯವಲ್ಲ)',
   'journey.receipt.kept':
     'ಇದು ಖರ್ಚಿನ ಜೊತೆಗೆ ಇದೇ ಸಾಧನದಲ್ಲಿ ಉಳಿಯುತ್ತದೆ. ಎಲ್ಲಿಗೂ ಕಳಿಸುವುದಿಲ್ಲ.',
+  'journey.receipt.reading': 'ಕಡತ ಓದಲಾಗುತ್ತಿದೆ…',
+  'journey.receipt.shrunk':
+    'ಫೋಟೋ {was} MB ಇತ್ತು, ಈಗ {now} MB ಯಲ್ಲಿ ಇಟ್ಟಿದೆ. ಓದಲು ಅಷ್ಟೇ ಸ್ಪಷ್ಟ, ಕಳಿಸಲು ತುಂಬಾ ಹಗುರ.',
   'journey.receipt.elsewhere':
     'ಈ ಬಿಲ್ ಬೇರೆ ಸಾಧನದಲ್ಲಿ ಲಗತ್ತಿಸಲಾಗಿತ್ತು, ಹಾಗಾಗಿ ಇಲ್ಲಿ ಇಲ್ಲ.',
   'journey.receipt.wrong_kind':
