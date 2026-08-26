@@ -290,4 +290,3 @@ function Section({ title, note, children }) {
     </section>
   )
 }
-

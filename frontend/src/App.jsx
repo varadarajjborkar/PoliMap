@@ -1132,4 +1132,3 @@ function StepNav({ step, onGo, reachable, band }) {
     </nav>
   )
 }
-
